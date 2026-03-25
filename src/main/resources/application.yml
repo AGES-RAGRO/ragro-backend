@@ -1,0 +1,28 @@
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/gearheads}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show_sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+  mvc:
+    pathmatch:
+      matching-strategy: ANT_PATH_MATCHER
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Substitua <REGION> e <USER_POOL_ID> pelos valores do Cognito.
+          issuer-uri: https://cognito-idp.<REGION>.amazonaws.com/<USER_POOL_ID>
+
+server:
+  error:
+    include-message: always

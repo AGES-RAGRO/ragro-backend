@@ -1,0 +1,12 @@
+.git
+.gitignore
+.idea
+.vscode
+target/
+*.jar
+*.war
+*.properties
+.env
+.DS_Store
+node_modules/
+npm-debug.log
