@@ -62,8 +62,6 @@ jobs:
     name: Docker Build
     runs-on: ubuntu-22.04
     needs: [backend-tests]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -89,6 +87,10 @@ jobs:
           tags: |
             ${{ env.IMAGE_NAME }}:latest
             ${{ env.IMAGE_NAME }}:${{ github.sha }}
+
+      - name: Stop services
+        if: always()
+        run: docker-compose -f docker-compose.test.yml --env-file .env.test down
 
       - name: Clean up failed images
         if: failure()
