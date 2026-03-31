@@ -6,6 +6,27 @@ REST API for the RAGRO platform — connecting urban consumers with local family
 
 ---
 
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| **API** | |
+| [API Overview](docs/api/overview.md) | Base URL, authentication, error format, CORS, pagination |
+| [Endpoint Reference](docs/api/endpoints.md) | All implemented and planned endpoints |
+| **Architecture** | |
+| [Overview](docs/architecture/01-overview.md) | Tech stack, architectural pattern, request flow |
+| [Project Structure](docs/architecture/02-project-structure.md) | Annotated package and folder structure |
+| [Layers](docs/architecture/03-layers.md) | Controller, Service, Repository, Domain responsibilities |
+| [Security](docs/architecture/04-security.md) | JWT, AWS Cognito, role-based access control |
+| [Error Handling](docs/architecture/05-error-handling.md) | Exception hierarchy and standardized error responses |
+| **Standards** | |
+| [Conventions](docs/conventions.md) | Naming, coding, database, and workflow conventions |
+| **Reference** | |
+| [Database](docs/database.md) | Full schema documentation — 21 tables, ER diagram, triggers |
+| [Product Backlog](docs/backlog_ragro.md) | All epics, user stories, and acceptance criteria |
+
+---
+
 ## Prerequisites
 
 | Tool | Version |
@@ -109,12 +130,25 @@ docker compose -f docker-compose.test.yml up --abort-on-container-exit
 ```
 src/
   main/
-    java/br/com/ragro/   # Application source code
+    java/br/com/ragro/       # Application source code
+      config/                 # Security, CORS, Cognito converters
+      controller/             # REST endpoints and DTOs
+      domain/                 # JPA entities and enums
+      service/                # Business logic
+      repository/             # Data access (Spring Data JPA)
+      mapper/                 # Entity ↔ DTO converters
+      exception/              # Custom exceptions and global handler
     resources/
-      application.yml    # Configuration
-      authz.pem          # Public key for JWT validation
+      application.yml         # Configuration
+      authz.pem               # Public key for JWT validation
 data/
-  schema.sql             # Database schema (auto-applied on first run)
+  schema.sql                  # Database schema (auto-applied on first run)
+docs/
+  api/                        # API documentation
+  architecture/               # Architecture documentation
+  conventions.md              # Project conventions
+  database.md                 # Database schema documentation
+  backlog_ragro.md            # Product backlog
 ```
 
 ---
@@ -127,4 +161,4 @@ All protected endpoints require a **Bearer JWT token** issued by AWS Cognito.
 Authorization: Bearer <token>
 ```
 
-Configure the Cognito User Pool region and ID in `application.yml` before running.
+Configure the Cognito User Pool region and ID in `application.yml` before running. See [Security docs](docs/architecture/04-security.md) for the full authentication flow.
