@@ -18,11 +18,6 @@ public class RoleAccessController {
         return ResponseEntity.ok(buildClaimsPayload("ADMIN", jwt));
     }
 
-    @GetMapping("/farmer/dashboard")
-    public ResponseEntity<Map<String, Object>> farmerDashboard(@AuthenticationPrincipal Jwt jwt) {
-        return ResponseEntity.ok(buildClaimsPayload("FARMER", jwt));
-    }
-
     @GetMapping("/customer/orders")
     public ResponseEntity<Map<String, Object>> customerOrders(@AuthenticationPrincipal Jwt jwt) {
         return ResponseEntity.ok(buildClaimsPayload("CUSTOMER", jwt));
