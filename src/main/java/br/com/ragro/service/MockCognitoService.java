@@ -13,12 +13,12 @@ public class MockCognitoService implements CognitoService {
     @Override
     public String registerUser(String name, String email) {
         String cognitoSub = UUID.randomUUID().toString();
-        logger.info("[MOCK] Cognito user created — email: {}, sub: {}", email, cognitoSub);
+        logger.info("[MOCK] Cognito user created — sub: {}", cognitoSub);
         return cognitoSub;
     }
 
     @Override
     public void addToConsumerGroup(String cognitoSub) {
-        logger.info("[MOCK] User {} added to Cognito group CUSTOMER", cognitoSub);
+        logger.info("[MOCK] User added to Cognito group CUSTOMER");
     }
 }
