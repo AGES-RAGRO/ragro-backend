@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/consumers")
+@RequestMapping("/consumer")
 public class ConsumerController {
 
     private final ConsumerService consumerService;
@@ -19,7 +19,7 @@ public class ConsumerController {
         this.consumerService = consumerService;
     }
 
-    @GetMapping("/consumer/me")
+    @GetMapping("/me")
     public ResponseEntity<ConsumerResponse> getMyConsumer(@AuthenticationPrincipal Jwt jwt) {
         return ResponseEntity.ok(consumerService.getMyConsumer(jwt));
     }

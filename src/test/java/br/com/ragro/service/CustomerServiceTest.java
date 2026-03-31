@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
-import br.com.ragro.controller.response.ConsumerResponse;
+import br.com.ragro.controller.response.CustomerResponse;
 import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.TypeUser;
 import br.com.ragro.exception.UnauthorizedException;
@@ -18,20 +18,20 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.oauth2.jwt.Jwt;
 
 @ExtendWith(MockitoExtension.class)
-class ConsumerServiceTest {
+class CustomerServiceTest {
 
     @Mock private UserService userService;
 
     @Mock private Jwt jwt;
 
-    @InjectMocks private ConsumerService consumerService;
+    @InjectMocks private CustomerService customerService;
 
     @Test
-    void getMyConsumer_shouldReturnConsumerResponse_whenUserIsCustomer() {
+    void getMyCustomer_shouldReturnCustomerResponse_whenUserIsCustomer() {
         User user = buildUser(TypeUser.CUSTOMER);
         when(userService.getAuthenticatedUser(jwt)).thenReturn(user);
 
-        ConsumerResponse response = consumerService.getMyConsumer(jwt);
+        CustomerResponse response = customerService.getMyCustomer(jwt);
 
         assertThat(response.getId()).isEqualTo(user.getId());
         assertThat(response.getName()).isEqualTo(user.getName());
@@ -40,21 +40,21 @@ class ConsumerServiceTest {
     }
 
     @Test
-    void getMyConsumer_shouldThrowUnauthorizedException_whenUserIsNotCustomer() {
+    void getMyCustomer_shouldThrowUnauthorizedException_whenUserIsNotCustomer() {
         User user = buildUser(TypeUser.FARMER);
         when(userService.getAuthenticatedUser(jwt)).thenReturn(user);
 
-        assertThatThrownBy(() -> consumerService.getMyConsumer(jwt))
+        assertThatThrownBy(() -> customerService.getMyCustomer(jwt))
                 .isInstanceOf(UnauthorizedException.class)
                 .hasMessage("Acesso restrito a consumidores");
     }
 
     @Test
-    void getMyConsumer_shouldThrowUnauthorizedException_whenUserIsAdmin() {
+    void getMyCustomer_shouldThrowUnauthorizedException_whenUserIsAdmin() {
         User user = buildUser(TypeUser.ADMIN);
         when(userService.getAuthenticatedUser(jwt)).thenReturn(user);
 
-        assertThatThrownBy(() -> consumerService.getMyConsumer(jwt))
+        assertThatThrownBy(() -> customerService.getMyCustomer(jwt))
                 .isInstanceOf(UnauthorizedException.class);
     }
 

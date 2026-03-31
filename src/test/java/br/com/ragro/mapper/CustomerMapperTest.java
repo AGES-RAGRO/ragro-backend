@@ -3,7 +3,7 @@ package br.com.ragro.mapper;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import br.com.ragro.controller.response.AddressResponse;
-import br.com.ragro.controller.response.ConsumerResponse;
+import br.com.ragro.controller.response.CustomerResponse;
 import br.com.ragro.domain.Address;
 import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.TypeUser;
@@ -13,13 +13,13 @@ import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-class ConsumerMapperTest {
+class CustomerMapperTest {
 
     @Test
     void toResponse_shouldMapAllUserFields() {
         User user = buildUser(List.of());
 
-        ConsumerResponse response = ConsumerMapper.toResponse(user);
+        CustomerResponse response = CustomerMapper.toResponse(user);
 
         assertThat(response.getId()).isEqualTo(user.getId());
         assertThat(response.getName()).isEqualTo(user.getName());
@@ -34,7 +34,7 @@ class ConsumerMapperTest {
     void toResponse_shouldReturnEmptyAddresses_whenUserHasNoAddresses() {
         User user = buildUser(List.of());
 
-        ConsumerResponse response = ConsumerMapper.toResponse(user);
+        CustomerResponse response = CustomerMapper.toResponse(user);
 
         assertThat(response.getAddresses()).isEmpty();
     }
@@ -44,7 +44,7 @@ class ConsumerMapperTest {
         Address address = buildAddress();
         User user = buildUser(List.of(address));
 
-        ConsumerResponse response = ConsumerMapper.toResponse(user);
+        CustomerResponse response = CustomerMapper.toResponse(user);
 
         assertThat(response.getAddresses()).hasSize(1);
         AddressResponse addressResponse = response.getAddresses().get(0);
@@ -66,7 +66,7 @@ class ConsumerMapperTest {
     void toResponse_shouldMapMultipleAddresses() {
         User user = buildUser(List.of(buildAddress(), buildAddress()));
 
-        ConsumerResponse response = ConsumerMapper.toResponse(user);
+        CustomerResponse response = CustomerMapper.toResponse(user);
 
         assertThat(response.getAddresses()).hasSize(2);
     }
