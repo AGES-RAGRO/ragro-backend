@@ -23,6 +23,16 @@ spring:
           # Substitua <REGION> e <USER_POOL_ID> pelos valores do Cognito.
           issuer-uri: https://cognito-idp.<REGION>.amazonaws.com/<USER_POOL_ID>
 
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+    operations-sorter: method
+    tags-sorter: alpha
+    use-root-path: true
+
 server:
   error:
     include-message: always

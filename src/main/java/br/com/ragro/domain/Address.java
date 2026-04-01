@@ -21,42 +21,42 @@ public class Address {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(columnDefinition = "uuid")
+    @Column(name = "id", columnDefinition = "uuid")
     private UUID id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(nullable = false, length = 200)
+    @Column(name = "street", nullable = false, length = 200)
     private String street;
 
-    @Column(nullable = false, length = 10)
+    @Column(name = "number", nullable = false, length = 10)
     private String number;
 
-    @Column(length = 100)
+    @Column(name = "complement", length = 100)
     private String complement;
 
-    @Column(length = 100)
+    @Column(name = "neighborhood", length = 100)
     private String neighborhood;
 
-    @Column(nullable = false, length = 100)
+    @Column(name = "city", nullable = false, length = 100)
     private String city;
 
-    @Column(nullable = false, length = 2)
+    @Column(name = "state", nullable = false, length = 2)
     private String state;
 
     @Column(name = "zip_code", nullable = false, length = 8)
     private String zipCode;
 
-    @Column(precision = 10, scale = 7)
+    @Column(name = "latitude", precision = 10, scale = 7)
     private BigDecimal latitude;
 
-    @Column(precision = 10, scale = 7)
+    @Column(name = "longitude", precision = 10, scale = 7)
     private BigDecimal longitude;
 
     @Column(name = "is_primary", nullable = false)
-    private Boolean primary = true;
+    private boolean isPrimary;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

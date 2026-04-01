@@ -5,6 +5,8 @@ import br.com.ragro.controller.response.UserResponse;
 import br.com.ragro.domain.User;
 import lombok.experimental.UtilityClass;
 
+import java.util.Locale;
+
 @UtilityClass
 public class UserMapper {
 
@@ -23,7 +25,7 @@ public class UserMapper {
                 .name(entity.getName())
                 .email(entity.getEmail())
                 .phone(entity.getPhone())
-                .type(entity.getType() != null ? entity.getType().name() : null)
+                .type(entity.getType() != null ? entity.getType().name().toLowerCase(Locale.ROOT) : null)
                 .active(entity.isActive())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
