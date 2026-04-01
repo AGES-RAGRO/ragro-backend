@@ -14,6 +14,7 @@ import br.com.ragro.repository.UserRepository;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.util.Optional;
 
 @Service
 public class CustomerService {
@@ -53,8 +54,9 @@ public class CustomerService {
 
         cognitoService.addToCustomerGroup(cognitoSub);
 
-        Address address = buildAddress(request.getAddress(), savedUser);
-        addressRepository.save(address);
+        Optional.ofNullable(request.getAddress())
+                .map(addr -> buildAddress(addr, savedUser))
+                .ifPresent(addressRepository::save);
 
         return CustomerMapper.toResponse(savedUser);
     }
