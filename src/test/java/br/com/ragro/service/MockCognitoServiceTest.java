@@ -38,8 +38,8 @@ class MockCognitoServiceTest {
     }
 
     @Test
-    void addToConsumerGroup_shouldNotThrow() {
+    void addToCustomerGroup_shouldNotThrow() {
         assertThatNoException()
-                .isThrownBy(() -> cognitoService.addToConsumerGroup("some-cognito-sub"));
+                .isThrownBy(() -> cognitoService.addToCustomerGroup("some-cognito-sub"));
     }
 }

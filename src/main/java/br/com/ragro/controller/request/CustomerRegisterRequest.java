@@ -10,7 +10,7 @@ import lombok.Setter;
 
 @Getter
 @Setter
-public class ConsumerRegisterRequest {
+public class CustomerRegisterRequest {
 
     @NotBlank(message = "Name is required")
     @Size(max = 120)

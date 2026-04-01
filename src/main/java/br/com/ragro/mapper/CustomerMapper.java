@@ -1,7 +1,7 @@
 package br.com.ragro.mapper;
 
 import br.com.ragro.controller.response.AddressResponse;
-import br.com.ragro.controller.response.ConsumerResponse;
+import br.com.ragro.controller.response.CustomerResponse;
 import br.com.ragro.domain.Address;
 import br.com.ragro.domain.User;
 import lombok.experimental.UtilityClass;
@@ -9,14 +9,14 @@ import lombok.experimental.UtilityClass;
 import java.util.List;
 
 @UtilityClass
-public class ConsumerMapper {
+public class CustomerMapper {
 
-    public static ConsumerResponse toResponse(User user) {
+    public static CustomerResponse toResponse(User user) {
         List<AddressResponse> addresses = user.getAddresses().stream()
-                .map(ConsumerMapper::toAddressResponse)
+                .map(CustomerMapper::toAddressResponse)
                 .toList();
 
-        return ConsumerResponse.builder()
+        return CustomerResponse.builder()
                 .id(user.getId())
                 .name(user.getName())
                 .email(user.getEmail())

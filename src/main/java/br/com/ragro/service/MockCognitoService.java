@@ -18,7 +18,7 @@ public class MockCognitoService implements CognitoService {
     }
 
     @Override
-    public void addToConsumerGroup(String cognitoSub) {
+    public void addToCustomerGroup(String cognitoSub) {
         logger.info("[MOCK] User added to Cognito group CUSTOMER");
     }
 }

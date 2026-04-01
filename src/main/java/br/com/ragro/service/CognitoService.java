@@ -4,5 +4,5 @@ public interface CognitoService {
 
     String registerUser(String name, String email);
 
-    void addToConsumerGroup(String cognitoSub);
+    void addToCustomerGroup(String cognitoSub);
 }

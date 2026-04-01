@@ -34,7 +34,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/auth/register/consumer").permitAll()
                         .requestMatchers("/admin/**").hasRole("ADMIN")
                         .requestMatchers("/farmer/**").hasRole("FARMER")
-                        .requestMatchers("/consumer/**").hasRole("CONSUMER")
+                        .requestMatchers("/customer/**").hasRole("CUSTOMER")
                         .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2
