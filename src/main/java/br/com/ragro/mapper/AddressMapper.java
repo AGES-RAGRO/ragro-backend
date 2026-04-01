@@ -5,11 +5,13 @@ import br.com.ragro.controller.response.AddressResponse;
 import br.com.ragro.domain.Address;
 import br.com.ragro.domain.User;
 import lombok.experimental.UtilityClass;
+import org.springframework.lang.NonNull;
 
 @UtilityClass
 public class AddressMapper {
 
-    public static Address toEntity(AddressRequest request, User user, boolean isPrimary) {
+    @NonNull
+    public static Address toEntity(@NonNull AddressRequest request, @NonNull User user, boolean isPrimary) {
         Address address = new Address();
         address.setUser(user);
         address.setStreet(request.getStreet());
@@ -25,7 +27,8 @@ public class AddressMapper {
         return address;
     }
 
-    public static AddressResponse toResponse(Address entity) {
+    @NonNull
+    public static AddressResponse toResponse(@NonNull Address entity) {
         return AddressResponse.builder()
                 .id(entity.getId())
                 .street(entity.getStreet())

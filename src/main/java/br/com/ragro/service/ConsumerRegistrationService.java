@@ -129,3 +129,4 @@ public class ConsumerRegistrationService {
         return trimmed.isEmpty() ? null : trimmed;
     }
 }
+
