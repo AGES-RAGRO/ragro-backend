@@ -18,10 +18,28 @@ spring:
 
   security:
     oauth2:
+      client:
+        registration:
+          cognito:
+            client-name: Cognito
+            client-id: ${AWS_COGNITO_CLIENT_ID}
+            client-secret: ${AWS_COGNITO_CLIENT_SECRET}
+            client-authentication-method: client_secret_basic
+            authorization-grant-type: authorization_code
+            redirect-uri: ${AWS_COGNITO_REDIRECT_URI:http://localhost:8080/login/oauth2/code/cognito}
+            scope: openid,email,phone
+      provider:
+        cognito:
+          issuer-uri: ${AWS_COGNITO_ISSUER_URI}
+          user-name-attribute: cognito:username
       resourceserver:
         jwt:
-          # Substitua <REGION> e <USER_POOL_ID> pelos valores do Cognito.
-          issuer-uri: https://cognito-idp.<REGION>.amazonaws.com/<USER_POOL_ID>
+          issuer-uri: ${AWS_COGNITO_ISSUER_URI}
+
+aws:
+  cognito:
+    domain: ${AWS_COGNITO_DOMAIN:https://your-cognito-domain.auth.us-east-1.amazoncognito.com}
+    logout-uri: ${AWS_COGNITO_LOGOUT_URI:http://localhost:8080/}
 
 server:
   error:

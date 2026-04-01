@@ -2,7 +2,7 @@ package br.com.ragro.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -20,24 +20,47 @@ import org.springframework.web.cors.CorsConfigurationSource;
 public class SecurityConfig {
 
     @Bean
-        public SecurityFilterChain securityFilterChain(
-                        HttpSecurity http,
-                        CorsConfigurationSource corsConfigurationSource,
-                        JwtAuthenticationConverter jwtAuthenticationConverter
-        ) throws Exception {
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity http,
+            CorsConfigurationSource corsConfigurationSource,
+            JwtAuthenticationConverter jwtAuthenticationConverter,
+            CognitoLogoutHandler cognitoLogoutHandler
+    ) throws Exception {
         return http
                 .csrf(AbstractHttpConfigurer::disable)
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers(HttpMethod.GET, "/actuator/health").permitAll()
+                        // Public endpoints
+                        .requestMatchers("/").permitAll()
+                        .requestMatchers("/login/**").permitAll()
+                        .requestMatchers("/oauth2/**").permitAll()
+                        .requestMatchers("/actuator/health").permitAll()
+                        
+                        // Admin-only endpoints
                         .requestMatchers("/admin/**").hasRole("ADMIN")
+                        
+                        // Farmer-only endpoints
                         .requestMatchers("/farmer/**").hasRole("FARMER")
+                        
+                        // Customer-only endpoints
                         .requestMatchers("/customer/**").hasRole("CUSTOMER")
+                        
+                        // User endpoints - authenticated only
+                        .requestMatchers("/users/**").authenticated()
+                        
+                        // Default: require authentication for any other route
                         .anyRequest().authenticated()
                 )
+                .oauth2Login(Customizer.withDefaults())
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter)))
+                .logout(logout -> logout
+                        .logoutSuccessHandler(cognitoLogoutHandler)
+                        .invalidateHttpSession(true)
+                        .clearAuthentication(true)
+                        .deleteCookies("JSESSIONID")
+                )
                 .build();
     }
 

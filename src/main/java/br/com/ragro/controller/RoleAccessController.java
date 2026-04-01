@@ -1,6 +1,7 @@
 package br.com.ragro.controller;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -11,19 +12,23 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
+@PreAuthorize("isAuthenticated()")
 public class RoleAccessController {
 
     @GetMapping("/admin/dashboard")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> adminDashboard(@AuthenticationPrincipal Jwt jwt) {
         return ResponseEntity.ok(buildClaimsPayload("ADMIN", jwt));
     }
 
     @GetMapping("/farmer/dashboard")
+    @PreAuthorize("hasRole('FARMER')")
     public ResponseEntity<Map<String, Object>> farmerDashboard(@AuthenticationPrincipal Jwt jwt) {
         return ResponseEntity.ok(buildClaimsPayload("FARMER", jwt));
     }
 
     @GetMapping("/customer/orders")
+    @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<Map<String, Object>> customerOrders(@AuthenticationPrincipal Jwt jwt) {
         return ResponseEntity.ok(buildClaimsPayload("CUSTOMER", jwt));
     }
