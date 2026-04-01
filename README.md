@@ -99,6 +99,43 @@ The API will be available at `http://localhost:8080`.
 
 ---
 
+## API Documentation (Swagger UI)
+
+The API is fully documented with **OpenAPI 3.0** and can be explored interactively via **Swagger UI**.
+
+### Access Swagger UI
+
+Once the application is running, open your browser and navigate to:
+
+```
+http://localhost:8080/swagger-ui.html
+```
+
+### Available Endpoints in Swagger
+
+- **Authentication** - Consumer (customer) registration and login endpoints
+- **Users** - User profile and management operations
+- **Admin** - Administrative endpoints (requires `ROLE_ADMIN`)
+- **Farmer** - Farmer-specific operations (requires `ROLE_FARMER`)
+- **Customer** - Customer-specific operations (requires `ROLE_CUSTOMER`)
+
+### Testing Authenticated Endpoints
+
+1. Open Swagger UI: `http://localhost:8080/swagger-ui.html`
+2. Click the **Authorize** button (top right)
+3. Paste your JWT token from Cognito in the `Authorization` field:
+   ```
+   Bearer <your-jwt-token>
+   ```
+4. Click endpoints to view details and test them directly
+
+### API Documentation Files
+
+- **OpenAPI JSON**: `http://localhost:8080/v3/api-docs` — Raw OpenAPI specification
+- **Swagger UI**: `http://localhost:8080/swagger-ui.html` — Interactive documentation
+
+---
+
 ## Environment Variables
 
 | Variable | Default | Description |
