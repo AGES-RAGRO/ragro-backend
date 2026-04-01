@@ -1,12 +1,6 @@
 package br.com.ragro.domain;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.MapsId;
-import jakarta.persistence.OneToOne;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
@@ -25,7 +19,7 @@ import java.util.UUID;
 @ToString(of = "id")
 public class Customer {
 
-    @jakarta.persistence.Id
+    @Id
     @Column(name = "id", columnDefinition = "uuid")
     private UUID id;
 
