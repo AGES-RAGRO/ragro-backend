@@ -20,7 +20,11 @@ public class ConsumerRegistrationRequest {
 
     @NotBlank(message = "Phone is required")
     @Size(max = 20, message = "Phone must contain at most 20 characters")
-    @Schema(description = "Phone number in any format (spaces, dashes allowed)", example = "(51) 98765-4321", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(
+            description = "Phone number in any format (spaces, dashes allowed)",
+            example = "(51) 98765-4321",
+            requiredMode = Schema.RequiredMode.REQUIRED
+    )
     private String phone;
 
     @NotBlank(message = "Email is required")
@@ -34,7 +38,11 @@ public class ConsumerRegistrationRequest {
             regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d).+$",
             message = "Password must contain at least one uppercase letter, one lowercase letter, and one digit"
     )
-    @Schema(description = "Password (min 8 chars, must contain uppercase, lowercase, and digit)", example = "Senha@123", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(
+            description = "Password (min 8 chars, must contain uppercase, lowercase, and digit)",
+            example = "Senha@123",
+            requiredMode = Schema.RequiredMode.REQUIRED
+    )
     private String password;
 
     @NotBlank(message = "Fiscal number is required")
