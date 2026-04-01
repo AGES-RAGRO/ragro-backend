@@ -117,6 +117,35 @@ http://localhost:8080/swagger-ui.html
 - **Users** - User profile and management operations
 - **Admin** - Administrative endpoints (requires `ROLE_ADMIN`)
 - **Farmer** - Farmer-specific operations (requires `ROLE_FARMER`)
+---
+
+## 📝 Pronto para copiar!
+
+Você pode copiar o conteúdo acima e colar diretamente na descrição do PR no GitHub. O template está completo com:
+
+✅ Descrição clara  
+✅ Reference à task  
+✅ Tipo de alteração marcado  
+✅ Evidências de teste (JSON completos)  
+✅ Passo a passo de validação  
+✅ Observações técnicas  
+✅ Checklist completo  
+
+Quer que eu faça o push deste PR ou há algo a ajustar?---
+
+## 📝 Pronto para copiar!
+
+Você pode copiar o conteúdo acima e colar diretamente na descrição do PR no GitHub. O template está completo com:
+
+✅ Descrição clara  
+✅ Reference à task  
+✅ Tipo de alteração marcado  
+✅ Evidências de teste (JSON completos)  
+✅ Passo a passo de validação  
+✅ Observações técnicas  
+✅ Checklist completo  
+
+Quer que eu faça o push deste PR ou há algo a ajustar?
 - **Customer** - Customer-specific operations (requires `ROLE_CUSTOMER`)
 
 ### Testing Authenticated Endpoints
