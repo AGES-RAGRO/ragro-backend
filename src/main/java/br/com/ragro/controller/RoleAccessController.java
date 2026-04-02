@@ -17,7 +17,7 @@ public class RoleAccessController {
     return ResponseEntity.ok(buildClaimsPayload("ADMIN", jwt));
   }
 
-  @GetMapping("/customer/orders")
+  @GetMapping("/customers/orders")
   public ResponseEntity<Map<String, Object>> customerOrders(@AuthenticationPrincipal Jwt jwt) {
     return ResponseEntity.ok(buildClaimsPayload("CUSTOMER", jwt));
   }

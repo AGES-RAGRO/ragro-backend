@@ -105,7 +105,7 @@ Verifies `ROLE_FARMER` access. Returns JWT claims.
 
 ---
 
-#### GET /customer/orders
+#### GET /customers/orders
 
 Verifies `ROLE_CUSTOMER` access. Returns JWT claims.
 
