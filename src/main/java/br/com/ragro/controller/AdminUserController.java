@@ -17,18 +17,16 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/admin/users")
 public class AdminUserController {
 
-    private final UserService userService;
+  private final UserService userService;
 
-    public AdminUserController(UserService userService) {
-        this.userService = userService;
-    }
+  public AdminUserController(UserService userService) {
+    this.userService = userService;
+  }
 
-    @PostMapping
-    public ResponseEntity<UserResponse> addUser(
-            @AuthenticationPrincipal Jwt jwt,
-            @Valid @RequestBody UserRequest request
-    ) {
-        UserResponse response = userService.addUser(jwt, request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
-    }
+  @PostMapping
+  public ResponseEntity<UserResponse> addUser(
+      @AuthenticationPrincipal Jwt jwt, @Valid @RequestBody UserRequest request) {
+    UserResponse response = userService.addUser(jwt, request);
+    return ResponseEntity.status(HttpStatus.CREATED).body(response);
+  }
 }

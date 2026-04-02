@@ -2,5 +2,5 @@ package br.com.ragro.service;
 
 public interface IdentityProviderService {
 
-    String registerConsumer(String email, String rawPassword);
+  String registerCustomer(String email, String rawPassword);
 }

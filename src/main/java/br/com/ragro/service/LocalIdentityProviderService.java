@@ -1,14 +1,13 @@
 package br.com.ragro.service;
 
-import org.springframework.stereotype.Service;
-
 import java.util.UUID;
+import org.springframework.stereotype.Service;
 
 @Service
 public class LocalIdentityProviderService implements IdentityProviderService {
 
-    @Override
-    public String registerConsumer(String email, String rawPassword) {
-        return "local-" + UUID.randomUUID();
-    }
+  @Override
+  public String registerCustomer(String email, String rawPassword) {
+    return "local-" + UUID.randomUUID();
+  }
 }

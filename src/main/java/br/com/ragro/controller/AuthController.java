@@ -1,8 +1,8 @@
 package br.com.ragro.controller;
 
-import br.com.ragro.controller.request.ConsumerRegistrationRequest;
-import br.com.ragro.controller.response.ConsumerRegistrationResponse;
-import br.com.ragro.service.ConsumerRegistrationService;
+import br.com.ragro.controller.request.CustomerRegistrationRequest;
+import br.com.ragro.controller.response.CustomerRegistrationResponse;
+import br.com.ragro.service.CustomerRegistrationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -22,30 +22,37 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Authentication", description = "User authentication and registration endpoints")
 public class AuthController {
 
-    private final ConsumerRegistrationService consumerRegistrationService;
+  private final CustomerRegistrationService customerRegistrationService;
 
-    public AuthController(ConsumerRegistrationService consumerRegistrationService) {
-        this.consumerRegistrationService = consumerRegistrationService;
-    }
+  public AuthController(CustomerRegistrationService customerRegistrationService) {
+    this.customerRegistrationService = customerRegistrationService;
+  }
 
-    @PostMapping("/register/consumer")
-    @Operation(summary = "Register a new consumer",
-            description = "Creates a new consumer (customer) account with email, phone, fiscal number (CPF), and primary address. " +
-                    "The email and fiscal number must be unique in the system.")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "201",
-                    description = "Consumer registered successfully",
-                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = ConsumerRegistrationResponse.class))),
-            @ApiResponse(responseCode = "400",
-                    description = "Validation failed or business rule violated (e.g., duplicate email/CPF, invalid password, missing address)",
-                    content = @Content(mediaType = "application/json")),
-            @ApiResponse(responseCode = "500",
-                    description = "Internal server error")
-    })
-    public ResponseEntity<ConsumerRegistrationResponse> registerConsumer(
-            @Valid @RequestBody ConsumerRegistrationRequest request
-    ) {
-        ConsumerRegistrationResponse response = consumerRegistrationService.register(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
-    }
+  @PostMapping("/register/customer")
+  @Operation(
+      summary = "Register a new customer",
+      description =
+          "Creates a new customer account with email, phone, fiscal number (CPF), and primary address. "
+              + "The email and fiscal number must be unique in the system.")
+  @ApiResponses(
+      value = {
+        @ApiResponse(
+            responseCode = "201",
+            description = "Customer registered successfully",
+            content =
+                @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = CustomerRegistrationResponse.class))),
+        @ApiResponse(
+            responseCode = "400",
+            description =
+                "Validation failed or business rule violated (e.g., duplicate email/CPF, invalid password, missing address)",
+            content = @Content(mediaType = "application/json")),
+        @ApiResponse(responseCode = "500", description = "Internal server error")
+      })
+  public ResponseEntity<CustomerRegistrationResponse> registerCustomer(
+      @Valid @RequestBody CustomerRegistrationRequest request) {
+    CustomerRegistrationResponse response = customerRegistrationService.register(request);
+    return ResponseEntity.status(HttpStatus.CREATED).body(response);
+  }
 }
