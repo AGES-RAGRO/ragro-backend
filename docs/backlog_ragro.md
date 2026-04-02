@@ -3,8 +3,6 @@ From the Farm to the Table
 
 *Product Backlog — Revised Version*
 
-2026/1
-
 # **API Routes Summary**
 
 ## **Authentication**
