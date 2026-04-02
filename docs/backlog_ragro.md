@@ -11,18 +11,18 @@ From the Farm to the Table
 
 | Method | Route | Description |
 | :---- | :---- | :---- |
-| POST | /auth/register/consumer | Consumer registration |
+| POST | /auth/register/customer | Customer registration |
 | POST | /auth/register/producer | Producer registration (admin) |
-| POST | /auth/login/consumer | Consumer login |
+| POST | /auth/login/customer | Customer login |
 | POST | /auth/login/producer | Producer login |
 
-## **Consumers**
+## **Customers**
 
 | Method | Route | Description |
 | :---- | :---- | :---- |
-| GET | /consumers | List all consumers (admin) |
-| GET | /consumers/:id | Retrieve consumer profile |
-| PUT | /consumers/:id | Update consumer profile |
+| GET | /customers | List all customers (admin) |
+| GET | /customers/:id | Retrieve customer profile |
+| PUT | /customers/:id | Update customer profile |
 
 ## **Producers**
 
@@ -74,11 +74,11 @@ From the Farm to the Table
 | Method | Route | Description |
 | :---- | :---- | :---- |
 | POST | /orders | Create order from cart |
-| GET | /orders/consumer | Consumer order history |
+| GET | /orders/customer | Customer order history |
 | GET | /orders/producer | Orders received by producer |
 | GET | /orders/today | Today's orders (producer) |
 | PATCH | /orders/:id/confirm | Confirm order (producer) |
-| PATCH | /orders/:id/cancel | Cancel order (consumer) |
+| PATCH | /orders/:id/cancel | Cancel order (customer) |
 | PATCH | /orders/:id/status | Update delivery status (producer) |
 | POST | /orders/:id/repeat | Repeat previous order |
 | POST | /orders/:id/schedule | Schedule order for a future date |
@@ -99,7 +99,7 @@ From the Farm to the Table
 
 | Method | Route | Description |
 | :---- | :---- | :---- |
-| GET | /recommendations | Product suggestions for the consumer |
+| GET | /recommendations | Product suggestions for the customer |
 
 ## **Financial Dashboard**
 
@@ -110,7 +110,7 @@ From the Farm to the Table
 
 # **EPIC 1 — Authentication and User Management**
 
-Objective: Enable secure authentication, role-based access control, and lifecycle management for consumer, producer, and admin accounts.  
+Objective: Enable secure authentication, role-based access control, and lifecycle management for customer, producer, and admin accounts.  
 Recommended technology: AWS Cognito, JWT
 
 ## **Entity Modeling**
@@ -121,13 +121,13 @@ Recommended technology: AWS Cognito, JWT
 | :---- | :---- | :---- |
 | id | UUID | Primary key |
 | email | string | Unique, used as login |
-| role | enum | consumer \| producer \| admin |
+| role | enum | customer \| producer \| admin |
 | active | boolean | Access control |
 | cognitoSub | string | Cognito identifier |
 | createdAt | timestamp |  |
 | updatedAt | timestamp |  |
 
-### **ConsumerProfile**
+### **CustomerProfile**
 
 | Field | Type | Notes |
 | :---- | :---- | :---- |
@@ -170,25 +170,25 @@ Recommended technology: AWS Cognito, JWT
 | latitude | decimal | For geolocation and routing |
 | longitude | decimal | For geolocation and routing |
 
-## **US-01 — Consumer Registration**
+## **US-01 — Customer Registration**
 
-As a consumer, I want to create an account to purchase products on the platform.
+As a customer, I want to create an account to purchase products on the platform.
 
 **Acceptance criteria:**
 
 * User must provide: name, phone number, email, password, and address  
 * Email must be unique in the system  
 * Password must comply with Cognito's security policy  
-* Address must be saved and linked to the ConsumerProfile  
+* Address must be saved and linked to the CustomerProfile  
 * User must be created in Cognito and in the application database  
-* Consumer must be assigned to the 'consumer' group in Cognito  
+* Customer must be assigned to the 'customer' group in Cognito  
 * Registration must allow future profile editing
 
 **Routes:**
 
 | Method | Route | Description |
 | :---- | :---- | :---- |
-| POST | /auth/register/consumer | Creates consumer user |
+| POST | /auth/register/customer | Creates customer user |
 
 **Features / Technical Tasks:**
 
@@ -198,31 +198,31 @@ As a consumer, I want to create an account to purchase products on the platform.
 * Configure required attributes  
 * Configure password policy  
 * Configure email as login  
-* Create groups: consumer, producer, admin
+* Create groups: customer, producer, admin
 
 ### **FE-02 — Role and Group Control in Cognito**
 
-* Create consumer, producer, and admin groups  
+* Create customer, producer, and admin groups  
 * Map groups to application roles
 
 ### **FE-03 — User Entity Modeling**
 
 * Create User entity  
-* Create ConsumerProfile entity  
+* Create CustomerProfile entity  
 * Create Address entity (with latitude/longitude)  
 * Create migrations  
 * Create repositories  
-* Link User → ConsumerProfile → Address
+* Link User → CustomerProfile → Address
 
-### **FE-04 — Consumer Registration Endpoint**
+### **FE-04 — Customer Registration Endpoint**
 
 * Create registration DTO  
-* Create POST /auth/register/consumer endpoint  
+* Create POST /auth/register/customer endpoint  
 * Validate required fields  
 * Integrate with Cognito to create user  
 * Persist user in the database  
-* Assign user to the consumer group in Cognito  
-* Persist ConsumerProfile and Address
+* Assign user to the customer group in Cognito  
+* Persist CustomerProfile and Address
 
 ### **FE-05 — Mobile Registration Screen**
 
@@ -232,9 +232,9 @@ As a consumer, I want to create an account to purchase products on the platform.
 * Integrate with API  
 * Handle registration errors
 
-## **US-02 — Consumer Login**
+## **US-02 — Customer Login**
 
-As a consumer, I want to log in to access my account.
+As a customer, I want to log in to access my account.
 
 **Acceptance criteria:**
 
@@ -242,19 +242,19 @@ As a consumer, I want to log in to access my account.
 * Authentication via Cognito  
 * System must return JWT with role and userId  
 * Error on invalid credentials  
-* Authenticated consumer can only access features permitted for their profile  
-* Inactive consumer cannot access the application
+* Authenticated customer can only access features permitted for their profile  
+* Inactive customer cannot access the application
 
 **Routes:**
 
 | Method | Route | Description |
 | :---- | :---- | :---- |
-| POST | /auth/login/consumer | Authenticates consumer and returns JWT |
+| POST | /auth/login/customer | Authenticates customer and returns JWT |
 
 ### **FE-06 — Cognito Authentication Integration**
 
 * Configure Cognito login flow  
-* Implement POST /auth/login/consumer endpoint  
+* Implement POST /auth/login/customer endpoint  
 * Return access token
 
 ### **FE-07 — Authentication Middleware**
@@ -272,9 +272,9 @@ As a consumer, I want to log in to access my account.
 * Integrate with API  
 * Store token locally (secure storage)
 
-## **US-03 — Retrieve Consumer Profile**
+## **US-03 — Retrieve Customer Profile**
 
-As a consumer, I want to view my registration data to check my account information.
+As a customer, I want to view my registration data to check my account information.
 
 **Acceptance criteria:**
 
@@ -285,15 +285,15 @@ As a consumer, I want to view my registration data to check my account informati
 
 | Method | Route | Description |
 | :---- | :---- | :---- |
-| GET | /consumers | Lists all consumers (admin) |
-| GET | /consumers/:id | Returns consumer profile |
+| GET | /customers | Lists all customers (admin) |
+| GET | /customers/:id | Returns customer profile |
 
 ### **FE-09 — Profile Retrieval Endpoint**
 
-* Create GET /consumers endpoint (admin)  
-* Create GET /consumers/:id endpoint  
+* Create GET /customers endpoint (admin)  
+* Create GET /customers/:id endpoint  
 * Validate authentication  
-* Build response with User, ConsumerProfile, and Address data
+* Build response with User, CustomerProfile, and Address data
 
 ### **FE-10 — Mobile Profile Screen**
 
@@ -301,9 +301,9 @@ As a consumer, I want to view my registration data to check my account informati
 * Display user data  
 * Integrate with API
 
-## **US-04 — Update Consumer Profile**
+## **US-04 — Update Customer Profile**
 
-As a consumer, I want to edit my data to keep my profile up to date.
+As a customer, I want to edit my data to keep my profile up to date.
 
 **Acceptance criteria:**
 
@@ -315,13 +315,13 @@ As a consumer, I want to edit my data to keep my profile up to date.
 
 | Method | Route | Description |
 | :---- | :---- | :---- |
-| PUT | /consumers/:id | Updates consumer profile |
+| PUT | /customers/:id | Updates customer profile |
 
 ### **FE-11 — Profile Update Endpoint**
 
-* Create PUT /consumers/:id endpoint  
+* Create PUT /customers/:id endpoint  
 * Validate authentication  
-* Update ConsumerProfile and Address in the database
+* Update CustomerProfile and Address in the database
 
 ### **FE-12 — Mobile Edit Screen**
 
@@ -538,11 +538,11 @@ As an administrator, I want to reactivate a producer to allow them to operate on
 
 # **EPIC 2 — Marketplace (Home and Navigation)**
 
-Objective: Allow consumers to discover producers and browse the marketplace in a simple, fast, and intuitive way.
+Objective: Allow customers to discover producers and browse the marketplace in a simple, fast, and intuitive way.
 
 ## **US-12 — View Producer List**
 
-As a consumer, I want to see the available producers to discover who sells on the platform.
+As a customer, I want to see the available producers to discover who sells on the platform.
 
 **Acceptance criteria:**
 
@@ -573,7 +573,7 @@ As a consumer, I want to see the available producers to discover who sells on th
 
 ## **US-13 — Search Producers**
 
-As a consumer, I want to search for producers to quickly find a specific seller.
+As a customer, I want to search for producers to quickly find a specific seller.
 
 **Acceptance criteria:**
 
@@ -602,11 +602,11 @@ As a consumer, I want to search for producers to quickly find a specific seller.
 
 # **EPIC 3 — Producer Profile and Catalog**
 
-Objective: Display detailed information about the producer and their available products, including photo and story, allowing consumers to learn about the food's origin and build trust in the purchase.
+Objective: Display detailed information about the producer and their available products, including photo and story, allowing customers to learn about the food's origin and build trust in the purchase.
 
 ## **US-14 — View Producer Profile**
 
-As a consumer, I want to view a producer's profile to learn about who produces the food.
+As a customer, I want to view a producer's profile to learn about who produces the food.
 
 **Acceptance criteria:**
 
@@ -790,15 +790,15 @@ As a producer, I want to register a stock exit due to sale, loss, or disposal.
 
 # **EPIC 6 — Shopping Cart**
 
-Objective: Allow consumers to select products from a producer and prepare a purchase before placing an order.  
-Important rule: The cart can only contain products from one producer at a time. If the consumer tries to add a product from a different producer, the system must alert them.
+Objective: Allow customers to select products from a producer and prepare a purchase before placing an order.  
+Important rule: The cart can only contain products from one producer at a time. If the customer tries to add a product from a different producer, the system must alert them.
 
 ## **Entity Modeling — Cart**
 
 | Field | Type | Notes |
 | :---- | :---- | :---- |
 | id | UUID | Primary key |
-| consumerId | UUID FK | Reference to ConsumerProfile |
+| customerId | UUID FK | Reference to CustomerProfile |
 | producerId | UUID FK | Active cart producer |
 | createdAt | timestamp |  |
 | updatedAt | timestamp |  |
@@ -815,12 +815,12 @@ Important rule: The cart can only contain products from one producer at a time. 
 
 ## **US-20 — Automatically Create Cart**
 
-As a consumer, I want the system to automatically create a cart so I can add products before placing an order.
+As a customer, I want the system to automatically create a cart so I can add products before placing an order.
 
 **Acceptance criteria:**
 
 * Cart must be created automatically when the first item is added  
-* Cart belongs to a consumer  
+* Cart belongs to a customer  
 * Cart must be cleared after order creation
 
 ### **FE-41 — Cart and CartItem Entities**
@@ -831,7 +831,7 @@ As a consumer, I want the system to automatically create a cart so I can add pro
 
 ## **US-21 — Add Product to Cart**
 
-As a consumer, I want to add products to the cart to buy later.
+As a customer, I want to add products to the cart to buy later.
 
 **Acceptance criteria:**
 
@@ -849,7 +849,7 @@ As a consumer, I want to add products to the cart to buy later.
 ### **FE-42 — Add Item Endpoint**
 
 * Create POST /cart/items endpoint  
-* Validate consumer authentication  
+* Validate customer authentication  
 * Validate cart producer (1-producer rule)  
 * Validate available stock  
 * Create cart if it does not exist  
@@ -857,7 +857,7 @@ As a consumer, I want to add products to the cart to buy later.
 
 ## **US-22 — Update Cart Quantity**
 
-As a consumer, I want to change the quantity of a product to adjust my purchase.
+As a customer, I want to change the quantity of a product to adjust my purchase.
 
 **Acceptance criteria:**
 
@@ -878,7 +878,7 @@ As a consumer, I want to change the quantity of a product to adjust my purchase.
 
 ## **US-23 — Remove Item from Cart**
 
-As a consumer, I want to remove a product so I don't purchase it.
+As a customer, I want to remove a product so I don't purchase it.
 
 **Routes:**
 
@@ -894,7 +894,7 @@ As a consumer, I want to remove a product so I don't purchase it.
 
 ## **US-24 — View Cart**
 
-As a consumer, I want to view the items in my cart to review my purchase.
+As a customer, I want to view the items in my cart to review my purchase.
 
 **Acceptance criteria:**
 
@@ -909,7 +909,7 @@ As a consumer, I want to view the items in my cart to review my purchase.
 ### **FE-45 — Cart Endpoint**
 
 * Create GET /cart endpoint  
-* Retrieve active cart for the authenticated consumer  
+* Retrieve active cart for the authenticated customer  
 * Return items with priceSnapshot and calculated total
 
 # **EPIC 7 — Orders**
@@ -921,7 +921,7 @@ Objective: Allow a cart to be converted into an order and its status to be track
 | Field | Type | Notes |
 | :---- | :---- | :---- |
 | id | UUID | Primary key |
-| consumerId | UUID FK | Reference to ConsumerProfile |
+| customerId | UUID FK | Reference to CustomerProfile |
 | producerId | UUID FK | Reference to ProducerProfile |
 | status | enum | PENDING \| CONFIRMED \| IN\_DELIVERY \| DELIVERED \| CANCELLED |
 | totalPrice | decimal | Total order amount |
@@ -942,7 +942,7 @@ Objective: Allow a cart to be converted into an order and its status to be track
 
 ## **US-25 — Create Order**
 
-As a consumer, I want to complete my purchase to place an order.
+As a customer, I want to complete my purchase to place an order.
 
 **Acceptance criteria:**
 
@@ -975,11 +975,11 @@ As a consumer, I want to complete my purchase to place an order.
 
 ## **US-25b — Schedule Order**
 
-As a consumer, I want to schedule an order for a future date to plan my purchases.
+As a customer, I want to schedule an order for a future date to plan my purchases.
 
 **Acceptance criteria:**
 
-* Consumer can specify desired delivery date and time (scheduledFor)  
+* Customer can specify desired delivery date and time (scheduledFor)  
 * Date must be in the future  
 * Scheduled order remains PENDING until confirmed by the producer  
 * Producer must see the scheduled date when confirming the order
@@ -1020,9 +1020,9 @@ As a producer, I want to confirm an order to start preparation.
 * Change status to CONFIRMED  
 * Register stock exit for each OrderItem (reason: sale)
 
-## **US-27 — Cancel Order by Consumer**
+## **US-27 — Cancel Order by Customer**
 
-As a consumer, I want to cancel an order to withdraw from the purchase.
+As a customer, I want to cancel an order to withdraw from the purchase.
 
 **Acceptance criteria:**
 
@@ -1068,24 +1068,24 @@ As a producer, I want to update the order status to inform about the delivery pr
 
 ## **US-29 — Order History**
 
-As a consumer, I want to view previous orders to track my purchases.
+As a customer, I want to view previous orders to track my purchases.
 
 **Routes:**
 
 | Method | Route | Description |
 | :---- | :---- | :---- |
-| GET | /orders/consumer | Lists orders for the authenticated consumer |
+| GET | /orders/customer | Lists orders for the authenticated customer |
 | GET | /orders/producer | Lists orders received by the authenticated producer |
 
 ### **FE-51 — History Endpoints**
 
-* Create GET /orders/consumer endpoint  
+* Create GET /orders/customer endpoint  
 * Create GET /orders/producer endpoint  
 * Include pagination and filter by status
 
 ## **US-30 — Repeat Order**
 
-As a consumer, I want to repeat a previous order to buy again with ease.
+As a customer, I want to repeat a previous order to buy again with ease.
 
 **Acceptance criteria:**
 
@@ -1106,7 +1106,7 @@ As a consumer, I want to repeat a previous order to buy again with ease.
 
 # **EPIC 8 — Reviews**
 
-Objective: Allow consumers to rate producers after delivery.
+Objective: Allow customers to rate producers after delivery.
 
 ## **Entity Modeling — Review**
 
@@ -1115,14 +1115,14 @@ Objective: Allow consumers to rate producers after delivery.
 | id | UUID | Primary key |
 | orderId | UUID FK | Reference to Order (must have DELIVERED status) |
 | producerId | UUID FK | Reference to ProducerProfile |
-| consumerId | UUID FK | Reference to ConsumerProfile |
+| customerId | UUID FK | Reference to CustomerProfile |
 | rating | integer | Score from 1 to 5 |
 | comment | text | Optional comment |
 | createdAt | timestamp |  |
 
 ## **US-31 — Rate Order**
 
-As a consumer, I want to rate a delivered order to give feedback about the producer.
+As a customer, I want to rate a delivered order to give feedback about the producer.
 
 **Acceptance criteria:**
 
@@ -1152,7 +1152,7 @@ As a consumer, I want to rate a delivered order to give feedback about the produ
 
 ## **US-32 — Display Producer Reviews**
 
-As a consumer, I want to see a producer's reviews to decide whether I want to buy from them.
+As a customer, I want to see a producer's reviews to decide whether I want to buy from them.
 
 **Routes:**
 
@@ -1210,15 +1210,15 @@ As a producer, I want to view the optimized route to make deliveries faster.
 
 # **EPIC 10 — Recommendations**
 
-Objective: Suggest products to consumers based on purchase history and popularity.
+Objective: Suggest products to customers based on purchase history and popularity.
 
 ## **US-35 — Recommend Products**
 
-As a consumer, I want to receive product suggestions to discover new foods.
+As a customer, I want to receive product suggestions to discover new foods.
 
 **Acceptance criteria:**
 
-* Based on consumer purchase history  
+* Based on customer purchase history  
 * Based on popularity (bestsellers)  
 * Paginated results
 
@@ -1226,7 +1226,7 @@ As a consumer, I want to receive product suggestions to discover new foods.
 
 | Method | Route | Description |
 | :---- | :---- | :---- |
-| GET | /recommendations | Lists recommended products for the authenticated consumer |
+| GET | /recommendations | Lists recommended products for the authenticated customer |
 
 ### **FE-58 — Recommendation Service**
 

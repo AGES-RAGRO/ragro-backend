@@ -4,7 +4,7 @@ Base URL: `http://localhost:8080`
 
 All authenticated endpoints require the header: `Authorization: Bearer <token>`
 
-> **Terminology**: The backlog uses "consumer" and "producer" (user-facing terms). The database and code use "customer" and "farmer" respectively. See [conventions.md](../conventions.md#1-terminology-glossary) for the full mapping.
+> **Terminology**: The backlog uses "customer" and "producer" (user-facing terms). The database and code use "customer" and "farmer" respectively. See [conventions.md](../conventions.md#1-terminology-glossary) for the full mapping.
 
 ---
 
@@ -109,7 +109,7 @@ Verifies `ROLE_FARMER` access. Returns JWT claims.
 
 Verifies `ROLE_CUSTOMER` access. Returns JWT claims.
 
-> **Warning**: This is NOT the real consumer order history endpoint (`GET /orders/consumer` from the backlog). This is a temporary test endpoint that will be replaced.
+> **Warning**: This is NOT the real customer order history endpoint (`GET /orders/customer` from the backlog). This is a temporary test endpoint that will be replaced.
 
 **Response (200 OK):**
 ```json
@@ -131,18 +131,18 @@ The following endpoints are defined in the product backlog and will be implement
 
 | Method | Route | Description | Epic |
 |--------|-------|-------------|------|
-| POST | /auth/register/consumer | Consumer registration | 1 |
+| POST | /auth/register/customer | Customer registration | 1 |
 | POST | /auth/register/producer | Producer registration (admin) | 1 |
-| POST | /auth/login/consumer | Consumer login | 1 |
+| POST | /auth/login/customer | Customer login | 1 |
 | POST | /auth/login/producer | Producer login | 1 |
 
-### Consumers
+### Customers
 
 | Method | Route | Description | Epic |
 |--------|-------|-------------|------|
-| GET | /consumers | List all consumers (admin) | 1 |
-| GET | /consumers/:id | Retrieve consumer profile | 1 |
-| PUT | /consumers/:id | Update consumer profile | 1 |
+| GET | /customers | List all customers (admin) | 1 |
+| GET | /customers/:id | Retrieve customer profile | 1 |
+| PUT | /customers/:id | Update customer profile | 1 |
 
 ### Producers
 
@@ -194,11 +194,11 @@ The following endpoints are defined in the product backlog and will be implement
 | Method | Route | Description | Epic |
 |--------|-------|-------------|------|
 | POST | /orders | Create order from cart | 7 |
-| GET | /orders/consumer | Consumer order history | 7 |
+| GET | /orders/customer | Customer order history | 7 |
 | GET | /orders/producer | Orders received by producer | 7 |
 | GET | /orders/today | Today's orders (producer) | 9 |
 | PATCH | /orders/:id/confirm | Confirm order (producer) | 7 |
-| PATCH | /orders/:id/cancel | Cancel order (consumer) | 7 |
+| PATCH | /orders/:id/cancel | Cancel order (customer) | 7 |
 | PATCH | /orders/:id/status | Update delivery status | 7 |
 | POST | /orders/:id/repeat | Repeat previous order | 7 |
 | POST | /orders/:id/schedule | Schedule order for future date | 7 |
@@ -219,7 +219,7 @@ The following endpoints are defined in the product backlog and will be implement
 
 | Method | Route | Description | Epic |
 |--------|-------|-------------|------|
-| GET | /recommendations | Product suggestions for consumer | 10 |
+| GET | /recommendations | Product suggestions for customer | 10 |
 
 ### Financial Dashboard
 
