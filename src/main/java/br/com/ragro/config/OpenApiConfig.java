@@ -22,7 +22,7 @@ public class OpenApiConfig {
                 .title("RAGRO API")
                 .version("1.0.0")
                 .description(
-                    "REST API for the RAGRO platform — connecting urban consumers with local family farmers")
+                    "REST API for the RAGRO platform — connecting urban customers with local family farmers")
                 .contact(new Contact().name("RAGRO Team").url("https://github.com/AGES-RAGRO"))
                 .license(new License().name("MIT").url("https://opensource.org/licenses/MIT")))
         .servers(
