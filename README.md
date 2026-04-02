@@ -99,6 +99,72 @@ The API will be available at `http://localhost:8080`.
 
 ---
 
+## API Documentation (Swagger UI)
+
+The API is fully documented with **OpenAPI 3.0** and can be explored interactively via **Swagger UI**.
+
+### Access Swagger UI
+
+Once the application is running, open your browser and navigate to:
+
+```
+http://localhost:8080/swagger-ui.html
+```
+
+### Available Endpoints in Swagger
+
+- **Authentication** - Consumer (customer) registration and login endpoints
+- **Users** - User profile and management operations
+- **Admin** - Administrative endpoints (requires `ROLE_ADMIN`)
+- **Farmer** - Farmer-specific operations (requires `ROLE_FARMER`)
+---
+
+## 📝 Pronto para copiar!
+
+Você pode copiar o conteúdo acima e colar diretamente na descrição do PR no GitHub. O template está completo com:
+
+✅ Descrição clara  
+✅ Reference à task  
+✅ Tipo de alteração marcado  
+✅ Evidências de teste (JSON completos)  
+✅ Passo a passo de validação  
+✅ Observações técnicas  
+✅ Checklist completo  
+
+Quer que eu faça o push deste PR ou há algo a ajustar?---
+
+## 📝 Pronto para copiar!
+
+Você pode copiar o conteúdo acima e colar diretamente na descrição do PR no GitHub. O template está completo com:
+
+✅ Descrição clara  
+✅ Reference à task  
+✅ Tipo de alteração marcado  
+✅ Evidências de teste (JSON completos)  
+✅ Passo a passo de validação  
+✅ Observações técnicas  
+✅ Checklist completo  
+
+Quer que eu faça o push deste PR ou há algo a ajustar?
+- **Customer** - Customer-specific operations (requires `ROLE_CUSTOMER`)
+
+### Testing Authenticated Endpoints
+
+1. Open Swagger UI: `http://localhost:8080/swagger-ui.html`
+2. Click the **Authorize** button (top right)
+3. Paste your JWT token from Cognito in the `Authorization` field:
+   ```
+   Bearer <your-jwt-token>
+   ```
+4. Click endpoints to view details and test them directly
+
+### API Documentation Files
+
+- **OpenAPI JSON**: `http://localhost:8080/v3/api-docs` — Raw OpenAPI specification
+- **Swagger UI**: `http://localhost:8080/swagger-ui.html` — Interactive documentation
+
+---
+
 ## Environment Variables
 
 | Variable | Default | Description |

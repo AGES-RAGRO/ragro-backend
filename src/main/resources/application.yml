@@ -41,6 +41,16 @@ aws:
     domain: ${AWS_COGNITO_DOMAIN:https://your-cognito-domain.auth.us-east-1.amazoncognito.com}
     logout-uri: ${AWS_COGNITO_LOGOUT_URI:http://localhost:8080/}
 
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+    operations-sorter: method
+    tags-sorter: alpha
+    use-root-path: true
+
 server:
   error:
     include-message: always

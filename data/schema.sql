@@ -18,8 +18,8 @@ CREATE TABLE "addresses" (
   "complement" varchar(100),
   "neighborhood" varchar(100),
   "city" varchar(100) NOT NULL,
-  "state" char(2) NOT NULL,
-  "zip_code" char(8) NOT NULL,
+  "state" varchar(2) NOT NULL,
+  "zip_code" varchar(8) NOT NULL,
   "latitude" decimal(10,7),
   "longitude" decimal(10,7),
   "is_primary" boolean NOT NULL DEFAULT true,
@@ -61,7 +61,7 @@ CREATE TABLE "product_photos" (
 
 CREATE TABLE "customers" (
   "id" uuid PRIMARY KEY,
-  "fiscal_number" char(11) UNIQUE NOT NULL,
+  "fiscal_number" varchar(11) UNIQUE NOT NULL,
   "created_at" timestamptz NOT NULL DEFAULT now(),
   "updated_at" timestamptz NOT NULL DEFAULT now()
 );
