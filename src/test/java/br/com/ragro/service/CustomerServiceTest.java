@@ -46,7 +46,7 @@ class CustomerServiceTest {
 
     assertThatThrownBy(() -> customerService.getMyCustomer(jwt))
         .isInstanceOf(UnauthorizedException.class)
-        .hasMessage("Acesso restrito a consumidores");
+        .hasMessage("Access restricted to customers");
   }
 
   @Test
