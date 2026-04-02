@@ -12,20 +12,20 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class CustomerService {
 
-    private final UserService userService;
+  private final UserService userService;
 
-    public CustomerService(UserService userService) {
-        this.userService = userService;
+  public CustomerService(UserService userService) {
+    this.userService = userService;
+  }
+
+  @Transactional(readOnly = true)
+  public CustomerResponse getMyCustomer(Jwt jwt) {
+    User user = userService.getAuthenticatedUser(jwt);
+
+    if (user.getType() != TypeUser.CUSTOMER) {
+      throw new UnauthorizedException("Access restricted to customers");
     }
 
-    @Transactional(readOnly = true)
-    public CustomerResponse getMyCustomer(Jwt jwt) {
-        User user = userService.getAuthenticatedUser(jwt);
-
-        if (user.getType() != TypeUser.CUSTOMER) {
-            throw new UnauthorizedException("Acesso restrito a consumidores");
-        }
-
-        return CustomerMapper.toResponse(user);
-    }
+    return CustomerMapper.toResponse(user);
+  }
 }

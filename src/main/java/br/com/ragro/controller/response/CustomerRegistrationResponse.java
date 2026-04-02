@@ -2,7 +2,6 @@ package br.com.ragro.controller.response;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.OffsetDateTime;
-import java.util.List;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -15,11 +14,11 @@ import lombok.Setter;
 @NoArgsConstructor
 @Getter
 @Setter
-@Schema(description = "Customer profile response")
-public class CustomerResponse {
+@Schema(description = "Customer registration response")
+public class CustomerRegistrationResponse {
 
   @Schema(
-      description = "Unique identifier of the customer",
+      description = "Unique identifier of the customer account",
       example = "550e8400-e29b-41d4-a716-446655440000")
   private UUID id;
 
@@ -32,15 +31,24 @@ public class CustomerResponse {
   @Schema(description = "Phone number", example = "(51) 98765-4321")
   private String phone;
 
+  @Schema(
+      description = "User type",
+      example = "customer",
+      allowableValues = {"admin", "customer", "farmer"})
+  private String type;
+
   @Schema(description = "Account active status", example = "true")
   private boolean active;
+
+  @Schema(description = "CPF (fiscal number)", example = "12345678901")
+  private String fiscalNumber;
+
+  @Schema(description = "Primary address")
+  private AddressResponse address;
 
   @Schema(description = "Account creation timestamp")
   private OffsetDateTime createdAt;
 
   @Schema(description = "Last account update timestamp")
   private OffsetDateTime updatedAt;
-
-  @Schema(description = "List of customer addresses")
-  private List<AddressResponse> addresses;
 }

@@ -9,11 +9,11 @@ import lombok.Setter;
 @Setter
 public class UserRequest {
 
-    @NotBlank(message = "Name cannot be blank")
-    private String name;
+  @NotBlank(message = "Name cannot be blank")
+  private String name;
 
-    @Email(message = "Email should be valid")
-    private String email;
+  @Email(message = "Email should be valid")
+  private String email;
 
-    private String phone;
+  private String phone;
 }

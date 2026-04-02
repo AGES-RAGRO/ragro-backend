@@ -19,40 +19,55 @@ import org.springframework.web.cors.CorsConfigurationSource;
 @EnableMethodSecurity
 public class SecurityConfig {
 
-    @Bean
-        public SecurityFilterChain securityFilterChain(
-                        HttpSecurity http,
-                        CorsConfigurationSource corsConfigurationSource,
-                        JwtAuthenticationConverter jwtAuthenticationConverter
-        ) throws Exception {
-        return http
-                .csrf(AbstractHttpConfigurer::disable)
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .cors(cors -> cors.configurationSource(corsConfigurationSource))
-                .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers(HttpMethod.GET, "/actuator/health").permitAll()
-                        .requestMatchers("/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/farmer/**").hasRole("FARMER")
-                        .requestMatchers("/customer/**").hasRole("CUSTOMER")
-                        .anyRequest().authenticated()
-                )
-                .oauth2ResourceServer(oauth2 -> oauth2
-                        .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter)))
-                .build();
-    }
+  @Bean
+  public SecurityFilterChain securityFilterChain(
+      HttpSecurity http,
+      CorsConfigurationSource corsConfigurationSource,
+      JwtAuthenticationConverter jwtAuthenticationConverter)
+      throws Exception {
+    return http.csrf(AbstractHttpConfigurer::disable)
+        .sessionManagement(
+            session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        .cors(cors -> cors.configurationSource(corsConfigurationSource))
+        .authorizeHttpRequests(
+            authorize ->
+                authorize
+                    .requestMatchers(HttpMethod.GET, "/actuator/health")
+                    .permitAll()
+                    .requestMatchers(HttpMethod.POST, "/auth/register/customer")
+                    .permitAll()
+                    .requestMatchers("/v3/api-docs", "/v3/api-docs/**")
+                    .permitAll()
+                    .requestMatchers("/swagger-ui", "/swagger-ui.html", "/swagger-ui/**")
+                    .permitAll()
+                    .requestMatchers("/swagger-resources", "/swagger-resources/**")
+                    .permitAll()
+                    .requestMatchers("/webjars/**")
+                    .permitAll()
+                    .requestMatchers("/admin/**")
+                    .hasRole("ADMIN")
+                    .requestMatchers("/farmer/**")
+                    .hasRole("FARMER")
+                    .requestMatchers("/customers/**")
+                    .hasRole("CUSTOMER")
+                    .anyRequest()
+                    .authenticated())
+        .oauth2ResourceServer(
+            oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter)))
+        .build();
+  }
 
-    @Bean
-    public JwtAuthenticationConverter jwtAuthenticationConverter(
-            CognitoGroupsAuthoritiesConverter cognitoGroupsAuthoritiesConverter
-    ) {
-        JwtGrantedAuthoritiesConverter scopesConverter = new JwtGrantedAuthoritiesConverter();
-        // Mantem o prefixo padrao SCOPE_ para claims scope/scp.
-        scopesConverter.setAuthorityPrefix("SCOPE_");
+  @Bean
+  public JwtAuthenticationConverter jwtAuthenticationConverter(
+      CognitoGroupsAuthoritiesConverter cognitoGroupsAuthoritiesConverter) {
+    JwtGrantedAuthoritiesConverter scopesConverter = new JwtGrantedAuthoritiesConverter();
+    // Mantem o prefixo padrao SCOPE_ para claims scope/scp.
+    scopesConverter.setAuthorityPrefix("SCOPE_");
 
-        JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
-        converter.setJwtGrantedAuthoritiesConverter(
-                new DelegatingJwtGrantedAuthoritiesConverter(scopesConverter, cognitoGroupsAuthoritiesConverter)
-        );
-        return converter;
-    }
+    JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
+    converter.setJwtGrantedAuthoritiesConverter(
+        new DelegatingJwtGrantedAuthoritiesConverter(
+            scopesConverter, cognitoGroupsAuthoritiesConverter));
+    return converter;
+  }
 }
