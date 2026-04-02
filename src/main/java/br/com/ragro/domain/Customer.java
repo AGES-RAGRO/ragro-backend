@@ -1,15 +1,14 @@
 package br.com.ragro.domain;
 
 import jakarta.persistence.*;
+import java.time.OffsetDateTime;
+import java.util.UUID;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
-
-import java.time.OffsetDateTime;
-import java.util.UUID;
 
 @Entity
 @Table(name = "customers")
@@ -19,23 +18,23 @@ import java.util.UUID;
 @ToString(of = "id")
 public class Customer {
 
-    @Id
-    @Column(name = "id", columnDefinition = "uuid")
-    private UUID id;
+  @Id
+  @Column(name = "id", columnDefinition = "uuid")
+  private UUID id;
 
-    @MapsId
-    @OneToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "id")
-    private User user;
+  @MapsId
+  @OneToOne(fetch = FetchType.LAZY, optional = false)
+  @JoinColumn(name = "id")
+  private User user;
 
-    @Column(name = "fiscal_number", nullable = false, unique = true, length = 11)
-    private String fiscalNumber;
+  @Column(name = "fiscal_number", nullable = false, unique = true, length = 11)
+  private String fiscalNumber;
 
-    @CreationTimestamp
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private OffsetDateTime createdAt;
+  @CreationTimestamp
+  @Column(name = "created_at", nullable = false, updatable = false)
+  private OffsetDateTime createdAt;
 
-    @UpdateTimestamp
-    @Column(name = "updated_at", nullable = false)
-    private OffsetDateTime updatedAt;
+  @UpdateTimestamp
+  @Column(name = "updated_at", nullable = false)
+  private OffsetDateTime updatedAt;
 }
