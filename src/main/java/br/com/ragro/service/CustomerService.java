@@ -4,17 +4,20 @@ import br.com.ragro.controller.request.AddressRequest;
 import br.com.ragro.controller.request.CustomerRegisterRequest;
 import br.com.ragro.controller.response.CustomerResponse;
 import br.com.ragro.domain.Address;
+import br.com.ragro.domain.Customer;
 import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.TypeUser;
 import br.com.ragro.exception.BusinessException;
 import br.com.ragro.exception.UnauthorizedException;
 import br.com.ragro.mapper.CustomerMapper;
 import br.com.ragro.repository.AddressRepository;
+import br.com.ragro.repository.CustomerRepository;
 import br.com.ragro.repository.UserRepository;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 public class CustomerService {
@@ -23,15 +26,18 @@ public class CustomerService {
     private final UserRepository userRepository;
     private final AddressRepository addressRepository;
     private final CognitoService cognitoService;
+    private final CustomerRepository customerRepository;
 
     public CustomerService(
             UserService userService,
             UserRepository userRepository,
             AddressRepository addressRepository,
+            CustomerRepository customerRepository,
             CognitoService cognitoService) {
         this.userService = userService;
         this.userRepository = userRepository;
         this.addressRepository = addressRepository;
+        this.customerRepository = customerRepository;
         this.cognitoService = cognitoService;
     }
 
@@ -71,6 +77,20 @@ public class CustomerService {
 
         return CustomerMapper.toResponse(user);
     }
+
+    public CustomerResponse getCustomerById(UUID id) {
+        Optional<Customer> customerOptional = customerRepository.findById(id);
+
+        if (customerOptional.isPresent()) {
+            Customer customer = customerOptional.get();
+            return CustomerMapper.toResponse(customer);
+        } else {
+            return null;
+        }
+    }
+
+     // fazer o optional e dps mapear por id se estiver presente.
+        // teste com if id ... else response null
 
     private Address buildAddress(AddressRequest req, User user) {
         Address address = new Address();
