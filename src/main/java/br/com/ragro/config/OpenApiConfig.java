@@ -48,7 +48,6 @@ public class OpenApiConfig {
                 new Tag()
                     .name("Authentication")
                     .description("User registration and authentication"),
-                new Tag().name("Users").description("Authenticated user operations"),
                 new Tag()
                     .name("Admin")
                     .description("Administrative operations (requires ROLE_ADMIN)"),

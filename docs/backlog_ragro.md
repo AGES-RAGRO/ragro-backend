@@ -269,7 +269,7 @@ POST http://<keycloak-host>/realms/ragro/protocol/openid-connect/token
 
 * Include `Authorization: Bearer <token>` header in all API calls  
 * Handle token expiration (401 response → redirect to login)  
-* Validate whether user is active via `GET /users/me`  
+* Validate whether user is active via `GET /auth/session`  
 * Protect private routes on the client side based on role
 
 ### **FE-08 — Mobile Login Screen**
@@ -469,7 +469,7 @@ POST http://<keycloak-host>/realms/ragro/protocol/openid-connect/token
 * Reuse the same auth middleware from FE-07  
 * Include `Authorization: Bearer <token>` in all API calls  
 * Protect private producer routes on the client side  
-* Validate whether producer is active via `GET /users/me`
+* Validate whether producer is active via `GET /auth/session`
 
 ### **FE-22 — Mobile Producer Login Screen**
 

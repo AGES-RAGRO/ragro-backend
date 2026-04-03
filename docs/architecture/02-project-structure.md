@@ -18,17 +18,18 @@ ragro-backend/
 │       │   │   └── OpenApiConfig.java         # Swagger UI with Keycloak OAuth2 login
 │       │   │
 │       │   ├── controller/                    # HTTP endpoints (REST controllers)
-│       │   │   ├── AuthController.java        # POST /auth/register/customer — public registration
-│       │   │   ├── UserController.java        # GET /users/me — authenticated user profile
-│       │   │   ├── CustomerController.java    # GET /customers/me — customer profile with addresses
-│       │   │   ├── AdminUserController.java   # POST /admin/users — create user (admin)
-│       │   │   ├── RoleAccessController.java  # Role-based test endpoints (admin, farmer, customer)
+│       │   │   ├── AuthController.java        # /auth — registration, config, session
+│       │   │   ├── AdminController.java       # /admin — user management, dashboard (ROLE_ADMIN)
+│       │   │   ├── CustomerController.java    # /customers — customer profile with addresses (ROLE_CUSTOMER)
+│       │   │   ├── ProducerController.java    # /farmer — producer dashboard (ROLE_FARMER)
 │       │   │   ├── request/                   # Request DTOs (inbound)
 │       │   │   │   ├── UserRequest.java       # name, email, phone, type — with validation
 │       │   │   │   └── CustomerRegistrationRequest.java  # Full registration DTO
 │       │   │   └── response/                  # Response DTOs (outbound)
 │       │   │       ├── UserResponse.java      # id, name, email, phone, type, active, timestamps
 │       │   │       ├── CustomerResponse.java  # Customer profile with addresses
+│       │   │       ├── AuthConfigResponse.java # Keycloak token URL, client ID, realm
+│       │   │       ├── SessionResponse.java   # Authenticated user session data
 │       │   │       └── ErrorResponse.java     # timestamp, status, error, path
 │       │   │
 │       │   ├── domain/                        # JPA entities and enums
@@ -121,7 +122,10 @@ As new domains are implemented, the package structure will grow to accommodate n
 
 ```
 controller/
-├── UserController.java
+├── AuthController.java
+├── AdminController.java
+├── CustomerController.java
+├── ProducerController.java
 ├── ProductController.java       # Epic 4
 ├── CartController.java          # Epic 6
 ├── OrderController.java         # Epic 7

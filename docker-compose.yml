@@ -59,7 +59,7 @@ services:
       SPRING_JPA_HIBERNATE_DDL_AUTO: validate
       KEYCLOAK_SERVER_URL: http://keycloak:8180
       KEYCLOAK_PUBLIC_URL: http://localhost:8180
-      KEYCLOAK_ISSUER_URI: http://keycloak:8180/realms/ragro
+      KEYCLOAK_ISSUER_URI: http://localhost:8180/realms/ragro
       KEYCLOAK_JWK_SET_URI: http://keycloak:8180/realms/ragro/protocol/openid-connect/certs
     ports:
       - "8080:8080"

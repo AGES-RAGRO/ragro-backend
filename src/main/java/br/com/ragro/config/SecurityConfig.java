@@ -52,8 +52,6 @@ public class SecurityConfig {
                     .hasRole("FARMER")
                     .requestMatchers("/customers/**")
                     .hasRole("CUSTOMER")
-                    .requestMatchers("/users/**")
-                    .authenticated()
                     .anyRequest()
                     .authenticated())
         .oauth2ResourceServer(

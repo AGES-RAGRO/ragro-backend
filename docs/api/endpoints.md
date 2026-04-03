@@ -10,11 +10,26 @@ All authenticated endpoints require the header: `Authorization: Bearer <token>`
 
 ## Implemented Endpoints
 
-### Users
+### Authentication
 
-#### GET /users/me
+#### GET /auth/config
 
-Returns the authenticated user's profile. Requires any valid JWT.
+Returns the Keycloak authentication configuration. No auth required.
+
+**Response (200 OK):**
+```json
+{
+  "tokenUrl": "http://localhost:8180/realms/ragro/protocol/openid-connect/token",
+  "clientId": "ragro-app",
+  "realm": "ragro"
+}
+```
+
+---
+
+#### GET /auth/session
+
+Returns the authenticated user's session data. Requires valid JWT.
 
 **Response (200 OK):**
 ```json
@@ -22,11 +37,8 @@ Returns the authenticated user's profile. Requires any valid JWT.
   "id": "550e8400-e29b-41d4-a716-446655440000",
   "name": "Ricardo Aguiar",
   "email": "consumer@ragro.com.br",
-  "phone": "(51) 99999-0001",
   "type": "customer",
-  "active": true,
-  "createdAt": "2026-01-15T10:30:00-03:00",
-  "updatedAt": "2026-01-15T10:30:00-03:00"
+  "active": true
 }
 ```
 
@@ -133,8 +145,8 @@ The following endpoints are defined in the product backlog and will be implement
 |--------|-------|-------------|------|
 | POST | /auth/register/customer | Customer registration | 1 |
 | POST | /auth/register/producer | Producer registration (admin) | 1 |
-| POST | /auth/login/customer | Customer login | 1 |
-| POST | /auth/login/producer | Producer login | 1 |
+| GET | /auth/config | Keycloak configuration (public) | 1 |
+| GET | /auth/session | Authenticated user session | 1 |
 
 ### Customers
 
