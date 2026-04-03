@@ -11,8 +11,7 @@ From the Farm to the Table
 | :---- | :---- | :---- |
 | POST | /auth/register/customer | Customer registration |
 | POST | /auth/register/producer | Producer registration (admin) |
-| POST | /auth/login/customer | Customer login |
-| POST | /auth/login/producer | Producer login |
+| — | Keycloak: POST /realms/ragro/protocol/openid-connect/token | Login (all roles) |
 
 ## **Customers**
 
@@ -236,34 +235,42 @@ As a customer, I want to create an account to purchase products on the platform.
 
 As a customer, I want to log in to access my account.
 
+> **Note:** With Keycloak, login is handled directly by the identity provider. There is no `/auth/login` endpoint in the backend. The client (Flutter) calls the Keycloak token endpoint and receives a JWT with the user's `groups` claim, which determines the role.
+
 **Acceptance criteria:**
 
 * Login via email and password  
-* Authentication via Keycloak  
-* System must return JWT with role and userId  
-* Error on invalid credentials  
+* Authentication via Keycloak token endpoint (Direct Access Grants)  
+* Keycloak returns JWT with `groups` claim containing the user's role  
+* Client reads `groups` from JWT to redirect to the correct screen  
+* Error on invalid credentials (Keycloak returns 401)  
 * Authenticated customer can only access features permitted for their profile  
 * Inactive customer cannot access the application
 
-**Routes:**
+**Login endpoint (Keycloak — not the backend):**
 
-| Method | Route | Description |
-| :---- | :---- | :---- |
-| POST | /auth/login/customer | Authenticates customer and returns JWT |
+```
+POST http://<keycloak-host>/realms/ragro/protocol/openid-connect/token
+  client_id=ragro-app
+  grant_type=password
+  username=<email>
+  password=<password>
+```
 
 ### **FE-06 — Keycloak Authentication Integration**
 
-* Configure Keycloak Direct Access Grants login flow  
-* Implement POST /auth/login/customer endpoint  
-* Return access token
+* Configure Flutter to call Keycloak token endpoint directly  
+* Parse JWT response and extract `access_token`  
+* Decode JWT and read `groups` claim to determine role (CUSTOMER, FARMER, ADMIN)  
+* Redirect to the appropriate home screen based on role  
+* Store token securely for subsequent API calls
 
 ### **FE-07 — Authentication Middleware**
 
-* Create JWT middleware  
-* Validate Keycloak token  
-* Extract userId and role from token  
-* Protect private routes  
-* Validate whether user is active in the database
+* Include `Authorization: Bearer <token>` header in all API calls  
+* Handle token expiration (401 response → redirect to login)  
+* Validate whether user is active via `GET /auth/session`  
+* Protect private routes on the client side based on role
 
 ### **FE-08 — Mobile Login Screen**
 
@@ -431,32 +438,38 @@ As a producer, I want to edit my registration data to keep my profile up to date
 
 As a producer, I want to access my account to manage my products.
 
+> **Note:** Producer login uses the same Keycloak token endpoint as customer login. The JWT `groups` claim will contain `FARMER`, which the client uses to redirect to the producer screens.
+
 **Acceptance criteria:**
 
 * Login via email and password  
-* Authentication via Keycloak  
-* Token must contain the producer role  
+* Authentication via Keycloak token endpoint (same as customer)  
+* JWT `groups` claim contains `FARMER`  
 * Producer can only access features permitted for their profile  
 * Inactive producer cannot access the application
 
-**Routes:**
+**Login endpoint (Keycloak — same for all roles):**
 
-| Method | Route | Description |
-| :---- | :---- | :---- |
-| POST | /auth/login/producer | Authenticates producer and returns JWT |
+```
+POST http://<keycloak-host>/realms/ragro/protocol/openid-connect/token
+  client_id=ragro-app
+  grant_type=password
+  username=<email>
+  password=<password>
+```
 
 ### **FE-20 — Keycloak Authentication Integration (Producer)**
 
-* Configure Keycloak login flow for producer  
-* Implement POST /auth/login/producer endpoint  
-* Return access token
+* Reuse the same Keycloak login flow from FE-06  
+* Decode JWT and check `groups` contains `FARMER`  
+* Redirect to the producer home screen
 
 ### **FE-21 — Producer Authentication Middleware**
 
-* Validate Keycloak token  
-* Extract userId and role from token  
-* Protect private producer routes  
-* Validate whether producer is active in the database
+* Reuse the same auth middleware from FE-07  
+* Include `Authorization: Bearer <token>` in all API calls  
+* Protect private producer routes on the client side  
+* Validate whether producer is active via `GET /auth/session`
 
 ### **FE-22 — Mobile Producer Login Screen**
 

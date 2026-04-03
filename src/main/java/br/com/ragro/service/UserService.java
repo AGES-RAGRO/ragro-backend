@@ -1,7 +1,5 @@
 package br.com.ragro.service;
 
-import static br.com.ragro.mapper.UserMapper.toResponse;
-
 import br.com.ragro.controller.request.UserRequest;
 import br.com.ragro.controller.response.UserResponse;
 import br.com.ragro.domain.User;
@@ -11,7 +9,6 @@ import br.com.ragro.mapper.UserMapper;
 import br.com.ragro.repository.UserRepository;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class UserService {
@@ -38,12 +35,6 @@ public class UserService {
     User saved = userRepository.save(user);
 
     return UserMapper.toResponse(saved);
-  }
-
-  @Transactional
-  public UserResponse getMyUser(Jwt jwt) {
-    User userAuthenticated = getAuthenticatedUser(jwt);
-    return toResponse(userAuthenticated);
   }
 
   public User getAuthenticatedUser(Jwt jwt) {
