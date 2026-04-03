@@ -21,7 +21,7 @@ Fluxo esperado:
 ```text
 main
   └── develop
-       ├── feat/autenticacao-cognito
+       ├── feat/autenticacao-keycloak
        ├── feat/cadastro-consumidor
        └── fix/correcao-validacao-usuario
 ```
@@ -55,7 +55,7 @@ feat/nome-curto-da-feature
 Exemplos:
 
 ```bash
-feat/autenticacao-cognito
+feat/autenticacao-keycloak
 feat/cadastro-produtor
 feat/listagem-admin-usuarios
 ```
@@ -80,7 +80,7 @@ Exemplos:
 
 ```bash
 fix/validacao-email-usuario
-fix/erro-role-cognito
+fix/erro-role-keycloak
 fix/endpoint-me
 ```
 
@@ -121,7 +121,7 @@ Exemplo:
 
 ```bash
 git add .
-git commit -m "feat: adiciona integracao inicial com cognito"
+git commit -m "feat: adiciona integracao inicial com keycloak"
 ```
 
 Sugestao de prefixos de commit:
@@ -207,18 +207,18 @@ Recomendacoes:
 ```bash
 git checkout develop
 git pull origin develop
-git checkout -b feat/autenticacao-cognito
+git checkout -b feat/autenticacao-keycloak
 
 # faz alteracoes no codigo
 
 git add .
-git commit -m "feat: adiciona validacao de grupos do cognito"
-git push -u origin feat/autenticacao-cognito
+git commit -m "feat: adiciona validacao de grupos do keycloak"
+git push -u origin feat/autenticacao-keycloak
 ```
 
 Depois:
 
-- abrir PR de `feat/autenticacao-cognito` para `develop`
+- abrir PR de `feat/autenticacao-keycloak` para `develop`
 - revisar
 - aprovar
 - mergear em `develop`

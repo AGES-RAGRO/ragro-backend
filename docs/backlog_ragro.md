@@ -109,7 +109,7 @@ From the Farm to the Table
 # **EPIC 1 — Authentication and User Management**
 
 Objective: Enable secure authentication, role-based access control, and lifecycle management for customer, producer, and admin accounts.  
-Recommended technology: AWS Cognito, JWT
+Recommended technology: Keycloak 26, JWT
 
 ## **Entity Modeling**
 
@@ -121,7 +121,7 @@ Recommended technology: AWS Cognito, JWT
 | email | string | Unique, used as login |
 | role | enum | customer \| producer \| admin |
 | active | boolean | Access control |
-| cognitoSub | string | Cognito identifier |
+| authSub | string | Keycloak subject identifier |
 | createdAt | timestamp |  |
 | updatedAt | timestamp |  |
 
@@ -176,10 +176,10 @@ As a customer, I want to create an account to purchase products on the platform.
 
 * User must provide: name, phone number, email, password, and address  
 * Email must be unique in the system  
-* Password must comply with Cognito's security policy  
+* Password must comply with Keycloak's password policy  
 * Address must be saved and linked to the CustomerProfile  
-* User must be created in Cognito and in the application database  
-* Customer must be assigned to the 'customer' group in Cognito  
+* User must be created in Keycloak and in the application database  
+* Customer must be assigned to the 'customer' group in Keycloak  
 * Registration must allow future profile editing
 
 **Routes:**
@@ -190,17 +190,19 @@ As a customer, I want to create an account to purchase products on the platform.
 
 **Features / Technical Tasks:**
 
-### **FE-01 — Create Cognito User Pool**
+### **FE-01 — Configure Keycloak Realm**
 
-* Create Cognito User Pool  
+* Create Keycloak realm `ragro` (pre-configured via `keycloak/ragro-realm.json`)  
 * Configure required attributes  
 * Configure password policy  
 * Configure email as login  
-* Create groups: customer, producer, admin
+* Create groups: CUSTOMER, FARMER, ADMIN  
+* Configure client `ragro-app` with Direct Access Grants
 
-### **FE-02 — Role and Group Control in Cognito**
+### **FE-02 — Role and Group Control in Keycloak**
 
-* Create customer, producer, and admin groups  
+* Create CUSTOMER, FARMER, and ADMIN groups  
+* Configure group membership mapper for `groups` JWT claim  
 * Map groups to application roles
 
 ### **FE-03 — User Entity Modeling**
@@ -217,9 +219,9 @@ As a customer, I want to create an account to purchase products on the platform.
 * Create registration DTO  
 * Create POST /auth/register/customer endpoint  
 * Validate required fields  
-* Integrate with Cognito to create user  
+* Integrate with Keycloak Admin API to create user  
 * Persist user in the database  
-* Assign user to the customer group in Cognito  
+* Assign user to the customer group in Keycloak  
 * Persist CustomerProfile and Address
 
 ### **FE-05 — Mobile Registration Screen**
@@ -237,7 +239,7 @@ As a customer, I want to log in to access my account.
 **Acceptance criteria:**
 
 * Login via email and password  
-* Authentication via Cognito  
+* Authentication via Keycloak  
 * System must return JWT with role and userId  
 * Error on invalid credentials  
 * Authenticated customer can only access features permitted for their profile  
@@ -249,16 +251,16 @@ As a customer, I want to log in to access my account.
 | :---- | :---- | :---- |
 | POST | /auth/login/customer | Authenticates customer and returns JWT |
 
-### **FE-06 — Cognito Authentication Integration**
+### **FE-06 — Keycloak Authentication Integration**
 
-* Configure Cognito login flow  
+* Configure Keycloak Direct Access Grants login flow  
 * Implement POST /auth/login/customer endpoint  
 * Return access token
 
 ### **FE-07 — Authentication Middleware**
 
 * Create JWT middleware  
-* Validate Cognito token  
+* Validate Keycloak token  
 * Extract userId and role from token  
 * Protect private routes  
 * Validate whether user is active in the database
@@ -337,8 +339,8 @@ As an administrator, I want to register approved producers to allow them to sell
 * Only admin can register producers  
 * Required fields: name, CPF/CNPJ, phone, email, address, location, description, bank details  
 * Optional fields: producer story, profile photo (photoUrl)  
-* Producer must be created in Cognito and in the database  
-* Producer must be assigned to the 'producer' group in Cognito  
+* Producer must be created in Keycloak and in the database  
+* Producer must be assigned to the 'producer' group in Keycloak  
 * Producer must be able to access the platform immediately after registration
 
 **Routes:**
@@ -358,9 +360,9 @@ As an administrator, I want to register approved producers to allow them to sell
 
 * Create POST /admin/producers endpoint  
 * Validate admin role  
-* Create Cognito user  
+* Create Keycloak user  
 * Save ProducerProfile in the database  
-* Assign to producer group in Cognito  
+* Assign to producer group in Keycloak  
 * Persist bank details  
 * Validate CPF/CNPJ  
 * Validate unique email
@@ -432,7 +434,7 @@ As a producer, I want to access my account to manage my products.
 **Acceptance criteria:**
 
 * Login via email and password  
-* Authentication via Cognito  
+* Authentication via Keycloak  
 * Token must contain the producer role  
 * Producer can only access features permitted for their profile  
 * Inactive producer cannot access the application
@@ -443,15 +445,15 @@ As a producer, I want to access my account to manage my products.
 | :---- | :---- | :---- |
 | POST | /auth/login/producer | Authenticates producer and returns JWT |
 
-### **FE-20 — Cognito Authentication Integration (Producer)**
+### **FE-20 — Keycloak Authentication Integration (Producer)**
 
-* Configure Cognito login flow for producer  
+* Configure Keycloak login flow for producer  
 * Implement POST /auth/login/producer endpoint  
 * Return access token
 
 ### **FE-21 — Producer Authentication Middleware**
 
-* Validate Cognito token  
+* Validate Keycloak token  
 * Extract userId and role from token  
 * Protect private producer routes  
 * Validate whether producer is active in the database

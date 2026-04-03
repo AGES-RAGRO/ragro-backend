@@ -1,0 +1,132 @@
+{
+  "realm": "ragro",
+  "enabled": true,
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "registrationEmailAsUsername": true,
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "failureFactor": 5,
+  "waitIncrementSeconds": 60,
+  "maxFailureWaitSeconds": 900,
+  "sslRequired": "none",
+  "passwordPolicy": "length(8) and lowerCase(1) and upperCase(1) and digits(1)",
+  "requiredActions": [
+    {
+      "alias": "VERIFY_EMAIL",
+      "name": "Verify Email",
+      "providerId": "VERIFY_EMAIL",
+      "enabled": false,
+      "defaultAction": false
+    },
+    {
+      "alias": "VERIFY_PROFILE",
+      "name": "Verify Profile",
+      "providerId": "VERIFY_PROFILE",
+      "enabled": false,
+      "defaultAction": false
+    },
+    {
+      "alias": "UPDATE_PASSWORD",
+      "name": "Update Password",
+      "providerId": "UPDATE_PASSWORD",
+      "enabled": false,
+      "defaultAction": false
+    },
+    {
+      "alias": "UPDATE_PROFILE",
+      "name": "Update Profile",
+      "providerId": "UPDATE_PROFILE",
+      "enabled": false,
+      "defaultAction": false
+    }
+  ],
+  "groups": [
+    { "name": "ADMIN" },
+    { "name": "CUSTOMER" },
+    { "name": "FARMER" }
+  ],
+  "clients": [
+    {
+      "clientId": "ragro-app",
+      "enabled": true,
+      "publicClient": true,
+      "directAccessGrantsEnabled": true,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": false,
+      "fullScopeAllowed": true,
+      "redirectUris": ["*"],
+      "webOrigins": ["*"],
+      "attributes": {
+        "access.token.lifespan": "3600"
+      },
+      "protocolMappers": [
+        {
+          "name": "groups",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "consentRequired": false,
+          "config": {
+            "full.path": "false",
+            "introspection.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "groups"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "admin@ragro.com.br",
+      "email": "admin@ragro.com.br",
+      "firstName": "Admin",
+      "lastName": "RAGRO",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Admin@123",
+          "temporary": false
+        }
+      ],
+      "groups": ["ADMIN"]
+    },
+    {
+      "username": "customer@ragro.com.br",
+      "email": "customer@ragro.com.br",
+      "firstName": "Customer",
+      "lastName": "Test",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Test@123",
+          "temporary": false
+        }
+      ],
+      "groups": ["CUSTOMER"]
+    },
+    {
+      "username": "farmer@ragro.com.br",
+      "email": "farmer@ragro.com.br",
+      "firstName": "Farmer",
+      "lastName": "Test",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Test@123",
+          "temporary": false
+        }
+      ],
+      "groups": ["FARMER"]
+    }
+  ]
+}

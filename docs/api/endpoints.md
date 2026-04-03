@@ -65,7 +65,7 @@ Creates a new user. Requires `ROLE_ADMIN`.
 ```
 
 **Errors:**
-- `400 Bad Request` — email already registered or cognitoSub already exists
+- `400 Bad Request` — email already registered or authSub already exists
 
 ---
 
@@ -81,7 +81,7 @@ Verifies `ROLE_ADMIN` access. Returns JWT claims.
 ```json
 {
   "area": "admin",
-  "sub": "cognito-sub-value",
+  "sub": "keycloak-sub-uuid",
   "email": "admin@ragro.com.br",
   "groups": ["ADMIN"]
 }
@@ -97,7 +97,7 @@ Verifies `ROLE_FARMER` access. Returns JWT claims.
 ```json
 {
   "area": "farmer",
-  "sub": "cognito-sub-value",
+  "sub": "keycloak-sub-uuid",
   "email": "farmer@ragro.com.br",
   "groups": ["FARMER"]
 }
@@ -115,7 +115,7 @@ Verifies `ROLE_CUSTOMER` access. Returns JWT claims.
 ```json
 {
   "area": "customer",
-  "sub": "cognito-sub-value",
+  "sub": "keycloak-sub-uuid",
   "email": "customer@ragro.com.br",
   "groups": ["CUSTOMER"]
 }

@@ -1,5 +1,6 @@
 package br.com.ragro.config;
 
+import java.util.Arrays;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.cors.CorsConfiguration;
@@ -12,9 +13,16 @@ public class CorsConfig {
   @Bean
   public CorsConfigurationSource corsConfigurationSource() {
     CorsConfiguration configuration = new CorsConfiguration();
-    configuration.addAllowedOrigin("*");
-    configuration.addAllowedMethod("*");
-    configuration.addAllowedHeader("*");
+
+    configuration.setAllowedOrigins(
+        Arrays.asList("http://localhost:3000", "http://localhost:8080", "https://yourdomain.com"));
+
+    configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+    configuration.setAllowedHeaders(Arrays.asList("Content-Type", "Authorization"));
+    configuration.setExposedHeaders(Arrays.asList("Authorization"));
+    configuration.setAllowCredentials(true);
+    configuration.setMaxAge(3600L);
+
     UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
     source.registerCorsConfiguration("/**", configuration);
     return source;

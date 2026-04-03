@@ -50,6 +50,8 @@ public class SecurityConfig {
                     .hasRole("FARMER")
                     .requestMatchers("/customers/**")
                     .hasRole("CUSTOMER")
+                    .requestMatchers("/users/**")
+                    .authenticated()
                     .anyRequest()
                     .authenticated())
         .oauth2ResourceServer(
@@ -59,15 +61,13 @@ public class SecurityConfig {
 
   @Bean
   public JwtAuthenticationConverter jwtAuthenticationConverter(
-      CognitoGroupsAuthoritiesConverter cognitoGroupsAuthoritiesConverter) {
+      KeycloakRolesConverter keycloakRolesConverter) {
     JwtGrantedAuthoritiesConverter scopesConverter = new JwtGrantedAuthoritiesConverter();
-    // Mantem o prefixo padrao SCOPE_ para claims scope/scp.
     scopesConverter.setAuthorityPrefix("SCOPE_");
 
     JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
     converter.setJwtGrantedAuthoritiesConverter(
-        new DelegatingJwtGrantedAuthoritiesConverter(
-            scopesConverter, cognitoGroupsAuthoritiesConverter));
+        new DelegatingJwtGrantedAuthoritiesConverter(scopesConverter, keycloakRolesConverter));
     return converter;
   }
 }

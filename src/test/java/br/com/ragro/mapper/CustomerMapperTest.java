@@ -79,7 +79,7 @@ class CustomerMapperTest {
     user.setPhone("51999999999");
     user.setType(TypeUser.CUSTOMER);
     user.setActive(true);
-    user.setCognitoSub("cognito-sub-123");
+    user.setAuthSub("auth-sub-123");
     user.setCreatedAt(OffsetDateTime.now().minusDays(1));
     user.setUpdatedAt(OffsetDateTime.now());
     user.getAddresses().addAll(addresses);

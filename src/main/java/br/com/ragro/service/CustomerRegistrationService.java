@@ -47,19 +47,26 @@ public class CustomerRegistrationService {
     String externalUserId =
         identityProviderService.registerCustomer(normalizedEmail, request.getPassword());
 
-    User user = new User();
-    user.setName(request.getName().trim());
-    user.setEmail(normalizedEmail);
-    user.setPhone(normalizedPhone);
-    user.setType(TypeUser.CUSTOMER);
-    user.setActive(true);
-    user.setCognitoSub(externalUserId);
+    User savedUser;
+    Address savedAddress;
+    try {
+      User user = new User();
+      user.setName(request.getName().trim());
+      user.setEmail(normalizedEmail);
+      user.setPhone(normalizedPhone);
+      user.setType(TypeUser.CUSTOMER);
+      user.setActive(true);
+      user.setAuthSub(externalUserId);
 
-    User savedUser = userRepository.save(user);
-    customerRepository.save(CustomerMapper.toEntity(savedUser, normalizedFiscalNumber));
+      savedUser = userRepository.save(user);
+      customerRepository.save(CustomerMapper.toEntity(savedUser, normalizedFiscalNumber));
 
-    Address address = AddressMapper.toEntity(normalizedAddress, savedUser, true);
-    Address savedAddress = addressRepository.save(address);
+      Address address = AddressMapper.toEntity(normalizedAddress, savedUser, true);
+      savedAddress = addressRepository.save(address);
+    } catch (Exception e) {
+      identityProviderService.deleteUser(externalUserId);
+      throw e;
+    }
 
     return CustomerRegistrationResponse.builder()
         .id(savedUser.getId())

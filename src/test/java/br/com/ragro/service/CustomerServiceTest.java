@@ -66,7 +66,7 @@ class CustomerServiceTest {
     user.setPhone("51999999999");
     user.setType(type);
     user.setActive(true);
-    user.setCognitoSub("cognito-sub-123");
+    user.setAuthSub("auth-sub-123");
     user.setCreatedAt(OffsetDateTime.now().minusDays(1));
     user.setUpdatedAt(OffsetDateTime.now());
     return user;

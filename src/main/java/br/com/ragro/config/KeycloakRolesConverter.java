@@ -12,12 +12,11 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Component;
 
 @Component
-public class CognitoGroupsAuthoritiesConverter
-    implements Converter<Jwt, Collection<GrantedAuthority>> {
+public class KeycloakRolesConverter implements Converter<Jwt, Collection<GrantedAuthority>> {
 
   @Override
   public Collection<GrantedAuthority> convert(@NonNull Jwt jwt) {
-    List<String> groups = jwt.getClaimAsStringList("cognito:groups");
+    List<String> groups = jwt.getClaimAsStringList("groups");
     if (groups == null || groups.isEmpty()) {
       return List.of();
     }

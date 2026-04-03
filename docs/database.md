@@ -42,7 +42,7 @@ erDiagram
         varchar phone
         varchar type
         boolean active
-        text cognito_sub
+        text auth_sub
         timestamptz created_at
         timestamptz updated_at
     }
@@ -293,11 +293,11 @@ Base authentication table shared across all user types.
 | `phone` | varchar(20) | ❌ | Contact phone number |
 | `type` | varchar(20) | ✅ | User role: `farmer` \| `customer` \| `admin` |
 | `active` | boolean | ✅ | `false` = account disabled, prevents system access |
-| `cognito_sub` | text | ✅ | Unique identifier from AWS Cognito. Links the JWT token to the database record |
+| `auth_sub` | text | ✅ | Unique identifier from Keycloak. Links the JWT token to the database record |
 | `created_at` | timestamptz | ✅ | Record creation timestamp |
 | `updated_at` | timestamptz | ✅ | Last update timestamp |
 
-> **Note:** The `cognito_sub` acts as the bridge between the authentication system (AWS Cognito) and the database. When the user logs in, the backend reads the `sub` from the JWT token and fetches the corresponding record using `WHERE cognito_sub = ?`.
+> **Note:** The `auth_sub` acts as the bridge between the authentication system (Keycloak) and the database. When the user logs in, the backend reads the `sub` from the JWT token and fetches the corresponding record using `WHERE auth_sub = ?`.
 
 ---
 
