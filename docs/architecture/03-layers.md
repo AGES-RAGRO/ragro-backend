@@ -70,7 +70,7 @@ Data access via Spring Data JPA:
 ```java
 public interface UserRepository extends JpaRepository<User, UUID> {
     Optional<User> findByEmail(String email);
-    Optional<User> findByCognitoSub(String cognitoSub);
+    Optional<User> findByAuthSub(String authSub);
     boolean existsByEmail(String email);
 }
 ```

@@ -9,7 +9,7 @@
 | **Spring Security** | 6.x | Authentication and authorization |
 | **Spring Data JPA** | 3.x | Data access and ORM |
 | **PostgreSQL** | 16 | Relational database |
-| **AWS Cognito** | — | Identity provider (JWT) |
+| **Keycloak** | 26 | Identity provider (OAuth2 / JWT) |
 | **Docker** | 24+ | Containerization |
 | **Maven** | 3.9+ | Build and dependency management |
 
@@ -44,13 +44,13 @@ The project follows a **layered architecture** aligned with Spring Boot conventi
 ## Request Flow
 
 ```
-Client (Mobile App)
+Client (Mobile App / Swagger UI)
   │
   │  HTTP Request + Bearer JWT
   ▼
 SecurityConfig (Spring Security Filter Chain)
-  │  Validates JWT signature via Cognito JWKS
-  │  Extracts cognito:groups → ROLE_ADMIN / ROLE_FARMER / ROLE_CUSTOMER
+  │  Validates JWT signature via Keycloak JWKS
+  │  Extracts groups → ROLE_ADMIN / ROLE_FARMER / ROLE_CUSTOMER
   ▼
 Controller
   │  @RequestMapping — receives request
@@ -73,14 +73,18 @@ PostgreSQL
 
 ## Key Design Decisions
 
-1. **Stateless sessions** — No server-side session storage. Authentication is entirely JWT-based via AWS Cognito.
+1. **Stateless sessions** — No server-side session storage. Authentication is entirely JWT-based via Keycloak.
 
-2. **Cognito as identity provider** — User creation in Cognito is separate from database persistence. The `cognito_sub` field bridges the two systems.
+2. **Keycloak as identity provider** — User creation in Keycloak is performed via the Admin REST API, separate from database persistence. The `auth_sub` field bridges the two systems.
 
-3. **DTOs at the boundary** — Controllers receive `*Request` objects and return `*Response` objects. JPA entities never leak to the API surface.
+3. **Shared PostgreSQL** — Keycloak and the application share the same PostgreSQL container with separate databases (`gearheads` for the app, `keycloak` for Keycloak), reducing infrastructure complexity.
 
-4. **Mapper classes** — Dedicated mapper classes handle conversion between entities and DTOs, keeping controllers and services clean.
+4. **DTOs at the boundary** — Controllers receive `*Request` objects and return `*Response` objects. JPA entities never leak to the API surface.
 
-5. **Schema-first database** — The schema is defined in `data/schema.sql` and applied on first Docker startup. Hibernate is set to `validate` mode — it checks the schema but never modifies it.
+5. **Mapper classes** — Dedicated mapper classes handle conversion between entities and DTOs, keeping controllers and services clean.
 
-6. **Global exception handling** — A `@RestControllerAdvice` catches all business exceptions and returns standardized error responses.
+6. **Schema-first database** — The schema is defined in `data/schema.sql` and applied on first Docker startup. Hibernate is set to `validate` mode — it checks the schema but never modifies it.
+
+7. **Global exception handling** — A `@RestControllerAdvice` catches all business exceptions and returns standardized error responses.
+
+8. **Compensating transactions** — When registering a user, if the database save fails after Keycloak user creation, the Keycloak user is deleted to prevent orphaned accounts.
