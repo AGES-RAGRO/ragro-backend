@@ -1,7 +1,5 @@
 package br.com.ragro.controller;
 
-import br.com.ragro.controller.response.CustomerResponse;
-import br.com.ragro.service.CustomerService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.LinkedHashMap;
@@ -15,31 +13,17 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/customers")
-@Tag(name = "Customers", description = "Customer operations (requires ROLE_CUSTOMER)")
-public class CustomerController {
+@RequestMapping("/farmer")
+@Tag(name = "Producer", description = "Producer operations (requires ROLE_FARMER)")
+public class ProducerController {
 
-  private final CustomerService customerService;
-
-  public CustomerController(CustomerService customerService) {
-    this.customerService = customerService;
-  }
-
-  @GetMapping("/me")
+  @GetMapping("/dashboard")
   @Operation(
-      summary = "Get customer profile",
-      description = "Returns the customer profile with personal data and addresses.")
-  public ResponseEntity<CustomerResponse> getMyCustomer(@AuthenticationPrincipal Jwt jwt) {
-    return ResponseEntity.ok(customerService.getMyCustomer(jwt));
-  }
-
-  @GetMapping("/orders")
-  @Operation(
-      summary = "Verify customer access",
+      summary = "Verify producer access",
       description = "Test endpoint — returns JWT claims. Will be replaced.")
-  public ResponseEntity<Map<String, Object>> orders(@AuthenticationPrincipal Jwt jwt) {
+  public ResponseEntity<Map<String, Object>> dashboard(@AuthenticationPrincipal Jwt jwt) {
     Map<String, Object> payload = new LinkedHashMap<>();
-    payload.put("area", "CUSTOMER");
+    payload.put("area", "FARMER");
     payload.put("sub", jwt.getClaimAsString("sub"));
     payload.put("email", jwt.getClaimAsString("email"));
     List<String> groups = jwt.getClaimAsStringList("groups");
