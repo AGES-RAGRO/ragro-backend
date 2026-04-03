@@ -18,28 +18,18 @@ spring:
 
   security:
     oauth2:
-      client:
-        registration:
-          cognito:
-            client-name: Cognito
-            client-id: ${AWS_COGNITO_CLIENT_ID}
-            client-secret: ${AWS_COGNITO_CLIENT_SECRET}
-            client-authentication-method: client_secret_basic
-            authorization-grant-type: authorization_code
-            redirect-uri: ${AWS_COGNITO_REDIRECT_URI:http://localhost:8080/login/oauth2/code/cognito}
-            scope: openid,email,phone
-      provider:
-        cognito:
-          issuer-uri: ${AWS_COGNITO_ISSUER_URI}
-          user-name-attribute: cognito:username
       resourceserver:
         jwt:
-          issuer-uri: ${AWS_COGNITO_ISSUER_URI}
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/ragro}
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost:8180/realms/ragro/protocol/openid-connect/certs}
 
-aws:
-  cognito:
-    domain: ${AWS_COGNITO_DOMAIN:https://your-cognito-domain.auth.us-east-1.amazoncognito.com}
-    logout-uri: ${AWS_COGNITO_LOGOUT_URI:http://localhost:8080/}
+keycloak:
+  server-url: ${KEYCLOAK_SERVER_URL:http://localhost:8180}
+  public-url: ${KEYCLOAK_PUBLIC_URL:http://localhost:8180}
+  realm: ragro
+  admin:
+    username: ${KEYCLOAK_ADMIN:admin}
+    password: ${KEYCLOAK_ADMIN_PASSWORD:admin}
 
 springdoc:
   api-docs:

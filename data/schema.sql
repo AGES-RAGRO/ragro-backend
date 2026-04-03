@@ -7,7 +7,7 @@ CREATE TABLE "users" (
   "active" boolean NOT NULL DEFAULT true,
   "created_at" timestamptz NOT NULL DEFAULT now(),
   "updated_at" timestamptz NOT NULL DEFAULT now(),
-  "cognito_sub" text NOT NULL UNIQUE
+  "auth_sub" text NOT NULL UNIQUE
 );
 
 CREATE TABLE "addresses" (

@@ -103,7 +103,7 @@ The product backlog and the database/code use different terms for the same conce
 | Java | Database |
 |------|----------|
 | `createdAt` | `created_at` |
-| `cognitoSub` | `cognito_sub` |
+| `authSub` | `auth_sub` |
 | `TypeUser.FARMER` | `'farmer'` |
 
 ---

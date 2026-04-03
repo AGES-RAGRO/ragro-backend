@@ -26,13 +26,13 @@ public class UserService {
     String email = getRequiredClaim(jwt, "email");
     String sub = getRequiredClaim(jwt, "sub");
 
-    if (userRepository.existsByEmail(email) || userRepository.existsByCognitoSub(sub)) {
+    if (userRepository.existsByEmail(email) || userRepository.existsByAuthSub(sub)) {
       throw new BusinessException("E-mail já cadastrado");
     }
 
     User user = UserMapper.toEntity(request);
     user.setEmail(email);
-    user.setCognitoSub(sub);
+    user.setAuthSub(sub);
     user.setActive(true);
 
     User saved = userRepository.save(user);
@@ -49,7 +49,7 @@ public class UserService {
   public User getAuthenticatedUser(Jwt jwt) {
     String sub = getRequiredClaim(jwt, "sub");
     return userRepository
-        .findByCognitoSub(sub)
+        .findByAuthSub(sub)
         .orElseGet(
             () ->
                 userRepository

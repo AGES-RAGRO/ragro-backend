@@ -42,7 +42,7 @@ public class RoleAccessController {
   }
 
   private List<String> getGroups(Jwt jwt) {
-    List<String> groups = jwt.getClaimAsStringList("cognito:groups");
+    List<String> groups = jwt.getClaimAsStringList("groups");
     return groups == null ? List.of() : groups;
   }
 }

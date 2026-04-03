@@ -15,11 +15,11 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
   Optional<User> findByEmail(String email);
 
-  Optional<User> findByCognitoSub(String cognitoSub);
+  Optional<User> findByAuthSub(String authSub);
 
   boolean existsByEmail(@NotBlank @Email String email);
 
-  boolean existsByCognitoSub(String cognitoSub);
+  boolean existsByAuthSub(String authSub);
 
   // Busca usuários por name ou email (excluindo um ID específico)
   @Query(

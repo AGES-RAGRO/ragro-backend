@@ -14,6 +14,7 @@ public class UserMapper {
     entity.setName(request.getName());
     entity.setEmail(request.getEmail());
     entity.setPhone(request.getPhone());
+    entity.setType(request.getType());
     entity.setActive(true);
     return entity;
   }

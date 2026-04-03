@@ -42,8 +42,8 @@ public class User {
   @Column(name = "active", nullable = false)
   private boolean active = true;
 
-  @Column(name = "cognito_sub", nullable = false, unique = true)
-  private String cognitoSub;
+  @Column(name = "auth_sub", nullable = false, unique = true)
+  private String authSub;
 
   @CreationTimestamp
   @Column(name = "created_at", nullable = false, updatable = false)
