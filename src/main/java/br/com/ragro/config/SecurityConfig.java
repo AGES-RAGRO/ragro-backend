@@ -36,6 +36,8 @@ public class SecurityConfig {
                     .permitAll()
                     .requestMatchers(HttpMethod.POST, "/auth/register/customer")
                     .permitAll()
+                    .requestMatchers(HttpMethod.GET, "/auth/config")
+                    .permitAll()
                     .requestMatchers("/v3/api-docs", "/v3/api-docs/**")
                     .permitAll()
                     .requestMatchers("/swagger-ui", "/swagger-ui.html", "/swagger-ui/**")
