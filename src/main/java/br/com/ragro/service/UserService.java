@@ -1,5 +1,6 @@
 package br.com.ragro.service;
 
+import br.com.ragro.controller.request.UpdateUserRequest;
 import br.com.ragro.controller.request.UserRequest;
 import br.com.ragro.controller.response.UserResponse;
 import br.com.ragro.domain.User;
@@ -9,6 +10,7 @@ import br.com.ragro.mapper.UserMapper;
 import br.com.ragro.repository.UserRepository;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class UserService {
@@ -46,6 +48,15 @@ public class UserService {
                 userRepository
                     .findByEmail(getRequiredClaim(jwt, "email"))
                     .orElseThrow(() -> new UnauthorizedException("Usuário não autenticado")));
+  }
+
+  @Transactional
+  public User updateUser(User user, UpdateUserRequest request) {
+    user.setName(request.getName().trim());
+    if (request.getPhone() != null) {
+      user.setPhone(request.getPhone().trim());
+    }
+    return userRepository.save(user);
   }
 
   public String getRequiredClaim(Jwt jwt, String claimName) {
