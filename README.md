@@ -56,7 +56,7 @@ docker compose up --build
 ```
 
 This starts:
-- `ragro-postgres` — PostgreSQL 16 on port `5432`, initialized with `data/schema.sql`
+- `ragro-postgres` — PostgreSQL 16 on port `5432`, initialized with `data/01-schema.sql` and `data/02-seed-users.sql`
 - `ragro-keycloak` — Keycloak 26 on port `8180`, pre-configured with realm `ragro`
 - `ragro-backend` — Spring Boot API on port `8080`
 
@@ -106,11 +106,13 @@ All protected endpoints require a **Bearer JWT token** issued by Keycloak.
 
 ### Pre-configured test users
 
-| Email | Password | Role |
-|-------|----------|------|
-| `admin@ragro.com.br` | `Admin@123` | ADMIN |
-| `customer@ragro.com.br` | `Test@123` | CUSTOMER |
-| `farmer@ragro.com.br` | `Test@123` | FARMER |
+These users are created automatically in both **Keycloak** (`keycloak/ragro-realm.json`) and the **database** (`data/02-seed-users.sql`) when Docker starts from scratch. They are ready to use with no manual setup.
+
+| Email | Password | Role | DB Table |
+|-------|----------|------|----------|
+| `admin@ragro.com.br` | `Admin@123` | ADMIN | `users` only |
+| `customer@ragro.com.br` | `Test@123` | CUSTOMER | `users` + `customers` |
+| `farmer@ragro.com.br` | `Test@123` | FARMER | `users` + `farmers` |
 
 ### Obtaining a token (via curl)
 
@@ -235,7 +237,8 @@ src/
     resources/
       application.yml         # Configuration
 data/
-  schema.sql                  # Database schema (auto-applied on first run)
+  01-schema.sql               # Database schema (auto-applied on first run)
+  02-seed-users.sql           # Test users synced with Keycloak
   00-create-keycloak-db.sh    # Init script to create Keycloak database
 keycloak/
   ragro-realm.json            # Pre-configured Keycloak realm (groups, client, test users)
