@@ -81,6 +81,7 @@
   ],
   "users": [
     {
+      "id": "10000000-0000-0000-0000-000000000001",
       "username": "admin@ragro.com.br",
       "email": "admin@ragro.com.br",
       "firstName": "Admin",
@@ -97,6 +98,7 @@
       "groups": ["ADMIN"]
     },
     {
+      "id": "10000000-0000-0000-0000-000000000002",
       "username": "customer@ragro.com.br",
       "email": "customer@ragro.com.br",
       "firstName": "Customer",
@@ -113,6 +115,7 @@
       "groups": ["CUSTOMER"]
     },
     {
+      "id": "10000000-0000-0000-0000-000000000003",
       "username": "farmer@ragro.com.br",
       "email": "farmer@ragro.com.br",
       "firstName": "Farmer",

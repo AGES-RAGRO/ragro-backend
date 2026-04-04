@@ -49,7 +49,8 @@ Isso ira:
 - Volumes:
   - Dados persistidos em `postgres_data:/var/lib/postgresql/data`
   - Init script: `data/00-create-keycloak-db.sh` (cria banco `keycloak`)
-  - Schema SQL: `data/schema.sql` (cria tabelas do `gearheads`)
+  - Schema SQL: `data/01-schema.sql` (cria tabelas do `gearheads`)
+  - Seed SQL: `data/02-seed-users.sql` (insere usuários de teste)
 - Health Check: Valida conexao com o banco
 
 #### Servico: `keycloak`
@@ -82,7 +83,8 @@ Isso ira:
 /docker-compose.yml               - Orquestracao: postgres + keycloak + backend
 /docker-compose.test.yml          - Orquestracao para testes
 /.dockerignore                    - Arquivos ignorados no build
-/data/schema.sql                  - Schema SQL (montado no postgres)
+/data/01-schema.sql               - Schema SQL (montado no postgres)
+/data/02-seed-users.sql           - Seed: test users (synced with Keycloak)
 /data/00-create-keycloak-db.sh    - Init script: cria banco keycloak no postgres
 /keycloak/ragro-realm.json        - Realm Keycloak pre-configurado
 ```
