@@ -1,28 +1,34 @@
 package br.com.ragro.controller;
 
-import br.com.ragro.controller.response.ProducerGetResponse;
+import br.com.ragro.controller.response.ProducerResponse;
+import br.com.ragro.service.ProducerService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
 @RestController
 @RequestMapping("/producers")
+@RequiredArgsConstructor
 public class ProducerController {
 
-    @GetMapping("/{id}")
-    public ResponseEntity<ProducerGetResponse> getProducerById(@PathVariable UUID id) {
-        ProducerGetResponse response = ProducerGetResponse.builder()
-                .id(id)
-                .name("João Silva")
-                .email("joao.silva.agro@email.com.br")
-                .phone("(11) 98765-4321")
-                .fiscalNumber("000.000.000-00")
-                .build();
+    private final ProducerService producerService;
 
-        return ResponseEntity.ok(response);
+    @GetMapping("/{id}")
+    public ResponseEntity<ProducerResponse> getProducerById(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        var producer = producerService.findById(id)
+            .orElseThrow(() -> new RuntimeException("Produtor não encontrado"));
+
+        return ResponseEntity.ok(ProducerResponse.builder()
+                .id(producer.getId())
+                .name(producer.getName())
+                .fiscalNumber(producer.getFiscalNumber())
+                .build());
     }
 }
