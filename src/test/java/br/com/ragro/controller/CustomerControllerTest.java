@@ -17,12 +17,17 @@ import br.com.ragro.controller.request.CustomerUpdateRequest;
 import br.com.ragro.controller.response.CustomerResponse;
 import br.com.ragro.exception.NotFoundException;
 import br.com.ragro.exception.UnauthorizedException;
+import br.com.ragro.domain.User;
+import br.com.ragro.domain.enums.TypeUser;
+import br.com.ragro.repository.UserRepository;
 import br.com.ragro.service.CustomerService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -44,6 +49,16 @@ class CustomerControllerTest {
   @Autowired private ObjectMapper objectMapper;
   @MockBean private CustomerService customerService;
   @MockBean private JwtDecoder jwtDecoder;
+  @MockBean private UserRepository userRepository;
+
+  @BeforeEach
+  void stubActiveUserFilter() {
+    User activeUser = new User();
+    activeUser.setId(UUID.randomUUID());
+    activeUser.setActive(true);
+    activeUser.setType(TypeUser.CUSTOMER);
+    when(userRepository.findByAuthSub(any())).thenReturn(Optional.of(activeUser));
+  }
 
   // ─── GET /customers/me ────────────────────────────────────────────────────
 

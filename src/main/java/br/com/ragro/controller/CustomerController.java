@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/customers")
-@Tag(name = "Customers", description = "Customer operations")
+@Tag(name = "Customers", description = "Customer operations (requires ROLE_CUSTOMER)")
 public class CustomerController {
 
   private final CustomerService customerService;
@@ -31,7 +31,7 @@ public class CustomerController {
   @GetMapping("/me")
   @Operation(
       summary = "Get customer profile",
-      description = "Returns the authenticated customer's profile with personal data and addresses.")
+      description = "Returns the customer profile with personal data and addresses.")
   public ResponseEntity<CustomerResponse> getMyCustomer(@AuthenticationPrincipal Jwt jwt) {
     return ResponseEntity.ok(customerService.getMyCustomer(jwt));
   }

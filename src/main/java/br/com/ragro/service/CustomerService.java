@@ -82,7 +82,10 @@ public class CustomerService {
 
   @Transactional(readOnly = true)
   public CustomerResponse getCustomerById(UUID id, Jwt jwt) {
-     userService.getAuthenticatedUser(jwt);
+    User requester = userService.getAuthenticatedUser(jwt);
+    if (requester.getType() != TypeUser.ADMIN) {
+      throw new UnauthorizedException("Access restricted to admins");
+    }
     Customer customer =
         customerRepository
             .findById(id)
