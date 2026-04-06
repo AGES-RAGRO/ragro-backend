@@ -20,8 +20,26 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          # Substitua <REGION> e <USER_POOL_ID> pelos valores do Cognito.
-          issuer-uri: https://cognito-idp.<REGION>.amazonaws.com/<USER_POOL_ID>
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/ragro}
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost:8180/realms/ragro/protocol/openid-connect/certs}
+
+keycloak:
+  server-url: ${KEYCLOAK_SERVER_URL:http://localhost:8180}
+  public-url: ${KEYCLOAK_PUBLIC_URL:http://localhost:8180}
+  realm: ragro
+  admin:
+    username: ${KEYCLOAK_ADMIN:admin}
+    password: ${KEYCLOAK_ADMIN_PASSWORD:admin}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+    operations-sorter: method
+    tags-sorter: alpha
+    use-root-path: true
 
 server:
   error:

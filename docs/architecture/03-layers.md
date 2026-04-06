@@ -13,12 +13,16 @@ The entry point for HTTP requests. Controllers are responsible for:
 
 ```java
 @RestController
-@RequestMapping("/users")
-public class UserController {
+@RequestMapping("/auth")
+public class AuthController {
 
-    @GetMapping("/me")
-    public ResponseEntity<UserResponse> getMyUser(@AuthenticationPrincipal Jwt jwt) {
-        return ResponseEntity.ok(userService.getMyUser(jwt));
+    @GetMapping("/session")
+    public ResponseEntity<SessionResponse> getSession(@AuthenticationPrincipal Jwt jwt) {
+        User user = userService.getAuthenticatedUser(jwt);
+        return ResponseEntity.ok(SessionResponse.builder()
+            .id(user.getId()).name(user.getName())
+            .email(user.getEmail()).type(user.getType().name().toLowerCase())
+            .active(user.isActive()).build());
     }
 }
 ```
@@ -70,7 +74,7 @@ Data access via Spring Data JPA:
 ```java
 public interface UserRepository extends JpaRepository<User, UUID> {
     Optional<User> findByEmail(String email);
-    Optional<User> findByCognitoSub(String cognitoSub);
+    Optional<User> findByAuthSub(String authSub);
     boolean existsByEmail(String email);
 }
 ```

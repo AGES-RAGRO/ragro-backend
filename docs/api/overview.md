@@ -12,9 +12,19 @@ In production, all requests are made over HTTPS. There is no API version in the 
 
 ## Authentication
 
-The API uses **Bearer Token** (JWT) authentication via **AWS Cognito**.
+The API uses **Bearer Token** (JWT) authentication via **Keycloak**.
 
-After a successful login through Cognito, the client receives a JWT token. This token must be included in the `Authorization` header of all subsequent requests:
+The client obtains a JWT token from Keycloak using Direct Access Grants (Resource Owner Password):
+
+```bash
+curl -s -X POST http://localhost:8180/realms/ragro/protocol/openid-connect/token \
+  -d "client_id=ragro-app" \
+  -d "grant_type=password" \
+  -d "username=customer@ragro.com.br" \
+  -d "password=Test@123"
+```
+
+This token must be included in the `Authorization` header of all subsequent requests:
 
 ```
 Authorization: Bearer <token>
@@ -24,26 +34,26 @@ The JWT token contains the following claims used by the backend:
 
 | Claim | Description |
 |-------|-------------|
-| `sub` | Cognito subject identifier — maps to `users.cognito_sub` |
+| `sub` | Keycloak subject identifier — maps to `users.auth_sub` |
 | `email` | User's email address |
-| `cognito:groups` | User groups: `ADMIN`, `FARMER`, `CUSTOMER` |
+| `groups` | User groups: `ADMIN`, `FARMER`, `CUSTOMER` |
 
-**Token validation**: The backend validates the JWT signature using the Cognito JWKS endpoint configured in `application.yml`. Expired or invalid tokens return `401 Unauthorized`.
+**Token validation**: The backend validates the JWT signature using the Keycloak JWKS endpoint configured in `application.yml`. Expired or invalid tokens return `401 Unauthorized`.
 
 ---
 
 ## Role-Based Access Control
 
-Endpoints are protected based on Cognito group membership:
+Endpoints are protected based on Keycloak group membership:
 
 | URL Pattern | Required Role | Description |
 |-------------|---------------|-------------|
 | `/admin/**` | `ROLE_ADMIN` | Administrative operations |
 | `/farmer/**` | `ROLE_FARMER` | Farmer-specific operations |
-| `/customer/**` | `ROLE_CUSTOMER` | Customer-specific operations |
+| `/customers/**` | `ROLE_CUSTOMER` | Customer-specific operations |
 | All other endpoints | Authenticated | Any valid JWT |
 
-Roles are extracted from the `cognito:groups` claim and mapped to Spring Security authorities with the `ROLE_` prefix (e.g., `ADMIN` → `ROLE_ADMIN`).
+Roles are extracted from the `groups` claim and mapped to Spring Security authorities with the `ROLE_` prefix (e.g., `ADMIN` → `ROLE_ADMIN`).
 
 ---
 

@@ -21,7 +21,7 @@ Thrown when a business rule is violated.
 
 **Examples:**
 - Email already registered
-- CognitoSub already exists
+- AuthSub already exists
 - Invalid stock quantity
 - Cart from different farmer
 
@@ -56,7 +56,7 @@ Thrown when authentication or authorization fails at the application level.
 
 **Examples:**
 - JWT missing required claims (sub, email)
-- User not found in database for given cognitoSub/email
+- User not found in database for given authSub/email
 - User account is inactive
 
 ```java

@@ -10,13 +10,13 @@ The product backlog and the database/code use different terms for the same conce
 
 | Backlog (User-facing) | Database / Code | Where used |
 |------------------------|-----------------|------------|
-| Consumer | Customer | `users.type = 'customer'`, `customers` table, `TypeUser.CUSTOMER`, `ROLE_CUSTOMER` |
+| Customer | Customer | `users.type = 'customer'`, `customers` table, `TypeUser.CUSTOMER`, `ROLE_CUSTOMER` |
 | Producer | Farmer | `users.type = 'farmer'`, `farmers` table, `TypeUser.FARMER`, `ROLE_FARMER` |
 | Admin | Admin | `users.type = 'admin'`, `TypeUser.ADMIN`, `ROLE_ADMIN` |
 | ProducerProfile | Farmer | `farmers` table — 1:1 with `users` |
-| ConsumerProfile | Customer | `customers` table — 1:1 with `users` |
+| CustomerProfile | Customer | `customers` table — 1:1 with `users` |
 
-**Rule**: In user-facing text (API docs, error messages, mobile app), use backlog terms (consumer, producer). In code (entities, database, variables), use the database terms (customer, farmer).
+**Rule**: In user-facing text (API docs, error messages, mobile app) and in code (entities, database, variables), use the terms above consistently. For producers, the user-facing term is "producer" while the code/database term is "farmer".
 
 ---
 
@@ -103,7 +103,7 @@ The product backlog and the database/code use different terms for the same conce
 | Java | Database |
 |------|----------|
 | `createdAt` | `created_at` |
-| `cognitoSub` | `cognito_sub` |
+| `authSub` | `auth_sub` |
 | `TypeUser.FARMER` | `'farmer'` |
 
 ---

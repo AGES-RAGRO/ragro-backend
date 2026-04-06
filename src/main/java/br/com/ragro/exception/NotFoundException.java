@@ -2,7 +2,7 @@ package br.com.ragro.exception;
 
 public class NotFoundException extends RuntimeException {
 
-    public NotFoundException(String message) {
-        super(message);
-    }
+  public NotFoundException(String message) {
+    super(message);
+  }
 }
