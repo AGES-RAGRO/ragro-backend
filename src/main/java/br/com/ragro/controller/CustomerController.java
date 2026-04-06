@@ -49,20 +49,6 @@ public class CustomerController {
     return ResponseEntity.ok(customerService.updateMyCustomer(jwt, request));
   }
 
-  @GetMapping("/orders")
-  @Operation(
-      summary = "Verify customer access",
-      description = "Test endpoint — returns JWT claims. Will be replaced.")
-  public ResponseEntity<Map<String, Object>> orders(@AuthenticationPrincipal Jwt jwt) {
-    Map<String, Object> payload = new LinkedHashMap<>();
-    payload.put("area", "CUSTOMER");
-    payload.put("sub", jwt.getClaimAsString("sub"));
-    payload.put("email", jwt.getClaimAsString("email"));
-    List<String> groups = jwt.getClaimAsStringList("groups");
-    payload.put("groups", groups == null ? List.of() : groups);
-    return ResponseEntity.ok(payload);
-  }
-
   @GetMapping("/{id}")
   @Operation(
       summary = "Get customer by ID",
