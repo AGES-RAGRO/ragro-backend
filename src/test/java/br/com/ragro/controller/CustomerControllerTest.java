@@ -12,7 +12,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import br.com.ragro.config.CorsConfig;
 import br.com.ragro.config.KeycloakRolesConverter;
 import br.com.ragro.config.SecurityConfig;
-import br.com.ragro.controller.request.UpdateUserRequest;
+import br.com.ragro.controller.request.AddressRequest;
+import br.com.ragro.controller.request.CustomerUpdateRequest;
 import br.com.ragro.controller.response.CustomerResponse;
 import br.com.ragro.exception.NotFoundException;
 import br.com.ragro.exception.UnauthorizedException;
@@ -79,12 +80,10 @@ class CustomerControllerTest {
     CustomerResponse response = buildCustomerResponse();
     response.setName("Novo Nome");
     response.setPhone("51988887777");
-    when(customerService.updateMyCustomer(any(UpdateUserRequest.class), any()))
+    when(customerService.updateMyCustomer(any(), any(CustomerUpdateRequest.class)))
         .thenReturn(response);
 
-    UpdateUserRequest request = new UpdateUserRequest();
-    request.setName("Novo Nome");
-    request.setPhone("51988887777");
+    CustomerUpdateRequest request = buildUpdateRequest("Novo Nome", "51988887777");
 
     mockMvc
         .perform(jsonPut("/customers/me", request).with(asCustomer()))
@@ -95,8 +94,7 @@ class CustomerControllerTest {
 
   @Test
   void updateMyCustomer_shouldReturn400_whenNameIsBlank() throws Exception {
-    UpdateUserRequest request = new UpdateUserRequest();
-    request.setName("");
+    CustomerUpdateRequest request = buildUpdateRequest("", "51988887777");
 
     mockMvc
         .perform(jsonPut("/customers/me", request).with(asCustomer()))
@@ -105,9 +103,7 @@ class CustomerControllerTest {
 
   @Test
   void updateMyCustomer_shouldReturn400_whenPhoneExceedsMaxLength() throws Exception {
-    UpdateUserRequest request = new UpdateUserRequest();
-    request.setName("João Silva");
-    request.setPhone("1".repeat(21));
+    CustomerUpdateRequest request = buildUpdateRequest("João Silva", "1".repeat(21));
 
     mockMvc
         .perform(jsonPut("/customers/me", request).with(asCustomer()))
@@ -116,8 +112,7 @@ class CustomerControllerTest {
 
   @Test
   void updateMyCustomer_shouldReturn403_whenAuthenticatedWithoutCustomerRole() throws Exception {
-    UpdateUserRequest request = new UpdateUserRequest();
-    request.setName("João Silva");
+    CustomerUpdateRequest request = buildUpdateRequest("João Silva", "51988887777");
 
     mockMvc
         .perform(jsonPut("/customers/me", request).with(asFarmer()))
@@ -126,8 +121,7 @@ class CustomerControllerTest {
 
   @Test
   void updateMyCustomer_shouldReturn401_whenUnauthenticated() throws Exception {
-    UpdateUserRequest request = new UpdateUserRequest();
-    request.setName("João Silva");
+    CustomerUpdateRequest request = buildUpdateRequest("João Silva", "51988887777");
 
     mockMvc.perform(jsonPut("/customers/me", request)).andExpect(status().isUnauthorized());
   }
@@ -201,6 +195,21 @@ class CustomerControllerTest {
     return put(url)
         .contentType(Objects.requireNonNull(MediaType.APPLICATION_JSON))
         .content(Objects.requireNonNull(objectMapper.writeValueAsString(body)));
+  }
+
+  private CustomerUpdateRequest buildUpdateRequest(String name, String phone) {
+    AddressRequest address = new AddressRequest();
+    address.setStreet("Rua das Flores");
+    address.setNumber("123");
+    address.setCity("Porto Alegre");
+    address.setState("RS");
+    address.setZipCode("90010120");
+
+    CustomerUpdateRequest request = new CustomerUpdateRequest();
+    request.setName(name);
+    request.setPhone(phone);
+    request.setAddress(address);
+    return request;
   }
 
   private CustomerResponse buildCustomerResponse() {
