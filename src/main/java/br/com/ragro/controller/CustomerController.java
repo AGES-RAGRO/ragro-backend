@@ -66,7 +66,7 @@ public class CustomerController {
   @GetMapping("/{id}")
   @Operation(
       summary = "Get customer by ID",
-      description = "Returns a customer profile by ID. Requires ROLE_ADMIN.")
+      description = "Returns a customer profile by ID.")
   public ResponseEntity<CustomerResponse> getCustomerById(
       @AuthenticationPrincipal Jwt jwt, @PathVariable UUID id) {
     return ResponseEntity.ok(customerService.getCustomerById(id, jwt));
