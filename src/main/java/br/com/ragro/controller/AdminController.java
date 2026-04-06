@@ -1,7 +1,9 @@
 package br.com.ragro.controller;
 
 import br.com.ragro.controller.request.UserRequest;
+import br.com.ragro.controller.response.ProducerResponse;
 import br.com.ragro.controller.response.UserResponse;
+import br.com.ragro.service.ProducerService;
 import br.com.ragro.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -9,11 +11,13 @@ import jakarta.validation.Valid;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -25,9 +29,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminController {
 
   private final UserService userService;
+  private final ProducerService producerService;
 
-  public AdminController(UserService userService) {
+  public AdminController(UserService userService, ProducerService producerService) {
     this.userService = userService;
+    this.producerService = producerService;
   }
 
   @PostMapping("/users")
@@ -36,6 +42,14 @@ public class AdminController {
       @AuthenticationPrincipal Jwt jwt, @Valid @RequestBody UserRequest request) {
     UserResponse response = userService.addUser(jwt, request);
     return ResponseEntity.status(HttpStatus.CREATED).body(response);
+  }
+
+  @GetMapping("/producers/{id}")
+  @Operation(
+      summary = "Get producer details",
+      description = "Returns the details of a specific producer by ID.")
+  public ResponseEntity<ProducerResponse> getProducer(@PathVariable UUID id) {
+    return ResponseEntity.ok(producerService.getProducerById(id));
   }
 
   @GetMapping("/dashboard")
