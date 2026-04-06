@@ -20,18 +20,19 @@ import org.hibernate.annotations.UpdateTimestamp;
 public class ProducerProfile {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(columnDefinition = "uuid")
+    @Column(name = "id", columnDefinition = "uuid")
     private UUID id;
+
+    @MapsId
+    @OneToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "id")
+    private User user;
 
     @Column(columnDefinition = "TEXT")
     private String story;
 
     @Column(name = "photo_url")
     private String photoUrl;
-
-    @Column
-    private Double rating;
 
     @Column(name = "member_since")
     private LocalDate memberSince;
@@ -43,8 +44,4 @@ public class ProducerProfile {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
-
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false, unique = true)
-    private User user;
 }

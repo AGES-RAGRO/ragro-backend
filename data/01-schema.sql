@@ -42,6 +42,15 @@ CREATE TABLE "farmers" (
   "updated_at" timestamptz NOT NULL DEFAULT now()
 );
 
+CREATE TABLE "producer_profiles" (
+  "id" uuid PRIMARY KEY,
+  "story" text,
+  "photo_url" text,
+  "member_since" date,
+  "created_at" timestamptz NOT NULL DEFAULT now(),
+  "updated_at" timestamptz NOT NULL DEFAULT now()
+);
+
 CREATE TABLE "farmer_availability" (
   "id" uuid PRIMARY KEY DEFAULT (gen_random_uuid()),
   "farmer_id" uuid NOT NULL,
@@ -269,6 +278,8 @@ COMMENT ON COLUMN "payment_methods"."account_type" IS 'checking | savings';
 ALTER TABLE "addresses" ADD FOREIGN KEY ("user_id") REFERENCES "users" ("id") DEFERRABLE INITIALLY IMMEDIATE;
 
 ALTER TABLE "farmers" ADD FOREIGN KEY ("id") REFERENCES "users" ("id") DEFERRABLE INITIALLY IMMEDIATE;
+
+ALTER TABLE "producer_profiles" ADD FOREIGN KEY ("id") REFERENCES "users" ("id") DEFERRABLE INITIALLY IMMEDIATE;
 
 ALTER TABLE "farmer_availability" ADD FOREIGN KEY ("farmer_id") REFERENCES "farmers" ("id") DEFERRABLE INITIALLY IMMEDIATE;
 
