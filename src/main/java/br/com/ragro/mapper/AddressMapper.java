@@ -4,6 +4,7 @@ import br.com.ragro.controller.request.AddressRequest;
 import br.com.ragro.controller.response.AddressResponse;
 import br.com.ragro.domain.Address;
 import br.com.ragro.domain.User;
+import java.util.Locale;
 import lombok.experimental.UtilityClass;
 import org.springframework.lang.NonNull;
 
@@ -26,6 +27,31 @@ public class AddressMapper {
     address.setLongitude(request.getLongitude());
     address.setPrimary(isPrimary);
     return address;
+  }
+
+  /** Updates an existing address from a request (does not change user or primary flag). */
+  public static void applyRequest(@NonNull Address address, @NonNull AddressRequest request) {
+    address.setStreet(request.getStreet().trim());
+    address.setNumber(request.getNumber().trim());
+    address.setComplement(trimToNull(request.getComplement()));
+    address.setNeighborhood(trimToNull(request.getNeighborhood()));
+    address.setCity(request.getCity().trim());
+    address.setState(request.getState().trim().toUpperCase(Locale.ROOT));
+    address.setZipCode(digitsOnly(request.getZipCode()));
+    address.setLatitude(request.getLatitude());
+    address.setLongitude(request.getLongitude());
+  }
+
+  private static String trimToNull(String value) {
+    if (value == null) {
+      return null;
+    }
+    String trimmed = value.trim();
+    return trimmed.isEmpty() ? null : trimmed;
+  }
+
+  private static String digitsOnly(String value) {
+    return value.replaceAll("\\D", "");
   }
 
   @NonNull
