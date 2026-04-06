@@ -1,8 +1,11 @@
 package br.com.ragro.controller;
 
+import br.com.ragro.controller.request.ProducerRegistrationRequest;
 import br.com.ragro.controller.request.UserRequest;
+import br.com.ragro.controller.response.ProducerRegistrationResponse;
 import br.com.ragro.controller.response.ProducerResponse;
 import br.com.ragro.controller.response.UserResponse;
+import br.com.ragro.service.ProducerRegistrationService;
 import br.com.ragro.service.ProducerService;
 import br.com.ragro.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -30,32 +33,34 @@ public class AdminController {
 
   private final UserService userService;
   private final ProducerService producerService;
+  private final ProducerRegistrationService producerRegistrationService;
 
-  public AdminController(UserService userService, ProducerService producerService) {
+  public AdminController(UserService userService, ProducerService producerService, ProducerRegistrationService producerRegistrationService) {
     this.userService = userService;
     this.producerService = producerService;
+    this.producerRegistrationService = producerRegistrationService;
   }
 
   @PostMapping("/users")
   @Operation(summary = "Create a user", description = "Creates a new user with the given type.")
   public ResponseEntity<UserResponse> addUser(
-      @AuthenticationPrincipal Jwt jwt, @Valid @RequestBody UserRequest request) {
+          @AuthenticationPrincipal Jwt jwt, @Valid @RequestBody UserRequest request) {
     UserResponse response = userService.addUser(jwt, request);
     return ResponseEntity.status(HttpStatus.CREATED).body(response);
   }
 
   @GetMapping("/producers/{id}")
   @Operation(
-      summary = "Get producer details",
-      description = "Returns the details of a specific producer by ID.")
+          summary = "Get producer details",
+          description = "Returns the details of a specific producer by ID.")
   public ResponseEntity<ProducerResponse> getProducer(@PathVariable UUID id) {
     return ResponseEntity.ok(producerService.getProducerById(id));
   }
 
   @GetMapping("/dashboard")
   @Operation(
-      summary = "Verify admin access",
-      description = "Test endpoint — returns JWT claims. Will be replaced.")
+          summary = "Verify admin access",
+          description = "Test endpoint — returns JWT claims. Will be replaced.")
   public ResponseEntity<Map<String, Object>> dashboard(@AuthenticationPrincipal Jwt jwt) {
     Map<String, Object> payload = new LinkedHashMap<>();
     payload.put("area", "ADMIN");
@@ -68,5 +73,15 @@ public class AdminController {
   private List<String> getGroups(Jwt jwt) {
     List<String> groups = jwt.getClaimAsStringList("groups");
     return groups == null ? List.of() : groups;
+  }
+
+  @PostMapping("/producers")
+  @Operation(
+          summary = "Register producer",
+          description = "Creates a new producer profile in the system.")
+  public ResponseEntity<ProducerRegistrationResponse> register(
+          @Valid @RequestBody ProducerRegistrationRequest request) {
+    return ResponseEntity.status(HttpStatus.CREATED)
+            .body(producerRegistrationService.register(request));
   }
 }
