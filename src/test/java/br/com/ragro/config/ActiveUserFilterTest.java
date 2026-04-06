@@ -11,8 +11,6 @@ import br.com.ragro.domain.enums.TypeUser;
 import br.com.ragro.repository.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletResponse;
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.time.OffsetDateTime;
 import java.util.Optional;
 import java.util.UUID;
