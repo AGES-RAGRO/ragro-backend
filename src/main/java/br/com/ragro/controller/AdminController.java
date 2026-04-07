@@ -18,6 +18,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -50,6 +51,14 @@ public class AdminController {
       description = "Returns the details of a specific producer by ID.")
   public ResponseEntity<ProducerResponse> getProducer(@PathVariable UUID id) {
     return ResponseEntity.ok(producerService.getProducerById(id));
+  }
+
+  @PatchMapping("/producers/{id}/activate")
+  @Operation(
+      summary = "Activate a producer",
+      description = "Sets the status of a producer to active by ID.")
+  public ResponseEntity<ProducerResponse> activateProducer(@PathVariable UUID id) {
+    return ResponseEntity.ok(producerService.activateProducer(id));
   }
 
   @GetMapping("/dashboard")

@@ -2,6 +2,7 @@ package br.com.ragro.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import br.com.ragro.controller.response.ProducerResponse;
@@ -75,6 +76,54 @@ class ProducerServiceTest {
         .hasMessage("Produtor não encontrado");
   }
 
+  @Test
+  void activateProducer_shouldActivateAndReturnResponse_whenProducerExists() {
+    UUID producerId = UUID.randomUUID();
+    User producer = buildProducer(producerId);
+    producer.setActive(false);
+    when(userRepository.findById(producerId)).thenReturn(Optional.of(producer));
+    when(userRepository.save(producer)).thenReturn(producer);
+
+    ProducerResponse response = producerService.activateProducer(producerId);
+
+    assertThat(response).isNotNull();
+    assertThat(response.getId()).isEqualTo(producerId);
+    assertThat(response.isActive()).isTrue();
+    verify(userRepository).save(producer);
+  }
+
+  @Test
+  void activateProducer_shouldThrowNotFoundException_whenProducerNotFound() {
+    UUID producerId = UUID.randomUUID();
+    when(userRepository.findById(producerId)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> producerService.activateProducer(producerId))
+        .isInstanceOf(NotFoundException.class)
+        .hasMessage("Produtor não encontrado");
+  }
+
+  @Test
+  void activateProducer_shouldThrowNotFoundException_whenUserIsNotFarmer() {
+    UUID customerId = UUID.randomUUID();
+    User customer = buildUser(customerId, TypeUser.CUSTOMER, "Maria Customer");
+    when(userRepository.findById(customerId)).thenReturn(Optional.of(customer));
+
+    assertThatThrownBy(() -> producerService.activateProducer(customerId))
+        .isInstanceOf(NotFoundException.class)
+        .hasMessage("Produtor não encontrado");
+  }
+
+  @Test
+  void activateProducer_shouldThrowNotFoundException_whenUserIsAdmin() {
+    UUID adminId = UUID.randomUUID();
+    User admin = buildUser(adminId, TypeUser.ADMIN, "Admin User");
+    when(userRepository.findById(adminId)).thenReturn(Optional.of(admin));
+
+    assertThatThrownBy(() -> producerService.activateProducer(adminId))
+        .isInstanceOf(NotFoundException.class)
+        .hasMessage("Produtor não encontrado");
+  }
+
   private User buildProducer(UUID id) {
     return buildUser(id, TypeUser.FARMER, "João Farmer");
   }
@@ -93,3 +142,4 @@ class ProducerServiceTest {
     return user;
   }
 }
+
