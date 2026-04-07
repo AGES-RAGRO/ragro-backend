@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak-deployment
+  namespace: ragro
+  labels:
+    app: keycloak
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: keycloak
+  template:
+    metadata:
+      labels:
+        app: keycloak
+    spec:
+      initContainers:
+      - name: wait-for-postgres
+        image: busybox:1.36
+        command:
+        - sh
+        - -c
+        - |
+          until nc -z postgres-service 5432; do sleep 3; done
+      containers:
+      - name: keycloak
+        image: quay.io/keycloak/keycloak:26.0
+        args:
+        - start-dev
+        - --import-realm
+        ports:
+        - containerPort: 8180
+        env:
+        - name: KC_DB
+          valueFrom:
+            configMapKeyRef:
+              name: app-configmap
+              key: KC_DB
+        - name: KC_DB_URL
+          valueFrom:
+            configMapKeyRef:
+              name: app-configmap
+              key: KC_DB_URL
+        - name: KC_DB_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret
+              key: POSTGRES_USER
+        - name: KC_DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret
+              key: POSTGRES_PASSWORD
+        - name: KC_HTTP_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: app-configmap
+              key: KC_HTTP_PORT
+        - name: KEYCLOAK_ADMIN
+          valueFrom:
+            secretKeyRef:
+              name: keycloak-secret
+              key: KEYCLOAK_ADMIN
+        - name: KEYCLOAK_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: keycloak-secret
+              key: KEYCLOAK_ADMIN_PASSWORD
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: 8180
+          initialDelaySeconds: 60
+          periodSeconds: 15
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: 8180
+          initialDelaySeconds: 90
+          periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: keycloak-service
+  namespace: ragro
+spec:
+  selector:
+    app: keycloak
+  ports:
+  - port: 8180
+    targetPort: 8180
