@@ -39,6 +39,15 @@ spec:
         volumeMounts:
         - name: postgres-storage
           mountPath: /var/lib/postgresql/data
+        - name: initdb-scripts
+          mountPath: /docker-entrypoint-initdb.d/00-create-keycloak-db.sh
+          subPath: 00-create-keycloak-db.sh
+        - name: initdb-sql
+          mountPath: /docker-entrypoint-initdb.d/01-schema.sql
+          subPath: 01-schema.sql
+        - name: initdb-sql
+          mountPath: /docker-entrypoint-initdb.d/02-seed-users.sql
+          subPath: 02-seed-users.sql
         readinessProbe:
           exec:
             command: ["pg_isready", "-U", "postgres"]
@@ -53,6 +62,12 @@ spec:
       - name: postgres-storage
         persistentVolumeClaim:
           claimName: postgres-pvc
+      - name: initdb-scripts
+        configMap:
+          name: postgres-initdb
+      - name: initdb-sql
+        configMap:
+          name: postgres-initdb-sql
 ---
 apiVersion: v1
 kind: Service
