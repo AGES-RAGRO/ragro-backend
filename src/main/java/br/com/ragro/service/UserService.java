@@ -34,7 +34,7 @@ public class UserService {
     user.setAuthSub(sub);
     user.setActive(true);
 
-    User saved = userRepository.save(user);
+    User saved = userRepository.saveAndFlush(user);
 
     return UserMapper.toResponse(saved);
   }
@@ -56,7 +56,7 @@ public class UserService {
     if (request.getPhone() != null) {
       user.setPhone(request.getPhone().trim());
     }
-    return userRepository.save(user);
+    return userRepository.saveAndFlush(user);
   }
 
   public String getRequiredClaim(Jwt jwt, String claimName) {

@@ -49,9 +49,9 @@ public class ProducerRegistrationService {
             user.setActive(true);
             user.setAuthSub(externalUserId);
 
-            User savedUser = userRepository.save(user);
+            User savedUser = userRepository.saveAndFlush(user);
 
-            Producer savedProducer = producerRepository.save(
+            Producer savedProducer = producerRepository.saveAndFlush(
                     ProducerMapper.toEntity(savedUser, request, normalizedFiscalNumber)
             );
 
