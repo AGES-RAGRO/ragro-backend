@@ -58,8 +58,8 @@ public class CustomerRegistrationService {
       user.setActive(true);
       user.setAuthSub(externalUserId);
 
-      savedUser = userRepository.save(user);
-      customerRepository.save(CustomerMapper.toEntity(savedUser, normalizedFiscalNumber));
+      savedUser = userRepository.saveAndFlush(user);
+      customerRepository.saveAndFlush(CustomerMapper.toEntity(savedUser, normalizedFiscalNumber));
 
       Address address = AddressMapper.toEntity(normalizedAddress, savedUser, true);
       savedAddress = addressRepository.save(address);

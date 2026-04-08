@@ -105,14 +105,14 @@ class ProducerServiceTest {
     User producer = buildProducer(producerId);
     producer.setActive(false);
     when(userRepository.findById(producerId)).thenReturn(Optional.of(producer));
-    when(userRepository.save(producer)).thenReturn(producer);
+    when(userRepository.saveAndFlush(producer)).thenReturn(producer);
 
     ProducerResponse response = producerService.activateProducer(producerId);
 
     assertThat(response).isNotNull();
     assertThat(response.getId()).isEqualTo(producerId);
     assertThat(response.isActive()).isTrue();
-    verify(userRepository).save(producer);
+    verify(userRepository).saveAndFlush(producer);
   }
 
   @Test
