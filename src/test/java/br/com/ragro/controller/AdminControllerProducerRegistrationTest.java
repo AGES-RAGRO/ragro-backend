@@ -81,7 +81,7 @@ class AdminControllerProducerRegistrationTest {
 
     @Test
     @WithMockUser(roles = "ADMIN")
-    void registerProducer_shouldReturn200WithProducerData_whenRequestIsValid() throws Exception {
+    void registerProducer_shouldReturn201WithProducerData_whenRequestIsValid() throws Exception {
         UUID id = UUID.randomUUID();
         when(producerRegistrationService.register(any())).thenReturn(validResponse(id));
 

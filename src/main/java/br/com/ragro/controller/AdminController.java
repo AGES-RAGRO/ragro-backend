@@ -106,7 +106,6 @@ public class AdminController {
           description = "Creates a new producer profile in the system.")
   public ResponseEntity<ProducerRegistrationResponse> register(
           @Valid @RequestBody ProducerRegistrationRequest request) {
-    return ResponseEntity.status(HttpStatus.CREATED)
-            .body(producerRegistrationService.register(request));
+    return ResponseEntity.status(HttpStatus.CREATED).body(producerRegistrationService.register(request));
   }
 }
