@@ -7,7 +7,7 @@ CREATE TABLE "users" (
   "active" boolean NOT NULL DEFAULT true,
   "created_at" timestamptz NOT NULL DEFAULT now(),
   "updated_at" timestamptz NOT NULL DEFAULT now(),
-  "cognito_sub" text NOT NULL UNIQUE
+  "auth_sub" text NOT NULL UNIQUE
 );
 
 CREATE TABLE "addresses" (
@@ -18,8 +18,8 @@ CREATE TABLE "addresses" (
   "complement" varchar(100),
   "neighborhood" varchar(100),
   "city" varchar(100) NOT NULL,
-  "state" char(2) NOT NULL,
-  "zip_code" char(8) NOT NULL,
+  "state" varchar(2) NOT NULL,
+  "zip_code" varchar(8) NOT NULL,
   "latitude" decimal(10,7),
   "longitude" decimal(10,7),
   "is_primary" boolean NOT NULL DEFAULT true,
@@ -38,6 +38,15 @@ CREATE TABLE "farmers" (
   "average_rating" decimal(3,2) NOT NULL DEFAULT 0,
   "total_orders" integer NOT NULL DEFAULT 0,
   "total_sales_amount" decimal(14,2) NOT NULL DEFAULT 0,
+  "created_at" timestamptz NOT NULL DEFAULT now(),
+  "updated_at" timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE "producer_profiles" (
+  "id" uuid PRIMARY KEY,
+  "story" text,
+  "photo_url" text,
+  "member_since" date,
   "created_at" timestamptz NOT NULL DEFAULT now(),
   "updated_at" timestamptz NOT NULL DEFAULT now()
 );
@@ -61,7 +70,7 @@ CREATE TABLE "product_photos" (
 
 CREATE TABLE "customers" (
   "id" uuid PRIMARY KEY,
-  "fiscal_number" char(11) UNIQUE NOT NULL,
+  "fiscal_number" varchar(11) UNIQUE NOT NULL,
   "created_at" timestamptz NOT NULL DEFAULT now(),
   "updated_at" timestamptz NOT NULL DEFAULT now()
 );
@@ -269,6 +278,8 @@ COMMENT ON COLUMN "payment_methods"."account_type" IS 'checking | savings';
 ALTER TABLE "addresses" ADD FOREIGN KEY ("user_id") REFERENCES "users" ("id") DEFERRABLE INITIALLY IMMEDIATE;
 
 ALTER TABLE "farmers" ADD FOREIGN KEY ("id") REFERENCES "users" ("id") DEFERRABLE INITIALLY IMMEDIATE;
+
+ALTER TABLE "producer_profiles" ADD FOREIGN KEY ("id") REFERENCES "users" ("id") DEFERRABLE INITIALLY IMMEDIATE;
 
 ALTER TABLE "farmer_availability" ADD FOREIGN KEY ("farmer_id") REFERENCES "farmers" ("id") DEFERRABLE INITIALLY IMMEDIATE;
 
