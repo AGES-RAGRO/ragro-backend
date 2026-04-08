@@ -36,7 +36,17 @@ public class ProducerService {
 
     producer.setActive(true);
     userRepository.save(producer);
+    return ProducerMapper.toResponse(producer);
+  }
 
+  public ProducerResponse deactivateProducer(UUID id) {
+  var producer =
+      userRepository
+          .findById(id)
+          .filter(user -> user.getType() == TypeUser.FARMER)
+          .orElseThrow(() -> new NotFoundException("Produtor não encontrado"));
+  producer.setActive(false);
+    userRepository.save(producer);
     return ProducerMapper.toResponse(producer);
   }
 }
