@@ -68,17 +68,16 @@ spec:
               name: keycloak-secret
               key: KEYCLOAK_ADMIN_PASSWORD
         readinessProbe:
-          httpGet:
-            path: /health/ready
+          tcpSocket:
             port: 8180
           initialDelaySeconds: 60
-          periodSeconds: 15
+          periodSeconds: 10
         livenessProbe:
-          httpGet:
-            path: /health/live
+          tcpSocket:
             port: 8180
-          initialDelaySeconds: 90
+          initialDelaySeconds: 120
           periodSeconds: 15
+          failureThreshold: 5
 ---
 apiVersion: v1
 kind: Service
