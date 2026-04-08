@@ -45,6 +45,14 @@ public class AdminController {
     return ResponseEntity.status(HttpStatus.CREATED).body(response);
   }
 
+  @GetMapping("/producers")
+  @Operation(
+      summary = "List all producers",
+      description = "Returns a list of all registered producers.")
+  public ResponseEntity<List<ProducerResponse>> getProducers() {
+    return ResponseEntity.ok(producerService.getAllProducers());
+  }
+
   @GetMapping("/producers/{id}")
   @Operation(
       summary = "Get producer details",

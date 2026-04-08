@@ -5,6 +5,7 @@ import br.com.ragro.domain.enums.TypeUser;
 import br.com.ragro.exception.NotFoundException;
 import br.com.ragro.mapper.ProducerMapper;
 import br.com.ragro.repository.UserRepository;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 
@@ -15,6 +16,12 @@ public class ProducerService {
 
   public ProducerService(UserRepository userRepository) {
     this.userRepository = userRepository;
+  }
+
+  public List<ProducerResponse> getAllProducers() {
+    return userRepository.findAllByType(TypeUser.FARMER).stream()
+        .map(ProducerMapper::toResponse)
+        .toList();
   }
 
   public ProducerResponse getProducerById(UUID id) {

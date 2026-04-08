@@ -1,8 +1,10 @@
 package br.com.ragro.repository;
 
 import br.com.ragro.domain.User;
+import br.com.ragro.domain.enums.TypeUser;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
@@ -20,6 +22,8 @@ public interface UserRepository extends JpaRepository<User, UUID> {
   boolean existsByEmail(@NotBlank @Email String email);
 
   boolean existsByAuthSub(String authSub);
+
+  List<User> findAllByType(TypeUser type);
 
   // Busca usuários por name ou email (excluindo um ID específico)
   @Query(

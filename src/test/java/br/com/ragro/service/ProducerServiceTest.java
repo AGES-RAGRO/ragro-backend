@@ -11,6 +11,7 @@ import br.com.ragro.domain.enums.TypeUser;
 import br.com.ragro.exception.NotFoundException;
 import br.com.ragro.repository.UserRepository;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -25,6 +26,28 @@ class ProducerServiceTest {
   @Mock private UserRepository userRepository;
 
   @InjectMocks private ProducerService producerService;
+
+  @Test
+  void getAllProducers_shouldReturnAllFarmers() {
+    UUID id1 = UUID.randomUUID();
+    UUID id2 = UUID.randomUUID();
+    when(userRepository.findAllByType(TypeUser.FARMER))
+        .thenReturn(List.of(buildProducer(id1), buildProducer(id2)));
+
+    List<ProducerResponse> response = producerService.getAllProducers();
+
+    assertThat(response).hasSize(2);
+    assertThat(response).extracting(ProducerResponse::getId).containsExactlyInAnyOrder(id1, id2);
+  }
+
+  @Test
+  void getAllProducers_shouldReturnEmptyList_whenNoFarmersExist() {
+    when(userRepository.findAllByType(TypeUser.FARMER)).thenReturn(List.of());
+
+    List<ProducerResponse> response = producerService.getAllProducers();
+
+    assertThat(response).isEmpty();
+  }
 
   @Test
   void getProducerById_shouldReturnProducerResponse_whenProducerExists() {
