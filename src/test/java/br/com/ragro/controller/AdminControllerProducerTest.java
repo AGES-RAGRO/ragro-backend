@@ -13,6 +13,7 @@ import br.com.ragro.service.ProducerService;
 import br.com.ragro.service.UserService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,6 +35,55 @@ class AdminControllerProducerTest {
   @MockBean private UserService userService;
 
   @MockBean private UserRepository userRepository;
+
+  @Test
+  @WithMockUser(roles = "ADMIN")
+  void getProducers_shouldReturn200WithListOfProducers() throws Exception {
+    UUID id1 = UUID.randomUUID();
+    UUID id2 = UUID.randomUUID();
+    List<ProducerResponse> producers =
+        List.of(
+            ProducerResponse.builder()
+                .id(id1)
+                .name("Eduardo Fazendeiro")
+                .email("eduardo@example.com")
+                .phone("51988888888")
+                .active(true)
+                .createdAt(OffsetDateTime.now().minusDays(2))
+                .updatedAt(OffsetDateTime.now())
+                .build(),
+            ProducerResponse.builder()
+                .id(id2)
+                .name("Maria Farmer")
+                .email("maria@example.com")
+                .phone("51977777777")
+                .active(false)
+                .createdAt(OffsetDateTime.now().minusDays(1))
+                .updatedAt(OffsetDateTime.now())
+                .build());
+
+    when(producerService.getAllProducers()).thenReturn(producers);
+
+    mockMvc
+        .perform(get("/admin/producers"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(2))
+        .andExpect(jsonPath("$[0].id").value(id1.toString()))
+        .andExpect(jsonPath("$[0].name").value("Eduardo Fazendeiro"))
+        .andExpect(jsonPath("$[1].id").value(id2.toString()))
+        .andExpect(jsonPath("$[1].name").value("Maria Farmer"));
+  }
+
+  @Test
+  @WithMockUser(roles = "ADMIN")
+  void getProducers_shouldReturn200WithEmptyList_whenNoProducersExist() throws Exception {
+    when(producerService.getAllProducers()).thenReturn(List.of());
+
+    mockMvc
+        .perform(get("/admin/producers"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(0));
+  }
 
   @Test
   @WithMockUser(roles = "ADMIN")

@@ -23,10 +23,10 @@ public class CustomerRegistrationRequest {
   private String name;
 
   @NotBlank(message = "Phone is required")
-  @Size(max = 20, message = "Phone must contain at most 20 characters")
+  @Pattern(regexp = "^\\d{11}$", message = "Phone must contain 11 digits (DDD + number)")
   @Schema(
-      description = "Phone number in any format (spaces, dashes allowed)",
-      example = "(51) 98765-4321",
+      description = "Brazilian phone number: 2-digit area code + 9 digits (numbers only)",
+      example = "51987654321",
       requiredMode = Schema.RequiredMode.REQUIRED)
   private String phone;
 

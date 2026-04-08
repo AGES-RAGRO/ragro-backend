@@ -20,6 +20,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -49,12 +50,36 @@ public class AdminController {
     return ResponseEntity.status(HttpStatus.CREATED).body(response);
   }
 
+  @GetMapping("/producers")
+  @Operation(
+      summary = "List all producers",
+      description = "Returns a list of all registered producers.")
+  public ResponseEntity<List<ProducerResponse>> getProducers() {
+    return ResponseEntity.ok(producerService.getAllProducers());
+  }
+
   @GetMapping("/producers/{id}")
   @Operation(
           summary = "Get producer details",
           description = "Returns the details of a specific producer by ID.")
   public ResponseEntity<ProducerResponse> getProducer(@PathVariable UUID id) {
     return ResponseEntity.ok(producerService.getProducerById(id));
+  }
+
+  @PatchMapping("/producers/{id}/activate")
+  @Operation(
+      summary = "Activate a producer",
+      description = "Sets the status of a producer to active by ID.")
+  public ResponseEntity<ProducerResponse> activateProducer(@PathVariable UUID id) {
+    return ResponseEntity.ok(producerService.activateProducer(id));
+  }
+  
+  @PatchMapping("/producers/{id}/deactivate")
+  @Operation(
+      summary = "Deactivate a producer",
+      description = "Sets the status of a producer to inactive by ID.")
+  public ResponseEntity<ProducerResponse> deactivateProducer(@PathVariable UUID id) {
+    return ResponseEntity.ok(producerService.deactivateProducer(id));
   }
 
   @GetMapping("/dashboard")
