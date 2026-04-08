@@ -85,8 +85,8 @@ class ProducerRegistrationServiceTest {
         when(userRepository.existsByEmail("joao@example.com")).thenReturn(false);
         when(producerRepository.existsByFiscalNumber("12345678901")).thenReturn(false);
         when(identityProviderService.registerCustomer(anyString(), anyString())).thenReturn("auth-sub-" + id);
-        when(userRepository.save(any())).thenReturn(savedUser);
-        when(producerRepository.save(any())).thenReturn(savedProducer);
+        when(userRepository.saveAndFlush(any())).thenReturn(savedUser);
+        when(producerRepository.saveAndFlush(any())).thenReturn(savedProducer);
 
         ProducerRegistrationResponse response = producerRegistrationService.register(validRequest());
 
@@ -118,8 +118,8 @@ class ProducerRegistrationServiceTest {
         when(userRepository.existsByEmail("joao@example.com")).thenReturn(false);
         when(producerRepository.existsByFiscalNumber(anyString())).thenReturn(false);
         when(identityProviderService.registerCustomer(anyString(), anyString())).thenReturn("auth-sub");
-        when(userRepository.save(any())).thenReturn(savedUser);
-        when(producerRepository.save(any())).thenReturn(savedProducer);
+        when(userRepository.saveAndFlush(any())).thenReturn(savedUser);
+        when(producerRepository.saveAndFlush(any())).thenReturn(savedProducer);
 
         producerRegistrationService.register(request);
 
@@ -138,8 +138,8 @@ class ProducerRegistrationServiceTest {
         when(userRepository.existsByEmail(anyString())).thenReturn(false);
         when(producerRepository.existsByFiscalNumber("12345678901")).thenReturn(false);
         when(identityProviderService.registerCustomer(anyString(), anyString())).thenReturn("auth-sub");
-        when(userRepository.save(any())).thenReturn(savedUser);
-        when(producerRepository.save(any())).thenReturn(savedProducer);
+        when(userRepository.saveAndFlush(any())).thenReturn(savedUser);
+        when(producerRepository.saveAndFlush(any())).thenReturn(savedProducer);
 
         ProducerRegistrationResponse response = producerRegistrationService.register(request);
 
@@ -155,8 +155,8 @@ class ProducerRegistrationServiceTest {
                 .hasMessage("E-mail already registered");
 
         verify(identityProviderService, never()).registerCustomer(anyString(), anyString());
-        verify(userRepository, never()).save(any());
-        verify(producerRepository, never()).save(any());
+        verify(userRepository, never()).saveAndFlush(any());
+        verify(producerRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -169,8 +169,8 @@ class ProducerRegistrationServiceTest {
                 .hasMessage("Fiscal number already registered");
 
         verify(identityProviderService, never()).registerCustomer(anyString(), anyString());
-        verify(userRepository, never()).save(any());
-        verify(producerRepository, never()).save(any());
+        verify(userRepository, never()).saveAndFlush(any());
+        verify(producerRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -178,7 +178,7 @@ class ProducerRegistrationServiceTest {
         when(userRepository.existsByEmail(anyString())).thenReturn(false);
         when(producerRepository.existsByFiscalNumber(anyString())).thenReturn(false);
         when(identityProviderService.registerCustomer(anyString(), anyString())).thenReturn("auth-sub-123");
-        when(userRepository.save(any())).thenThrow(new RuntimeException("DB error"));
+        when(userRepository.saveAndFlush(any())).thenThrow(new RuntimeException("DB error"));
 
         assertThatThrownBy(() -> producerRegistrationService.register(validRequest()))
                 .isInstanceOf(RuntimeException.class)
@@ -195,8 +195,8 @@ class ProducerRegistrationServiceTest {
         when(userRepository.existsByEmail(anyString())).thenReturn(false);
         when(producerRepository.existsByFiscalNumber(anyString())).thenReturn(false);
         when(identityProviderService.registerCustomer(anyString(), anyString())).thenReturn("auth-sub-123");
-        when(userRepository.save(any())).thenReturn(savedUser);
-        when(producerRepository.save(any())).thenThrow(new RuntimeException("DB error"));
+        when(userRepository.saveAndFlush(any())).thenReturn(savedUser);
+        when(producerRepository.saveAndFlush(any())).thenThrow(new RuntimeException("DB error"));
 
         assertThatThrownBy(() -> producerRegistrationService.register(validRequest()))
                 .isInstanceOf(RuntimeException.class)
@@ -214,8 +214,8 @@ class ProducerRegistrationServiceTest {
         when(userRepository.existsByEmail(anyString())).thenReturn(false);
         when(producerRepository.existsByFiscalNumber(anyString())).thenReturn(false);
         when(identityProviderService.registerCustomer(anyString(), anyString())).thenReturn("auth-sub");
-        when(userRepository.save(any())).thenReturn(savedUser);
-        when(producerRepository.save(any())).thenReturn(savedProducer);
+        when(userRepository.saveAndFlush(any())).thenReturn(savedUser);
+        when(producerRepository.saveAndFlush(any())).thenReturn(savedProducer);
 
         ProducerRegistrationResponse response = producerRegistrationService.register(validRequest());
 

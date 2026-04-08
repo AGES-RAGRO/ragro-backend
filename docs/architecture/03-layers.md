@@ -110,7 +110,7 @@ public class User {
 ```
 
 **Rules:**
-- Entities represent the database schema — keep them aligned with `data/schema.sql`
+- Entities represent the database schema — keep them aligned with Flyway migrations in `src/main/resources/db/migration`
 - Hibernate DDL is set to `validate` — entities must match the existing schema exactly
 - Enums use `@Enumerated(EnumType.STRING)` for readability
 
