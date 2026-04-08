@@ -124,6 +124,38 @@ class ProducerServiceTest {
         .hasMessage("Produtor não encontrado");
   }
 
+  @Test
+  void deactivateProducer_shouldThrowNotFoundException_whenProducerNotFound() {
+  UUID producerId = UUID.randomUUID();
+  when(userRepository.findById(producerId)).thenReturn(Optional.empty());
+
+  assertThatThrownBy(() -> producerService.deactivateProducer(producerId))
+      .isInstanceOf(NotFoundException.class)
+      .hasMessage("Produtor não encontrado");
+  }
+
+  @Test
+  void deactivateProducer_shouldThrowNotFoundException_whenUserIsNotFarmer() {
+  UUID customerId = UUID.randomUUID();
+  User customer = buildUser(customerId, TypeUser.CUSTOMER, "Maria Customer");
+  when(userRepository.findById(customerId)).thenReturn(Optional.of(customer));
+
+  assertThatThrownBy(() -> producerService.deactivateProducer(customerId))
+      .isInstanceOf(NotFoundException.class)
+      .hasMessage("Produtor não encontrado");
+  }
+
+  @Test
+  void deactivateProducer_shouldThrowNotFoundException_whenUserIsAdmin() {
+  UUID adminId = UUID.randomUUID();
+  User admin = buildUser(adminId, TypeUser.ADMIN, "Admin User");
+  when(userRepository.findById(adminId)).thenReturn(Optional.of(admin));
+
+  assertThatThrownBy(() -> producerService.deactivateProducer(adminId))
+      .isInstanceOf(NotFoundException.class)
+      .hasMessage("Produtor não encontrado");
+  }
+
   private User buildProducer(UUID id) {
     return buildUser(id, TypeUser.FARMER, "João Farmer");
   }
