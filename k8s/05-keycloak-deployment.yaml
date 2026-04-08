@@ -86,6 +86,7 @@ metadata:
   name: keycloak-service
   namespace: ragro
 spec:
+  type: LoadBalancer
   selector:
     app: keycloak
   ports:
