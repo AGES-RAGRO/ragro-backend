@@ -2,6 +2,7 @@ package br.com.ragro.service;
 
 import br.com.ragro.controller.request.ProducerRegistrationRequest;
 import br.com.ragro.controller.response.ProducerRegistrationResponse;
+import br.com.ragro.domain.Producer;
 import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.TypeUser;
 import br.com.ragro.exception.BusinessException;
@@ -39,8 +40,6 @@ public class ProducerRegistrationService {
         String externalUserId =
                 identityProviderService.registerCustomer(normalizedEmail, request.getPassword());
 
-        User savedUser;
-
         try {
             User user = new User();
             user.setName(request.getName().trim());
@@ -50,19 +49,14 @@ public class ProducerRegistrationService {
             user.setActive(true);
             user.setAuthSub(externalUserId);
 
-            savedUser = userRepository.save(user);
+            User savedUser = userRepository.save(user);
 
-            producerRepository.save(ProducerMapper.toEntity(savedUser, request, normalizedFiscalNumber));
+            Producer savedProducer = producerRepository.save(
+                    ProducerMapper.toEntity(savedUser, request, normalizedFiscalNumber)
+            );
 
-            return ProducerRegistrationResponse.builder()
-                    .id(savedUser.getId())
-                    .name(savedUser.getName())
-                    .email(savedUser.getEmail())
-                    .phone(savedUser.getPhone())
-                    .active(savedUser.isActive())
-                    .createdAt(savedUser.getCreatedAt())
-                    .updatedAt(savedUser.getUpdatedAt())
-                    .build();
+            return ProducerMapper.toRegistrationResponse(savedUser, savedProducer);
+
         } catch (Exception e) {
             identityProviderService.deleteUser(externalUserId);
             throw e;

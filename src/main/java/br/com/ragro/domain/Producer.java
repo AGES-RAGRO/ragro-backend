@@ -12,7 +12,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 @Entity
-@Table(name = "producers")
+@Table(name = "farmers")
 @Getter
 @Setter
 @EqualsAndHashCode(of = "id")
@@ -59,10 +59,10 @@ public class Producer {
     private BigDecimal totalSalesAmount = BigDecimal.ZERO;
 
     @CreationTimestamp
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @Column(name = "created_at", nullable = false, updatable = false, insertable = false)
     private OffsetDateTime createdAt;
 
     @UpdateTimestamp
-    @Column(name = "updated_at", nullable = false)
+    @Column(name = "updated_at", nullable = false, insertable = false)
     private OffsetDateTime updatedAt;
 }

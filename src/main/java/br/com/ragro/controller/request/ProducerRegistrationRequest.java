@@ -7,7 +7,6 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
-import org.hibernate.validator.constraints.URL;
 
 @Getter
 @Setter
@@ -54,11 +53,9 @@ public class ProducerRegistrationRequest {
     @Schema(description = "Description of the farm")
     private String description;
 
-    @URL(message = "Invalid URL")
     @Schema(description = "Avatar S3 URL")
     private String avatarS3;
 
-    @URL(message = "Invalid URL")
     @Schema(description = "Display photo S3 URL")
     private String displayPhotoS3;
 }
