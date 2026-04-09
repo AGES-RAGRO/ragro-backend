@@ -47,6 +47,7 @@ CREATE TABLE "producer_profiles" (
   "story" text,
   "photo_url" text,
   "member_since" date,
+  "rating" decimal(3,2) NOT NULL DEFAULT 0,
   "created_at" timestamptz NOT NULL DEFAULT now(),
   "updated_at" timestamptz NOT NULL DEFAULT now()
 );

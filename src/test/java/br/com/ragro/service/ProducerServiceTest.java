@@ -2,6 +2,8 @@ package br.com.ragro.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -15,6 +17,10 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -31,22 +37,25 @@ class ProducerServiceTest {
   void getAllProducers_shouldReturnAllFarmers() {
     UUID id1 = UUID.randomUUID();
     UUID id2 = UUID.randomUUID();
-    when(userRepository.findAllByType(TypeUser.FARMER))
-        .thenReturn(List.of(buildProducer(id1), buildProducer(id2)));
+    Pageable pageable = PageRequest.of(0, 10);
+    when(userRepository.findAllByTypeAndActiveIsTrue(eq(TypeUser.FARMER), any(Pageable.class)))
+        .thenReturn(new PageImpl<>(List.of(buildProducer(id1), buildProducer(id2))));
 
-    List<ProducerResponse> response = producerService.getAllProducers();
+    Page<ProducerResponse> response = producerService.getAllProducers(pageable);
 
-    assertThat(response).hasSize(2);
-    assertThat(response).extracting(ProducerResponse::getId).containsExactlyInAnyOrder(id1, id2);
+    assertThat(response.getContent()).hasSize(2);
+    assertThat(response.getContent()).extracting(ProducerResponse::getId).containsExactlyInAnyOrder(id1, id2);
   }
 
   @Test
   void getAllProducers_shouldReturnEmptyList_whenNoFarmersExist() {
-    when(userRepository.findAllByType(TypeUser.FARMER)).thenReturn(List.of());
+    Pageable pageable = PageRequest.of(0, 10);
+    when(userRepository.findAllByTypeAndActiveIsTrue(eq(TypeUser.FARMER), any(Pageable.class)))
+        .thenReturn(new PageImpl<>(List.of()));
 
-    List<ProducerResponse> response = producerService.getAllProducers();
+    Page<ProducerResponse> response = producerService.getAllProducers(pageable);
 
-    assertThat(response).isEmpty();
+    assertThat(response.getContent()).isEmpty();
   }
 
   @Test

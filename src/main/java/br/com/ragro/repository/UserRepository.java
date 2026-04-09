@@ -25,6 +25,8 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
   List<User> findAllByType(TypeUser type);
 
+  Page<User> findAllByTypeAndActiveIsTrue(TypeUser type, Pageable pageable);
+
   // Busca usuários por name ou email (excluindo um ID específico)
   @Query(
       """

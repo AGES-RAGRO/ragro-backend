@@ -5,8 +5,9 @@ import br.com.ragro.domain.enums.TypeUser;
 import br.com.ragro.exception.NotFoundException;
 import br.com.ragro.mapper.ProducerMapper;
 import br.com.ragro.repository.UserRepository;
-import java.util.List;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -18,12 +19,12 @@ public class ProducerService {
     this.userRepository = userRepository;
   }
 
-  public List<ProducerResponse> getAllProducers() {
-    return userRepository.findAllByType(TypeUser.FARMER).stream()
-        .map(ProducerMapper::toResponse)
-        .toList();
+  public Page<ProducerResponse> getAllProducers(Pageable pageable) {
+    return userRepository.findAllByTypeAndActiveIsTrue(TypeUser.FARMER, pageable)
+        .map(ProducerMapper::toResponse);
   }
 
+  
   public ProducerResponse getProducerById(UUID id) {
     var producer =
         userRepository

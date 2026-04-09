@@ -12,6 +12,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -48,9 +52,10 @@ public class AdminController {
   @GetMapping("/producers")
   @Operation(
       summary = "List all producers",
-      description = "Returns a list of all registered producers.")
-  public ResponseEntity<List<ProducerResponse>> getProducers() {
-    return ResponseEntity.ok(producerService.getAllProducers());
+      description = "Returns a paginated list of active producers.")
+  public ResponseEntity<Page<ProducerResponse>> getProducers(
+      @PageableDefault(sort = "producerProfile.rating", direction = Sort.Direction.DESC) Pageable pageable) {
+    return ResponseEntity.ok(producerService.getAllProducers(pageable));
   }
 
   @GetMapping("/producers/{id}")

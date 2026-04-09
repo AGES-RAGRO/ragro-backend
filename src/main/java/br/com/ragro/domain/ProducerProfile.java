@@ -1,6 +1,7 @@
 package br.com.ragro.domain;
 
 import jakarta.persistence.*;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -44,4 +45,7 @@ public class ProducerProfile {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
+
+    @Column(name = "rating", nullable = false, precision = 3, scale = 2)
+    private BigDecimal rating = BigDecimal.ZERO;
 }

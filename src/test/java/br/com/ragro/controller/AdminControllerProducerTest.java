@@ -1,6 +1,7 @@
 package br.com.ragro.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -16,6 +17,8 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -62,27 +65,27 @@ class AdminControllerProducerTest {
                 .updatedAt(OffsetDateTime.now())
                 .build());
 
-    when(producerService.getAllProducers()).thenReturn(producers);
+    when(producerService.getAllProducers(any(Pageable.class))).thenReturn(new PageImpl<>(producers));
 
     mockMvc
         .perform(get("/admin/producers"))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.length()").value(2))
-        .andExpect(jsonPath("$[0].id").value(id1.toString()))
-        .andExpect(jsonPath("$[0].name").value("Eduardo Fazendeiro"))
-        .andExpect(jsonPath("$[1].id").value(id2.toString()))
-        .andExpect(jsonPath("$[1].name").value("Maria Farmer"));
+        .andExpect(jsonPath("$.content.length()").value(2))
+        .andExpect(jsonPath("$.content[0].id").value(id1.toString()))
+        .andExpect(jsonPath("$.content[0].name").value("Eduardo Fazendeiro"))
+        .andExpect(jsonPath("$.content[1].id").value(id2.toString()))
+        .andExpect(jsonPath("$.content[1].name").value("Maria Farmer"));
   }
 
   @Test
   @WithMockUser(roles = "ADMIN")
   void getProducers_shouldReturn200WithEmptyList_whenNoProducersExist() throws Exception {
-    when(producerService.getAllProducers()).thenReturn(List.of());
+    when(producerService.getAllProducers(any(Pageable.class))).thenReturn(new PageImpl<>(List.of()));
 
     mockMvc
         .perform(get("/admin/producers"))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.length()").value(0));
+        .andExpect(jsonPath("$.content.length()").value(0));
   }
 
   @Test
