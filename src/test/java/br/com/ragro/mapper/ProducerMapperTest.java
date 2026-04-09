@@ -3,9 +3,11 @@ package br.com.ragro.mapper;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import br.com.ragro.controller.response.ProducerResponse;
+import br.com.ragro.domain.Address;
 import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.TypeUser;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import br.com.ragro.controller.request.ProducerRegistrationRequest;
@@ -38,6 +40,47 @@ class ProducerMapperTest {
     ProducerResponse response = ProducerMapper.toResponse(user);
 
     assertThat(response.isActive()).isFalse();
+  }
+
+  @Test
+  void toResponse_shouldFormatAddressFromPrimaryAddress() {
+    User user = buildProducer();
+    Address address = new Address();
+    address.setCity("Porto Alegre");
+    address.setState("RS");
+    address.setStreet("Rua das Acácias");
+    address.setNumber("45");
+    address.setPrimary(true);
+    user.setAddresses(List.of(address));
+
+    ProducerResponse response = ProducerMapper.toResponse(user);
+
+    assertThat(response.getAddress()).isEqualTo("Porto Alegre, RS - Rua das Acácias 45");
+  }
+
+  @Test
+  void toResponse_shouldReturnNullAddress_whenNoAddresses() {
+    User user = buildProducer();
+
+    ProducerResponse response = ProducerMapper.toResponse(user);
+
+    assertThat(response.getAddress()).isNull();
+  }
+
+  @Test
+  void toResponse_shouldReturnNullAddress_whenNoPrimaryAddress() {
+    User user = buildProducer();
+    Address address = new Address();
+    address.setCity("Porto Alegre");
+    address.setState("RS");
+    address.setStreet("Rua das Acácias");
+    address.setNumber("45");
+    address.setPrimary(false);
+    user.setAddresses(List.of(address));
+
+    ProducerResponse response = ProducerMapper.toResponse(user);
+
+    assertThat(response.getAddress()).isNull();
   }
 
   @Test

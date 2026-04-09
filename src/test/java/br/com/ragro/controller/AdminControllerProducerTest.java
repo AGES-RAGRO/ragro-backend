@@ -52,6 +52,7 @@ class AdminControllerProducerTest {
                 .email("eduardo@example.com")
                 .phone("51988888888")
                 .active(true)
+                .address("Porto Alegre, RS - Rua das Acácias 45")
                 .createdAt(OffsetDateTime.now().minusDays(2))
                 .updatedAt(OffsetDateTime.now())
                 .build(),
@@ -61,6 +62,7 @@ class AdminControllerProducerTest {
                 .email("maria@example.com")
                 .phone("51977777777")
                 .active(false)
+                .address(null)
                 .createdAt(OffsetDateTime.now().minusDays(1))
                 .updatedAt(OffsetDateTime.now())
                 .build());
@@ -99,6 +101,7 @@ class AdminControllerProducerTest {
             .email("joao@example.com")
             .phone("51988888888")
             .active(true)
+            .address("Porto Alegre, RS - Rua das Acácias 45")
             .createdAt(OffsetDateTime.now().minusDays(1))
             .updatedAt(OffsetDateTime.now())
             .build();
@@ -114,6 +117,7 @@ class AdminControllerProducerTest {
             .andExpect(jsonPath("$.email").value("joao@example.com"))
             .andExpect(jsonPath("$.phone").value("51988888888"))
             .andExpect(jsonPath("$.active").value(true))
+            .andExpect(jsonPath("$.address").value("Porto Alegre, RS - Rua das Acácias 45"))
             .andReturn();
 
     ProducerResponse response =
@@ -173,6 +177,7 @@ class AdminControllerProducerTest {
             .email("maria@example.com")
             .phone("51987654321")
             .active(true)
+            .address("Canoas, RS - Rua dos Jasmins 120")
             .createdAt(createdAt)
             .updatedAt(updatedAt)
             .build();
