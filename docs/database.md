@@ -10,7 +10,6 @@ The following fields are documented here but **not yet present** in `data/schema
 
 | Table | Column | Type | Status |
 |-------|--------|------|--------|
-| `farmers` | `story` | `text` | Pending — producer narrative for the profile page |
 | `cart_items` | `price_snapshot` | `decimal(10,2)` | Pending — price at the time the item was added |
 
 These must be added to `data/schema.sql` before the corresponding features can be implemented.
@@ -43,6 +42,15 @@ erDiagram
         varchar type
         boolean active
         text auth_sub
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    producer_profiles {
+        uuid id PK_FK
+        text story
+        text photo_url
+        date member_since
+        decimal rating
         timestamptz created_at
         timestamptz updated_at
     }
@@ -235,6 +243,7 @@ erDiagram
     }
 
     users ||--o{ addresses : "has"
+    users ||--|| producer_profiles : "has"
 users ||--|| farmers : "is"
 users ||--|| customers : "is"
 farmers ||--o{ farmer_availability : "has"
@@ -269,7 +278,7 @@ delivery_routes ||--|| visual_route_information : "has"
 
 | Domain | Tables |
 |--------|--------|
-| 👤 Users and Profiles | `users` `farmers` `customers` `addresses` `farmer_availability` |
+| 👤 Users and Profiles | `users` `farmers` `customers` `addresses` `farmer_availability` `producer_profiles` |
 | 📦 Products and Inventory | `products` `product_categories` `product_category_assignments` `product_photos` `stock_movements` |
 | 🛒 Cart and Orders | `carts` `cart_items` `orders` `order_items` `order_status_history` |
 | ⭐ Reviews and Favorites | `review` `favorites` |
@@ -298,6 +307,21 @@ Base authentication table shared across all user types.
 | `updated_at` | timestamptz | ✅ | Last update timestamp |
 
 > **Note:** The `auth_sub` acts as the bridge between the authentication system (Keycloak) and the database. When the user logs in, the backend reads the `sub` from the JWT token and fetches the corresponding record using `WHERE auth_sub = ?`.
+
+---
+
+#### `producer_profiles`
+Detailed profile page information for producers. The `id` is the same as `users.id` — a 1:1 relationship.
+
+| Column | Type | Required | Description |
+|--------|------|----------|-------------|
+| `id` | uuid | ✅ | FK → `users.id` — same identifier |
+| `story` | text | ❌ | Full story displayed on the detailed profile |
+| `photo_url` | text | ❌ | Profile picture URL |
+| `member_since` | date | ❌ | Date the producer joined |
+| `rating` | decimal(3,2) | ✅ | Rating score for the producer |
+| `created_at` | timestamptz | ✅ | Record creation timestamp |
+| `updated_at` | timestamptz | ✅ | Last update timestamp |
 
 ---
 
