@@ -86,3 +86,22 @@ jobs:
           docker image prune -f
           docker volume prune -f
           echo "Cleanup completed"
+
+  mirror-to-gitlab:
+    name: Mirror to GitLab
+    runs-on: ubuntu-22.04
+    needs: [docker-build-scan]
+
+    #Só executa em push na main (não roda em PR)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Push to GitLab
+        run: |
+          git remote add gitlab https://oauth2:${{ secrets.GITLAB_TOKEN }}@tools.ages.pucrs.br/ragro/ragro-backend.git
+          git push gitlab main --force

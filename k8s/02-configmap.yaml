@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-configmap
+  namespace: ragro
+data:
+  # PostgreSQL
+  SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-service:5432/gearheads
+  SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+  # Keycloak
+  KEYCLOAK_SERVER_URL: http://keycloak-service:8180
+  KEYCLOAK_PUBLIC_URL: http://localhost:8180
+  KEYCLOAK_ISSUER_URI: http://localhost:8180/realms/ragro
+  KEYCLOAK_JWK_SET_URI: http://keycloak-service:8180/realms/ragro/protocol/openid-connect/certs
+  KC_DB: postgres
+  KC_DB_URL: jdbc:postgresql://postgres-service:5432/keycloak
+  KC_HTTP_PORT: "8180"
