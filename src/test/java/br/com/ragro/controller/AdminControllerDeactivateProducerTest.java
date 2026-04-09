@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import br.com.ragro.controller.response.ProducerResponse;
 import br.com.ragro.exception.NotFoundException;
 import br.com.ragro.repository.UserRepository;
+import br.com.ragro.service.ProducerRegistrationService;
 import br.com.ragro.service.ProducerService;
 import br.com.ragro.service.UserService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -40,6 +41,9 @@ class AdminControllerDeactivateProducerTest {
  
     @MockBean
     private UserRepository userRepository;
+
+        @MockBean
+        private ProducerRegistrationService producerRegistrationService;
  
     @Test
     @WithMockUser(roles = "ADMIN")

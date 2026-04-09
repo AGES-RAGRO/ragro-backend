@@ -83,7 +83,7 @@ PostgreSQL
 
 5. **Mapper classes** — Dedicated mapper classes handle conversion between entities and DTOs, keeping controllers and services clean.
 
-6. **Schema-first database** — The schema is defined in `data/schema.sql` and applied on first Docker startup. Hibernate is set to `validate` mode — it checks the schema but never modifies it.
+6. **Schema-first database** — The schema is versioned in Flyway migrations (`src/main/resources/db/migration`). Hibernate is set to `validate` mode — it checks the schema but never modifies it.
 
 7. **Global exception handling** — A `@RestControllerAdvice` catches all business exceptions and returns standardized error responses.
 

@@ -2,18 +2,18 @@
 
 > PostgreSQL 16 · 21 tables · 2 triggers
 
-> **Note — Schema Sync**: This document is the **design reference** for the database. The runtime schema is defined in `data/schema.sql`. If any field documented here is missing from `schema.sql`, it means the migration has not been applied yet. Known pending migrations are listed below.
+> **Note — Schema Sync**: This document is the **design reference** for the database. The runtime schema is defined by Flyway migrations in `src/main/resources/db/migration` (starting at `V1__initial_schema.sql`). If any field documented here is missing from runtime, it means the migration has not been applied yet. Known pending migrations are listed below.
 
 ### Pending Schema Additions
 
-The following fields are documented here but **not yet present** in `data/schema.sql`:
+The following fields are documented here but **not yet present** in `src/main/resources/db/migration/V1__initial_schema.sql`:
 
 | Table | Column | Type | Status |
 |-------|--------|------|--------|
 | `farmers` | `story` | `text` | Pending — producer narrative for the profile page |
 | `cart_items` | `price_snapshot` | `decimal(10,2)` | Pending — price at the time the item was added |
 
-These must be added to `data/schema.sql` before the corresponding features can be implemented.
+These must be added through a new Flyway migration before the corresponding features can be implemented.
 
 ---
 

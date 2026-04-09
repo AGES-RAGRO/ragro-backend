@@ -1,35 +1,34 @@
 package br.com.ragro.domain;
 
 import jakarta.persistence.*;
-import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
-
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.UUID;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 @Entity
 @Table(name = "farmers")
 @Getter
 @Setter
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
 @EqualsAndHashCode(of = "id")
 @ToString(of = "id")
 public class Producer {
 
     @Id
-    @Column(columnDefinition = "uuid")
+    @Column(name = "id", columnDefinition = "uuid")
     private UUID id;
 
-    @OneToOne(fetch = FetchType.LAZY)
     @MapsId
+    @OneToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "id")
     private User user;
 
-    @Column(name = "fiscal_number", nullable = false, length = 14)
+    @Column(name = "fiscal_number", nullable = false, unique = true, length = 14)
     private String fiscalNumber;
 
     @Column(name = "fiscal_number_type", nullable = false, length = 5)
@@ -60,10 +59,10 @@ public class Producer {
     private BigDecimal totalSalesAmount = BigDecimal.ZERO;
 
     @CreationTimestamp
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @Column(name = "created_at", nullable = false, updatable = false, insertable = false)
     private OffsetDateTime createdAt;
 
     @UpdateTimestamp
-    @Column(name = "updated_at", nullable = false)
+    @Column(name = "updated_at", nullable = false, insertable = false)
     private OffsetDateTime updatedAt;
 }

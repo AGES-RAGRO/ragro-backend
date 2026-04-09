@@ -62,7 +62,7 @@ public class ProducerService {
             .orElseThrow(() -> new NotFoundException("Produtor não encontrado"));
 
     producer.setActive(true);
-    userRepository.save(producer);
+    userRepository.saveAndFlush(producer);
     return ProducerMapper.toResponse(producer);
   }
 
@@ -73,7 +73,7 @@ public class ProducerService {
             .filter(user -> user.getType() == TypeUser.FARMER)
             .orElseThrow(() -> new NotFoundException("Produtor não encontrado"));
     producer.setActive(false);
-    userRepository.save(producer);
+    userRepository.saveAndFlush(producer);
     return ProducerMapper.toResponse(producer);
   }
 }

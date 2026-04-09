@@ -86,9 +86,9 @@ The product backlog and the database/code use different terms for the same conce
 
 ### Schema Management
 
-- The schema is defined in `data/schema.sql`
+- The schema is versioned via Flyway migrations in `src/main/resources/db/migration`
 - Hibernate DDL mode is `validate` — it never creates or alters tables
-- All schema changes must be made in `schema.sql` and applied manually or via Docker restart
+- All schema changes must be done through a new migration file (`V{n}__description.sql`)
 
 ### Entity Mapping
 
