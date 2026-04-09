@@ -1,6 +1,8 @@
 package br.com.ragro.controller.response;
 
 import java.time.OffsetDateTime;
+import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -20,6 +22,10 @@ public class ProducerResponse {
   private String email;
   private String phone;
   private boolean active;
+  private String story;
+  private String photoUrl;
+  private LocalDate memberSince;
+  private List<AddressResponse> addresses;
   private OffsetDateTime createdAt;
   private OffsetDateTime updatedAt;
 }
