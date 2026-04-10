@@ -1,8 +1,11 @@
 package br.com.ragro.controller.request;
 
+import java.util.List;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
@@ -49,6 +52,19 @@ public class ProducerRegistrationRequest {
     @Size(max = 150, message = "Farm name must contain at most 150 characters")
     @Schema(description = "Name of the farm", example = "Fazenda São João", requiredMode = Schema.RequiredMode.REQUIRED)
     private String farmName;
+
+    @NotNull(message = "Address is required")
+    @Valid
+    @Schema(description = "Address of the producer", requiredMode = Schema.RequiredMode.REQUIRED)
+    private AddressRequest address;
+
+    @Valid
+    @Schema(description = "Bank account details")
+    private BankAccountRequest bankAccount;
+
+    @Valid
+    @Schema(description = "Availability schedule")
+    private List<AvailabilityRequest> availability;
 
     @Schema(description = "Description of the farm")
     private String description;
