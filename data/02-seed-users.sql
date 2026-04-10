@@ -60,3 +60,53 @@ VALUES (
   'Sítio Boa Vista',
   'Produção familiar de hortaliças orgânicas'
 ) ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO addresses (user_id, street, number, complement, neighborhood, city, state, zip_code, latitude, longitude, is_primary)
+VALUES (
+  'a0000000-0000-0000-0000-000000000003',
+  'Rua das Acácias',
+  '45',
+  null,
+  'Vila Nova',
+  'Porto Alegre',
+  'RS',
+  '90110000',
+  0.0000000,
+  0.0000000,
+  true
+) ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO users (id, name, email, phone, type, active, auth_sub)
+VALUES (
+  'a0000000-0000-0000-0000-000000000004',
+  'Gustavo',
+  'gustavo@ragro.com.br',
+  '(51) 99999-0003',
+  'FARMER',
+  true,
+  '10000000-0000-0000-0000-000000000004'
+) ON CONFLICT (email) DO NOTHING;
+
+INSERT INTO farmers (id, fiscal_number, fiscal_number_type, farm_name, description)
+VALUES (
+  'a0000000-0000-0000-0000-000000000004',
+  '00000000000001',
+  'cnpj',
+  'Sítio Boa Vista',
+  'Produção familiar de hortaliças orgânicas'
+) ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO addresses (user_id, street, number, complement, neighborhood, city, state, zip_code, latitude, longitude, is_primary)
+VALUES (
+  'a0000000-0000-0000-0000-000000000004',
+  'Rua dos Jasmins',
+  '120',
+  '15',
+  'Igara',
+  'Canoas',
+  'RS',
+  '92410600',
+  0.0000000,
+  0.0000000,
+  true
+) ON CONFLICT (id) DO NOTHING;

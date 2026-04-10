@@ -4,6 +4,7 @@ import br.com.ragro.controller.request.ProducerRegistrationRequest;
 import br.com.ragro.controller.response.ProducerGetResponse;
 import br.com.ragro.controller.response.ProducerRegistrationResponse;
 import br.com.ragro.controller.response.ProducerResponse;
+import br.com.ragro.domain.Address;
 import br.com.ragro.domain.Producer;
 import br.com.ragro.domain.User;
 import lombok.NonNull;
@@ -71,12 +72,19 @@ public class ProducerMapper {
   }
 
   public static ProducerResponse toResponse(User entity) {
+    String address = entity.getAddresses().stream()
+        .filter(Address::isPrimary)
+        .findFirst()
+        .map(a -> "%s, %s - %s %s".formatted(a.getCity(), a.getState(), a.getStreet(), a.getNumber()))
+        .orElse(null);
+
     return ProducerResponse.builder()
         .id(entity.getId())
         .name(entity.getName())
         .email(entity.getEmail())
         .phone(entity.getPhone())
         .active(entity.isActive())
+        .address(address)
         .createdAt(entity.getCreatedAt())
         .updatedAt(entity.getUpdatedAt())
         .build();

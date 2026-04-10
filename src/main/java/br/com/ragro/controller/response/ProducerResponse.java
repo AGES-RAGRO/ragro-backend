@@ -33,6 +33,7 @@ public class ProducerResponse {
 
   @Schema(description = "Account active status", example = "true")
   private boolean active;
+  private String address;
 
   @Schema(description = "Account creation timestamp")
   private OffsetDateTime createdAt;
