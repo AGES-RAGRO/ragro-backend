@@ -53,7 +53,6 @@ public class ProducerRegistrationRequest {
     @Schema(description = "Name of the farm", example = "Fazenda São João", requiredMode = Schema.RequiredMode.REQUIRED)
     private String farmName;
 
-    @NotNull(message = "Address is required")
     @Valid
     @Schema(description = "Address of the producer", requiredMode = Schema.RequiredMode.REQUIRED)
     private AddressRequest address;
