@@ -144,7 +144,6 @@ The following endpoints are defined in the product backlog and will be implement
 | Method | Route | Description | Epic |
 |--------|-------|-------------|------|
 | POST | /auth/register/customer | Customer registration | 1 |
-| POST | /auth/register/producer | Producer registration (admin) | 1 |
 | GET | /auth/config | Keycloak configuration (public) | 1 |
 | GET | /auth/session | Authenticated user session | 1 |
 
@@ -152,9 +151,8 @@ The following endpoints are defined in the product backlog and will be implement
 
 | Method | Route | Description | Epic |
 |--------|-------|-------------|------|
-| GET | /customers | List all customers (admin) | 1 |
-| GET | /customers/:id | Retrieve customer profile | 1 |
-| PUT | /customers/:id | Update customer profile | 1 |
+| GET | /customers/me | Retrieve authenticated customer profile | 1 |
+| PUT | /customers/me | Update authenticated customer profile | 1 |
 
 ### Producers
 
@@ -172,6 +170,7 @@ The following endpoints are defined in the product backlog and will be implement
 | POST | /admin/producers | Register producer | 1 |
 | GET | /admin/producers | List producers (admin) | 1 |
 | GET | /admin/producers/:id | Producer details (admin) | 1 |
+| GET | /admin/customers/:id | Customer details (admin) | 1 |
 | PATCH | /admin/producers/:id/deactivate | Deactivate producer | 1 |
 | PATCH | /admin/producers/:id/activate | Reactivate producer | 1 |
 

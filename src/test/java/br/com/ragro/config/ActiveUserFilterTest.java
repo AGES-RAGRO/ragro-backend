@@ -77,8 +77,9 @@ class ActiveUserFilterTest {
     filter.doFilterInternal(request, response, filterChain);
 
     verify(filterChain, never()).doFilter(request, response);
-    assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
-    assertThat(response.getContentAsString()).contains("Conta desativada");
+    assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_UNAUTHORIZED);
+    assertThat(response.getContentAsString())
+      .contains("Conta desativada ou usuário não encontrado");
   }
 
   @Test
@@ -91,8 +92,9 @@ class ActiveUserFilterTest {
     filter.doFilterInternal(request, response, filterChain);
 
     verify(filterChain, never()).doFilter(request, response);
-    assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
-    assertThat(response.getContentAsString()).contains("Conta desativada");
+    assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_UNAUTHORIZED);
+    assertThat(response.getContentAsString())
+      .contains("Conta desativada ou usuário não encontrado");
   }
 
   @Test

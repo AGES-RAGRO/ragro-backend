@@ -21,33 +21,11 @@ public class UserService {
     this.userRepository = userRepository;
   }
 
-  public UserResponse addUser(Jwt jwt, UserRequest request) {
-    String email = getRequiredClaim(jwt, "email");
-    String sub = getRequiredClaim(jwt, "sub");
-
-    if (userRepository.existsByEmail(email) || userRepository.existsByAuthSub(sub)) {
-      throw new BusinessException("E-mail já cadastrado");
-    }
-
-    User user = UserMapper.toEntity(request);
-    user.setEmail(email);
-    user.setAuthSub(sub);
-    user.setActive(true);
-
-    User saved = userRepository.saveAndFlush(user);
-
-    return UserMapper.toResponse(saved);
-  }
-
   public User getAuthenticatedUser(Jwt jwt) {
     String sub = getRequiredClaim(jwt, "sub");
     return userRepository
-        .findByAuthSub(sub)
-        .orElseGet(
-            () ->
-                userRepository
-                    .findByEmail(getRequiredClaim(jwt, "email"))
-                    .orElseThrow(() -> new UnauthorizedException("Usuário não autenticado")));
+      .findByAuthSub(sub)
+      .orElseThrow(() -> new UnauthorizedException("Usuário não autenticado"));
   }
 
   @Transactional

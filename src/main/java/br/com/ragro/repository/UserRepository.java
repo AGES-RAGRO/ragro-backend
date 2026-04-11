@@ -9,14 +9,17 @@ import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface UserRepository extends JpaRepository<User, UUID> {
 
+  @EntityGraph(attributePaths = "addresses")
   Optional<User> findByEmail(String email);
 
+  @EntityGraph(attributePaths = "addresses")
   Optional<User> findByAuthSub(String authSub);
 
   boolean existsByEmail(@NotBlank @Email String email);
@@ -25,7 +28,6 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
   List<User> findAllByType(TypeUser type);
 
-  // Busca usuários por name ou email (excluindo um ID específico)
   @Query(
       """
         SELECT u FROM User u

@@ -9,6 +9,7 @@ import jakarta.validation.Valid;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
@@ -22,6 +23,7 @@ public class ProducerController {
   private final ProducerService producerService;
 
   @GetMapping("/{id}")
+  @PreAuthorize("hasRole('FARMER')")
   @Operation(
       summary = "Get producer by ID",
       description = "Returns consolidated producer profile with user and farmer data")
@@ -30,6 +32,7 @@ public class ProducerController {
   }
 
   @PutMapping("/{id}")
+  @PreAuthorize("hasRole('FARMER')")
   @Operation(
       summary = "Update producer profile",
       description =

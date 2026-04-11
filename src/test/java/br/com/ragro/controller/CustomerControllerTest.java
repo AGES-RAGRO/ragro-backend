@@ -1,7 +1,6 @@
 package br.com.ragro.controller;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -15,8 +14,6 @@ import br.com.ragro.config.SecurityConfig;
 import br.com.ragro.controller.request.AddressRequest;
 import br.com.ragro.controller.request.CustomerUpdateRequest;
 import br.com.ragro.controller.response.CustomerResponse;
-import br.com.ragro.exception.NotFoundException;
-import br.com.ragro.exception.UnauthorizedException;
 import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.TypeUser;
 import br.com.ragro.repository.UserRepository;
@@ -149,57 +146,6 @@ class CustomerControllerTest {
         CustomerUpdateRequest request = buildUpdateRequest("João Silva", "51988887777");
 
         mockMvc.perform(jsonPut("/customers/me", request)).andExpect(status().isUnauthorized());
-    }
-
-    @Test
-    void getCustomerById_shouldReturn200_whenCustomerExists() throws Exception {
-        UUID id = UUID.randomUUID();
-        CustomerResponse response = buildCustomerResponse();
-        when(customerService.getCustomerById(eq(id), any())).thenReturn(response);
-
-        mockMvc
-                .perform(get("/customers/{id}", id).with(asCustomer()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(response.getId().toString()))
-                .andExpect(jsonPath("$.name").value(response.getName()));
-    }
-
-    @Test
-    void getCustomerById_shouldReturn404_whenCustomerDoesNotExist() throws Exception {
-        UUID id = UUID.randomUUID();
-        when(customerService.getCustomerById(eq(id), any()))
-                .thenThrow(new NotFoundException("Customer not found"));
-
-        mockMvc
-                .perform(get("/customers/{id}", id).with(asCustomer()))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.error").value("Customer not found"));
-    }
-
-    @Test
-    void getCustomerById_shouldReturn401_whenCallerIsNotAdmin() throws Exception {
-        UUID id = UUID.randomUUID();
-        when(customerService.getCustomerById(eq(id), any()))
-                .thenThrow(new UnauthorizedException("Access restricted to admins"));
-
-        mockMvc
-                .perform(get("/customers/{id}", id).with(asCustomer()))
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.error").value("Access restricted to admins"));
-    }
-
-    @Test
-    void getCustomerById_shouldReturn403_whenAuthenticatedWithoutCustomerRole() throws Exception {
-        mockMvc
-                .perform(get("/customers/{id}", UUID.randomUUID()).with(asFarmer()))
-                .andExpect(status().isForbidden());
-    }
-
-    @Test
-    void getCustomerById_shouldReturn401_whenUnauthenticated() throws Exception {
-        mockMvc
-                .perform(get("/customers/{id}", UUID.randomUUID()))
-                .andExpect(status().isUnauthorized());
     }
 
     private static RequestPostProcessor asCustomer() {

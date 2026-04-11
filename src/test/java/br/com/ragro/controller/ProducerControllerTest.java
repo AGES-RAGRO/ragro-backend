@@ -15,8 +15,8 @@ import br.com.ragro.controller.request.ProducerUpdateRequest;
 import br.com.ragro.controller.response.ProducerGetResponse;
 import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.TypeUser;
+import br.com.ragro.exception.ForbiddenException;
 import br.com.ragro.exception.NotFoundException;
-import br.com.ragro.exception.UnauthorizedException;
 import br.com.ragro.repository.ProducerRepository;
 import br.com.ragro.repository.UserRepository;
 import br.com.ragro.service.ProducerService;
@@ -104,8 +104,8 @@ class ProducerControllerTest {
         .andExpect(status().isNotFound());
   }
 
-  @Test
-  void shouldReturn403_whenUserIsInactive() throws Exception {
+    @Test
+    void shouldReturn401_whenUserIsInactive() throws Exception {
     UUID producerId = UUID.randomUUID();
     String sub = "keycloak-sub-inactive";
     User inactiveUser = buildUser(sub, false);
@@ -118,12 +118,12 @@ class ProducerControllerTest {
                     SecurityMockMvcRequestPostProcessors.jwt()
                         .jwt(jwt -> jwt.claim("sub", sub).claim("email", "farmer@test.com"))
                         .authorities(new SimpleGrantedAuthority("ROLE_FARMER"))))
-        .andExpect(status().isForbidden())
-        .andExpect(jsonPath("$.error").value("Conta desativada"));
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.error").value("Conta desativada ou usuário não encontrado"));
   }
 
-  @Test
-  void shouldReturn403_whenUserNotFoundInDatabase() throws Exception {
+    @Test
+    void shouldReturn401_whenUserNotFoundInDatabase() throws Exception {
     UUID producerId = UUID.randomUUID();
     String sub = "keycloak-sub-unknown";
     when(userRepository.findByAuthSub(sub)).thenReturn(Optional.empty());
@@ -135,8 +135,8 @@ class ProducerControllerTest {
                     SecurityMockMvcRequestPostProcessors.jwt()
                         .jwt(jwt -> jwt.claim("sub", sub).claim("email", "farmer@test.com"))
                         .authorities(new SimpleGrantedAuthority("ROLE_FARMER"))))
-        .andExpect(status().isForbidden())
-        .andExpect(jsonPath("$.error").value("Conta desativada"));
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.error").value("Conta desativada ou usuário não encontrado"));
   }
 
   @Test
@@ -206,8 +206,8 @@ class ProducerControllerTest {
         .andExpect(jsonPath("$.farmName").value("Fazenda Nova"));
   }
 
-  @Test
-  void putProducer_shouldReturn401_whenFarmerTriesToUpdateAnotherProfile() throws Exception {
+    @Test
+    void putProducer_shouldReturn403_whenFarmerTriesToUpdateAnotherProfile() throws Exception {
     UUID otherProducerId = UUID.randomUUID();
     String sub = "keycloak-sub-farmer";
     User activeUser = buildUser(sub, true);
@@ -217,7 +217,7 @@ class ProducerControllerTest {
     request.setName("Hacker");
 
     when(producerService.updateProducerProfile(eq(otherProducerId), any(), any()))
-        .thenThrow(new UnauthorizedException("Você não tem permissão para alterar este perfil"));
+        .thenThrow(new ForbiddenException("Você não tem permissão para alterar este perfil"));
 
     mockMvc
         .perform(
@@ -228,7 +228,7 @@ class ProducerControllerTest {
                         .authorities(new SimpleGrantedAuthority("ROLE_FARMER")))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
-        .andExpect(status().isUnauthorized());
+        .andExpect(status().isForbidden());
   }
 
   @Test
@@ -267,8 +267,8 @@ class ProducerControllerTest {
         .andExpect(status().isForbidden());
   }
 
-  @Test
-  void putProducer_shouldReturn403_whenUserIsInactive() throws Exception {
+    @Test
+    void putProducer_shouldReturn401_whenUserIsInactive() throws Exception {
     UUID producerId = UUID.randomUUID();
     String sub = "keycloak-sub-inactive";
     User inactiveUser = buildUser(sub, false);
@@ -286,8 +286,8 @@ class ProducerControllerTest {
                         .authorities(new SimpleGrantedAuthority("ROLE_FARMER")))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
-        .andExpect(status().isForbidden())
-        .andExpect(jsonPath("$.error").value("Conta desativada"));
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.error").value("Conta desativada ou usuário não encontrado"));
   }
 
   // ─── helpers ────────────────────────────────────────────────────────────────

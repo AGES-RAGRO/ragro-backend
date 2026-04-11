@@ -16,9 +16,10 @@ import br.com.ragro.domain.Producer;
 import br.com.ragro.domain.ProducerProfile;
 import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.TypeUser;
+import br.com.ragro.exception.ForbiddenException;
 import br.com.ragro.exception.NotFoundException;
-import br.com.ragro.exception.UnauthorizedException;
 import br.com.ragro.repository.AddressRepository;
+import br.com.ragro.repository.FarmerAvailabilityRepository;
 import br.com.ragro.repository.PaymentMethodRepository;
 import br.com.ragro.repository.ProducerProfileRepository;
 import br.com.ragro.repository.ProducerRepository;
@@ -42,14 +43,23 @@ import org.springframework.security.oauth2.jwt.Jwt;
 @ExtendWith(MockitoExtension.class)
 class ProducerServiceTest {
 
-  @Mock private UserRepository userRepository;
-  @Mock private ProducerRepository producerRepository;
-  @Mock private ProducerProfileRepository producerProfileRepository;
-  @Mock private AddressRepository addressRepository;
-  @Mock private PaymentMethodRepository paymentMethodRepository;
-  @Mock private UserService userService;
+  @Mock
+  private UserRepository userRepository;
+  @Mock
+  private ProducerRepository producerRepository;
+  @Mock
+  private ProducerProfileRepository producerProfileRepository;
+  @Mock
+  private AddressRepository addressRepository;
+  @Mock
+  private FarmerAvailabilityRepository farmerAvailabilityRepository;
+  @Mock
+  private PaymentMethodRepository paymentMethodRepository;
+  @Mock
+  private UserService userService;
 
-  @InjectMocks private ProducerService producerService;
+  @InjectMocks
+  private ProducerService producerService;
 
   // ─── getAllProducers ─────────────────────────────────────────────────────────
 
@@ -58,7 +68,12 @@ class ProducerServiceTest {
     UUID id1 = UUID.randomUUID();
     UUID id2 = UUID.randomUUID();
     Pageable pageable = PageRequest.of(0, 10);
-    Page<User> page = new PageImpl<>(List.of(buildProducer(id1), buildProducer(id2)), pageable, 2);
+    Page<Producer> page = new PageImpl<>(
+        List.of(
+            buildProducerEntity(id1, buildProducer(id1)),
+            buildProducerEntity(id2, buildProducer(id2))),
+        pageable,
+        2);
     when(producerRepository.findAllUsersSortedByRating(pageable)).thenReturn(page);
 
     Page<ProducerResponse> response = producerService.getAllProducers(pageable);
@@ -89,7 +104,12 @@ class ProducerServiceTest {
     User inactiveProducer = buildProducer(inactiveId);
     inactiveProducer.setActive(false);
     Pageable pageable = PageRequest.of(0, 10);
-    Page<User> page = new PageImpl<>(List.of(activeProducer, inactiveProducer), pageable, 2);
+    Page<Producer> page = new PageImpl<>(
+        List.of(
+            buildProducerEntity(activeId, activeProducer),
+            buildProducerEntity(inactiveId, inactiveProducer)),
+        pageable,
+        2);
     when(producerRepository.findAllUsersSortedByRating(pageable)).thenReturn(page);
 
     Page<ProducerResponse> response = producerService.getAllProducers(pageable);
@@ -100,21 +120,20 @@ class ProducerServiceTest {
         .containsExactlyInAnyOrder(true, false);
   }
 
-  // ─── getProducerById ────────────────────────────────────────────────────────
-
   @Test
   void getProducerById_shouldReturnProducerResponse_whenProducerExists() {
     UUID producerId = UUID.randomUUID();
-    User producer = buildProducer(producerId);
-    when(userRepository.findById(producerId)).thenReturn(Optional.of(producer));
+    User user = buildProducer(producerId);
+    Producer producer = buildProducerEntity(producerId, user);
+    when(producerRepository.findDetailedById(producerId)).thenReturn(Optional.of(producer));
 
     ProducerResponse response = producerService.getProducerById(producerId);
 
     assertThat(response).isNotNull();
     assertThat(response.getId()).isEqualTo(producerId);
     assertThat(response.getName()).isEqualTo("João Farmer");
-    assertThat(response.getEmail()).isEqualTo(producer.getEmail());
-    assertThat(response.getPhone()).isEqualTo(producer.getPhone());
+    assertThat(response.getEmail()).isEqualTo(user.getEmail());
+    assertThat(response.getPhone()).isEqualTo(user.getPhone());
     assertThat(response.isActive()).isTrue();
     assertThat(response.getCreatedAt()).isNotNull();
     assertThat(response.getUpdatedAt()).isNotNull();
@@ -123,7 +142,7 @@ class ProducerServiceTest {
   @Test
   void getProducerById_shouldThrowNotFoundException_whenProducerNotFound() {
     UUID producerId = UUID.randomUUID();
-    when(userRepository.findById(producerId)).thenReturn(Optional.empty());
+    when(producerRepository.findDetailedById(producerId)).thenReturn(Optional.empty());
 
     assertThatThrownBy(() -> producerService.getProducerById(producerId))
         .isInstanceOf(NotFoundException.class)
@@ -133,8 +152,7 @@ class ProducerServiceTest {
   @Test
   void getProducerById_shouldThrowNotFoundException_whenUserIsNotFarmer() {
     UUID customerId = UUID.randomUUID();
-    User customer = buildUser(customerId, TypeUser.CUSTOMER, "Maria Customer");
-    when(userRepository.findById(customerId)).thenReturn(Optional.of(customer));
+    when(producerRepository.findDetailedById(customerId)).thenReturn(Optional.empty());
 
     assertThatThrownBy(() -> producerService.getProducerById(customerId))
         .isInstanceOf(NotFoundException.class)
@@ -144,8 +162,7 @@ class ProducerServiceTest {
   @Test
   void getProducerById_shouldThrowNotFoundException_whenUserIsAdmin() {
     UUID adminId = UUID.randomUUID();
-    User admin = buildUser(adminId, TypeUser.ADMIN, "Admin User");
-    when(userRepository.findById(adminId)).thenReturn(Optional.of(admin));
+    when(producerRepository.findDetailedById(adminId)).thenReturn(Optional.empty());
 
     assertThatThrownBy(() -> producerService.getProducerById(adminId))
         .isInstanceOf(NotFoundException.class)
@@ -202,8 +219,6 @@ class ProducerServiceTest {
         .hasMessage("Produtor não encontrado");
   }
 
-  // ─── deactivateProducer ─────────────────────────────────────────────────────
-
   @Test
   void deactivateProducer_shouldThrowNotFoundException_whenProducerNotFound() {
     UUID producerId = UUID.randomUUID();
@@ -254,9 +269,8 @@ class ProducerServiceTest {
     request.setStory("Minha história");
 
     when(userService.getAuthenticatedUser(jwt)).thenReturn(farmer);
-    when(userRepository.findById(producerId)).thenReturn(Optional.of(farmer));
+    when(producerRepository.findDetailedById(producerId)).thenReturn(Optional.of(producer));
     when(userRepository.save(farmer)).thenReturn(farmer);
-    when(producerRepository.findById(producerId)).thenReturn(Optional.of(producer));
     when(producerRepository.save(producer)).thenReturn(producer);
     when(producerProfileRepository.findById(producerId)).thenReturn(Optional.of(profile));
     when(producerProfileRepository.save(profile)).thenReturn(profile);
@@ -275,7 +289,7 @@ class ProducerServiceTest {
   }
 
   @Test
-  void updateProducerProfile_shouldThrowUnauthorizedException_whenFarmerTriesUpdateAnotherProfile() {
+  void updateProducerProfile_shouldThrowForbiddenException_whenFarmerTriesUpdateAnotherProfile() {
     UUID ownId = UUID.randomUUID();
     UUID otherId = UUID.randomUUID();
     User farmer = buildProducer(ownId);
@@ -287,12 +301,12 @@ class ProducerServiceTest {
     request.setName("Hacker");
 
     assertThatThrownBy(() -> producerService.updateProducerProfile(otherId, jwt, request))
-        .isInstanceOf(UnauthorizedException.class)
+        .isInstanceOf(ForbiddenException.class)
         .hasMessage("Você não tem permissão para alterar este perfil");
   }
 
   @Test
-  void updateProducerProfile_shouldThrowUnauthorizedException_whenUserIsNotFarmerOrAdmin() {
+  void updateProducerProfile_shouldThrowForbiddenException_whenUserIsNotFarmerOrAdmin() {
     UUID producerId = UUID.randomUUID();
     User customer = buildUser(producerId, TypeUser.CUSTOMER, "Maria Customer");
     Jwt jwt = buildJwt(customer.getAuthSub(), customer.getEmail());
@@ -303,7 +317,7 @@ class ProducerServiceTest {
     request.setName("Hacker");
 
     assertThatThrownBy(() -> producerService.updateProducerProfile(producerId, jwt, request))
-        .isInstanceOf(UnauthorizedException.class)
+        .isInstanceOf(ForbiddenException.class)
         .hasMessage("Acesso restrito a produtores e administradores");
   }
 
@@ -319,9 +333,8 @@ class ProducerServiceTest {
     request.setStory("Nova história");
 
     when(userService.getAuthenticatedUser(jwt)).thenReturn(farmer);
-    when(userRepository.findById(producerId)).thenReturn(Optional.of(farmer));
+    when(producerRepository.findDetailedById(producerId)).thenReturn(Optional.of(producer));
     when(userRepository.save(farmer)).thenReturn(farmer);
-    when(producerRepository.findById(producerId)).thenReturn(Optional.of(producer));
     when(producerRepository.save(producer)).thenReturn(producer);
     when(producerProfileRepository.findById(producerId)).thenReturn(Optional.empty());
     when(producerProfileRepository.save(any(ProducerProfile.class)))
@@ -353,9 +366,8 @@ class ProducerServiceTest {
     request.setFarmName("Fazenda Editada pelo Admin");
 
     when(userService.getAuthenticatedUser(jwt)).thenReturn(admin);
-    when(userRepository.findById(farmerId)).thenReturn(Optional.of(farmer));
+    when(producerRepository.findDetailedById(farmerId)).thenReturn(Optional.of(producer));
     when(userRepository.save(farmer)).thenReturn(farmer);
-    when(producerRepository.findById(farmerId)).thenReturn(Optional.of(producer));
     when(producerRepository.save(producer)).thenReturn(producer);
     when(producerProfileRepository.findById(farmerId)).thenReturn(Optional.of(profile));
     when(producerProfileRepository.save(profile)).thenReturn(profile);
@@ -395,9 +407,8 @@ class ProducerServiceTest {
     savedPm.setPixKey("joao@email.com");
 
     when(userService.getAuthenticatedUser(jwt)).thenReturn(farmer);
-    when(userRepository.findById(producerId)).thenReturn(Optional.of(farmer));
+    when(producerRepository.findDetailedById(producerId)).thenReturn(Optional.of(producer));
     when(userRepository.save(farmer)).thenReturn(farmer);
-    when(producerRepository.findById(producerId)).thenReturn(Optional.of(producer));
     when(producerRepository.save(producer)).thenReturn(producer);
     when(producerProfileRepository.findById(producerId)).thenReturn(Optional.of(profile));
     when(producerProfileRepository.save(profile)).thenReturn(profile);
@@ -430,9 +441,8 @@ class ProducerServiceTest {
     // paymentMethod == null
 
     when(userService.getAuthenticatedUser(jwt)).thenReturn(farmer);
-    when(userRepository.findById(producerId)).thenReturn(Optional.of(farmer));
+    when(producerRepository.findDetailedById(producerId)).thenReturn(Optional.of(producer));
     when(userRepository.save(farmer)).thenReturn(farmer);
-    when(producerRepository.findById(producerId)).thenReturn(Optional.of(producer));
     when(producerRepository.save(producer)).thenReturn(producer);
     when(producerProfileRepository.findById(producerId)).thenReturn(Optional.of(profile));
     when(producerProfileRepository.save(profile)).thenReturn(profile);

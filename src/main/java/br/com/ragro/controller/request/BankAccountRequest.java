@@ -2,6 +2,7 @@ package br.com.ragro.controller.request;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -13,6 +14,7 @@ public class BankAccountRequest {
     @Schema(example = "Banco do Brasil")
     private String bankName;
 
+    @Pattern(regexp = "^\\d{3}$", message = "Bank code must contain 3 digits")
     @Schema(example = "001")
     private String bankCode;
 

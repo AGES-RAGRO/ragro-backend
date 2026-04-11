@@ -8,9 +8,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import br.com.ragro.controller.request.ProducerRegistrationRequest;
+import br.com.ragro.controller.request.AddressRequest;
 import br.com.ragro.controller.response.ProducerRegistrationResponse;
 import br.com.ragro.exception.BusinessException;
 import br.com.ragro.repository.UserRepository;
+import br.com.ragro.service.CustomerService;
 import br.com.ragro.service.ProducerRegistrationService;
 import br.com.ragro.service.ProducerService;
 import br.com.ragro.service.UserService;
@@ -39,11 +41,20 @@ class AdminControllerProducerRegistrationTest {
 
     @MockBean private ProducerService producerService;
 
+        @MockBean private CustomerService customerService;
+
     @MockBean private UserService userService;
 
     @MockBean private UserRepository userRepository;
 
     private ProducerRegistrationRequest validRequest() {
+        AddressRequest address = new AddressRequest();
+        address.setStreet("Rua das Flores");
+        address.setNumber("123");
+        address.setCity("Porto Alegre");
+        address.setState("RS");
+        address.setZipCode("90010120");
+
         ProducerRegistrationRequest request = new ProducerRegistrationRequest();
         request.setName("João Silva");
         request.setPhone("51988888888");
@@ -53,6 +64,7 @@ class AdminControllerProducerRegistrationTest {
         request.setFiscalNumberType("CPF");
         request.setFarmName("Fazenda São João");
         request.setDescription("Produção orgânica");
+        request.setAddress(address);
         request.setAvatarS3(null);
         request.setDisplayPhotoS3(null);
         return request;
