@@ -32,7 +32,7 @@ public class ProducerController {
   }
 
   @PutMapping("/{id}")
-  @PreAuthorize("hasRole('FARMER')")
+  @PreAuthorize("hasAnyRole('FARMER', 'ADMIN')")
   @Operation(
       summary = "Update producer profile",
       description =

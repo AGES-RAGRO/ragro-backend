@@ -42,7 +42,6 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Admin", description = "Administrative operations (requires ROLE_ADMIN)")
 public class AdminController {
 
-  private final UserService userService;
   private final CustomerService customerService;
   private final ProducerService producerService;
   private final ProducerRegistrationService producerRegistrationService;
@@ -52,7 +51,6 @@ public class AdminController {
       CustomerService customerService,
       ProducerService producerService,
       ProducerRegistrationService producerRegistrationService) {
-    this.userService = userService;
     this.customerService = customerService;
     this.producerService = producerService;
     this.producerRegistrationService = producerRegistrationService;
