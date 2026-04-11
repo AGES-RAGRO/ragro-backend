@@ -9,6 +9,7 @@ import br.com.ragro.controller.response.ProducerResponse;
 import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.TypeUser;
 import br.com.ragro.exception.NotFoundException;
+import br.com.ragro.repository.ProducerRepository;
 import br.com.ragro.repository.UserRepository;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -19,11 +20,16 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 @ExtendWith(MockitoExtension.class)
 class ProducerServiceTest {
 
   @Mock private UserRepository userRepository;
+  @Mock private ProducerRepository producerRepository;
 
   @InjectMocks private ProducerService producerService;
 
@@ -31,22 +37,44 @@ class ProducerServiceTest {
   void getAllProducers_shouldReturnAllFarmers() {
     UUID id1 = UUID.randomUUID();
     UUID id2 = UUID.randomUUID();
-    when(userRepository.findAllByType(TypeUser.FARMER))
-        .thenReturn(List.of(buildProducer(id1), buildProducer(id2)));
+    Pageable pageable = PageRequest.of(0, 10);
+    Page<User> page = new PageImpl<>(List.of(buildProducer(id1), buildProducer(id2)), pageable, 2);
+    when(producerRepository.findAllUsersSortedByRating(pageable)).thenReturn(page);
 
-    List<ProducerResponse> response = producerService.getAllProducers();
+    Page<ProducerResponse> response = producerService.getAllProducers(pageable);
 
-    assertThat(response).hasSize(2);
-    assertThat(response).extracting(ProducerResponse::getId).containsExactlyInAnyOrder(id1, id2);
+    assertThat(response.getContent()).hasSize(2);
+    assertThat(response.getContent()).extracting(ProducerResponse::getId).containsExactlyInAnyOrder(id1, id2);
+    assertThat(response.getTotalElements()).isEqualTo(2);
   }
 
   @Test
-  void getAllProducers_shouldReturnEmptyList_whenNoFarmersExist() {
-    when(userRepository.findAllByType(TypeUser.FARMER)).thenReturn(List.of());
+  void getAllProducers_shouldReturnEmptyPage_whenNoFarmersExist() {
+    Pageable pageable = PageRequest.of(0, 10);
+    when(producerRepository.findAllUsersSortedByRating(pageable)).thenReturn(Page.empty(pageable));
 
-    List<ProducerResponse> response = producerService.getAllProducers();
+    Page<ProducerResponse> response = producerService.getAllProducers(pageable);
 
-    assertThat(response).isEmpty();
+    assertThat(response.getContent()).isEmpty();
+    assertThat(response.getTotalElements()).isZero();
+  }
+
+  @Test
+  void getAllProducers_shouldReturnBothActiveAndInactiveProducers() {
+    UUID activeId = UUID.randomUUID();
+    UUID inactiveId = UUID.randomUUID();
+    User activeProducer = buildProducer(activeId);
+    User inactiveProducer = buildProducer(inactiveId);
+    inactiveProducer.setActive(false);
+    Pageable pageable = PageRequest.of(0, 10);
+    Page<User> page = new PageImpl<>(List.of(activeProducer, inactiveProducer), pageable, 2);
+    when(producerRepository.findAllUsersSortedByRating(pageable)).thenReturn(page);
+
+    Page<ProducerResponse> response = producerService.getAllProducers(pageable);
+
+    assertThat(response.getContent()).hasSize(2);
+    assertThat(response.getContent()).extracting(ProducerResponse::isActive)
+        .containsExactlyInAnyOrder(true, false);
   }
 
   @Test

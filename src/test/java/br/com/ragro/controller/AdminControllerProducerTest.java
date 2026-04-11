@@ -20,6 +20,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -41,7 +44,7 @@ class AdminControllerProducerTest {
 
   @Test
   @WithMockUser(roles = "ADMIN")
-  void getProducers_shouldReturn200WithListOfProducers() throws Exception {
+  void getProducers_shouldReturn200WithPageOfProducers() throws Exception {
     UUID id1 = UUID.randomUUID();
     UUID id2 = UUID.randomUUID();
     List<ProducerResponse> producers =
@@ -67,27 +70,54 @@ class AdminControllerProducerTest {
                 .updatedAt(OffsetDateTime.now())
                 .build());
 
-    when(producerService.getAllProducers()).thenReturn(producers);
+    Page<ProducerResponse> page = new PageImpl<>(producers, PageRequest.of(0, 10), 2);
+    when(producerService.getAllProducers(PageRequest.of(0, 10))).thenReturn(page);
 
     mockMvc
-        .perform(get("/admin/producers"))
+        .perform(get("/admin/producers").param("page", "0").param("size", "10"))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.length()").value(2))
-        .andExpect(jsonPath("$[0].id").value(id1.toString()))
-        .andExpect(jsonPath("$[0].name").value("Eduardo Fazendeiro"))
-        .andExpect(jsonPath("$[1].id").value(id2.toString()))
-        .andExpect(jsonPath("$[1].name").value("Maria Farmer"));
+        .andExpect(jsonPath("$.content.length()").value(2))
+        .andExpect(jsonPath("$.content[0].id").value(id1.toString()))
+        .andExpect(jsonPath("$.content[0].name").value("Eduardo Fazendeiro"))
+        .andExpect(jsonPath("$.content[1].id").value(id2.toString()))
+        .andExpect(jsonPath("$.content[1].name").value("Maria Farmer"))
+        .andExpect(jsonPath("$.totalElements").value(2))
+        .andExpect(jsonPath("$.totalPages").value(1));
   }
 
   @Test
   @WithMockUser(roles = "ADMIN")
-  void getProducers_shouldReturn200WithEmptyList_whenNoProducersExist() throws Exception {
-    when(producerService.getAllProducers()).thenReturn(List.of());
+  void getProducers_shouldReturnInactiveProducers() throws Exception {
+    UUID inactiveId = UUID.randomUUID();
+    ProducerResponse inactive =
+        ProducerResponse.builder()
+            .id(inactiveId)
+            .name("Produtor Inativo")
+            .email("inativo@example.com")
+            .active(false)
+            .build();
+
+    Page<ProducerResponse> page = new PageImpl<>(List.of(inactive), PageRequest.of(0, 10), 1);
+    when(producerService.getAllProducers(PageRequest.of(0, 10))).thenReturn(page);
 
     mockMvc
-        .perform(get("/admin/producers"))
+        .perform(get("/admin/producers").param("page", "0").param("size", "10"))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.length()").value(0));
+        .andExpect(jsonPath("$.content[0].active").value(false))
+        .andExpect(jsonPath("$.totalElements").value(1));
+  }
+
+  @Test
+  @WithMockUser(roles = "ADMIN")
+  void getProducers_shouldReturn200WithEmptyPage_whenNoProducersExist() throws Exception {
+    Page<ProducerResponse> empty = Page.empty(PageRequest.of(0, 10));
+    when(producerService.getAllProducers(PageRequest.of(0, 10))).thenReturn(empty);
+
+    mockMvc
+        .perform(get("/admin/producers").param("page", "0").param("size", "10"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.content.length()").value(0))
+        .andExpect(jsonPath("$.totalElements").value(0));
   }
 
   @Test
