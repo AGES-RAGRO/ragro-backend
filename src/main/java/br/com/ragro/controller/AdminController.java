@@ -2,12 +2,10 @@ package br.com.ragro.controller;
 
 import br.com.ragro.controller.request.ProducerRegistrationRequest;
 import br.com.ragro.controller.request.ProducerUpdateRequest;
-import br.com.ragro.controller.request.UserRequest;
 import br.com.ragro.controller.response.CustomerResponse;
 import br.com.ragro.controller.response.ProducerGetResponse;
 import br.com.ragro.controller.response.ProducerRegistrationResponse;
 import br.com.ragro.controller.response.ProducerResponse;
-import br.com.ragro.controller.response.UserResponse;
 import br.com.ragro.service.CustomerService;
 import br.com.ragro.service.ProducerRegistrationService;
 import br.com.ragro.service.ProducerService;
