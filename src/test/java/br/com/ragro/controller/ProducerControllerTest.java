@@ -207,7 +207,7 @@ class ProducerControllerTest {
   }
 
   @Test
-  void putProducer_shouldReturn403_whenFarmerTriesToUpdateAnotherProfile() throws Exception {
+  void putProducer_shouldReturn401_whenFarmerTriesToUpdateAnotherProfile() throws Exception {
     UUID otherProducerId = UUID.randomUUID();
     String sub = "keycloak-sub-farmer";
     User activeUser = buildUser(sub, true);
@@ -228,7 +228,7 @@ class ProducerControllerTest {
                         .authorities(new SimpleGrantedAuthority("ROLE_FARMER")))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
-        .andExpect(status().isForbidden());
+        .andExpect(status().isUnauthorized());
   }
 
   @Test
