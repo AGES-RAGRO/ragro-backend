@@ -1,7 +1,9 @@
 package br.com.ragro.controller;
 
 import br.com.ragro.controller.request.ProducerRegistrationRequest;
+import br.com.ragro.controller.request.ProducerUpdateRequest;
 import br.com.ragro.controller.request.UserRequest;
+import br.com.ragro.controller.response.ProducerGetResponse;
 import br.com.ragro.controller.response.ProducerRegistrationResponse;
 import br.com.ragro.controller.response.ProducerResponse;
 import br.com.ragro.controller.response.UserResponse;
@@ -25,6 +27,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -69,6 +72,17 @@ public class AdminController {
           description = "Returns the details of a specific producer by ID.")
   public ResponseEntity<ProducerResponse> getProducer(@PathVariable UUID id) {
     return ResponseEntity.ok(producerService.getProducerById(id));
+  }
+
+  @PutMapping("/producers/{id}")
+  @Operation(
+      summary = "Update producer profile (admin)",
+      description = "Allows an admin to update any producer's profile including payment methods.")
+  public ResponseEntity<ProducerGetResponse> updateProducer(
+      @PathVariable UUID id,
+      @AuthenticationPrincipal Jwt jwt,
+      @Valid @RequestBody ProducerUpdateRequest request) {
+    return ResponseEntity.ok(producerService.updateProducerProfile(id, jwt, request));
   }
 
   @PatchMapping("/producers/{id}/activate")
