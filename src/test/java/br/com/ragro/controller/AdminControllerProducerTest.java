@@ -1,11 +1,16 @@
 package br.com.ragro.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import br.com.ragro.controller.request.ProducerUpdateRequest;
+import br.com.ragro.controller.response.ProducerGetResponse;
 import br.com.ragro.controller.response.ProducerResponse;
 import br.com.ragro.exception.NotFoundException;
 import br.com.ragro.repository.UserRepository;
@@ -13,6 +18,7 @@ import br.com.ragro.service.ProducerRegistrationService;
 import br.com.ragro.service.ProducerService;
 import br.com.ragro.service.UserService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -23,6 +29,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -221,5 +228,79 @@ class AdminControllerProducerTest {
         .andExpect(jsonPath("$.name").value("Maria Farmer"))
         .andExpect(jsonPath("$.createdAt").isNotEmpty())
         .andExpect(jsonPath("$.updatedAt").isNotEmpty());
+  }
+
+  // ─── PUT /admin/producers/{id} ───────────────────────────────────────────────
+
+  @WithMockUser(roles = "ADMIN")
+  @Test
+  void putProducer_shouldReturn200_whenAdminUpdatesProducer() throws Exception {
+    UUID producerId = UUID.randomUUID();
+
+    ProducerUpdateRequest request = new ProducerUpdateRequest();
+    request.setFarmName("Fazenda Atualizada");
+    request.setPhone("51911111111");
+
+    ProducerGetResponse response =
+        ProducerGetResponse.builder()
+            .id(producerId)
+            .name("João Farmer")
+            .email("joao@example.com")
+            .phone("51911111111")
+            .farmName("Fazenda Atualizada")
+            .fiscalNumber("12345678901")
+            .fiscalNumberType("CPF")
+            .totalReviews(0)
+            .averageRating(BigDecimal.ZERO)
+            .totalOrders(0)
+            .totalSalesAmount(BigDecimal.ZERO)
+            .paymentMethods(List.of())
+            .build();
+
+    when(producerService.updateProducerProfile(eq(producerId), any(), any())).thenReturn(response);
+
+    mockMvc
+        .perform(
+            put("/admin/producers/{id}", producerId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.farmName").value("Fazenda Atualizada"))
+        .andExpect(jsonPath("$.phone").value("51911111111"));
+  }
+
+  @WithMockUser(roles = "ADMIN")
+  @Test
+  void putProducer_shouldReturn404_whenProducerNotFound() throws Exception {
+    UUID producerId = UUID.randomUUID();
+
+    ProducerUpdateRequest request = new ProducerUpdateRequest();
+    request.setFarmName("Fazenda X");
+
+    when(producerService.updateProducerProfile(eq(producerId), any(), any()))
+        .thenThrow(new NotFoundException("Produtor não encontrado"));
+
+    mockMvc
+        .perform(
+            put("/admin/producers/{id}", producerId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+        .andExpect(status().isNotFound());
+  }
+
+  @WithMockUser(roles = "FARMER")
+  @Test
+  void putProducer_shouldReturn403_whenCalledByNonAdmin() throws Exception {
+    UUID producerId = UUID.randomUUID();
+
+    ProducerUpdateRequest request = new ProducerUpdateRequest();
+    request.setFarmName("Fazenda X");
+
+    mockMvc
+        .perform(
+            put("/admin/producers/{id}", producerId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+        .andExpect(status().isForbidden());
   }
 }
