@@ -70,8 +70,8 @@ public class AdminController {
   @Operation(
           summary = "Get producer details",
           description = "Returns the details of a specific producer by ID.")
-  public ResponseEntity<ProducerResponse> getProducer(@PathVariable UUID id) {
-    return ResponseEntity.ok(producerService.getProducerById(id));
+  public ResponseEntity<ProducerGetResponse> getProducer(@PathVariable UUID id) {
+    return ResponseEntity.ok(producerService.getProducerProfileById(id));
   }
 
   @PutMapping("/producers/{id}")
