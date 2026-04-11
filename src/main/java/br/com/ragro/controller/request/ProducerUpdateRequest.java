@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
+import java.util.List;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -49,4 +50,8 @@ public class ProducerUpdateRequest {
   @Valid
   @Schema(description = "Payment method data (pix or bank_account). Upserts the active record of the given type.")
   private PaymentMethodRequest paymentMethod;
+
+  @Valid
+  @Schema(description = "Availability schedule to replace current producer availability")
+  private List<AvailabilityRequest> availability;
 }

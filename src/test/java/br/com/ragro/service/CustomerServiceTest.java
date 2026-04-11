@@ -10,13 +10,12 @@ import br.com.ragro.controller.response.CustomerResponse;
 import br.com.ragro.domain.Customer;
 import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.TypeUser;
+import br.com.ragro.exception.ForbiddenException;
 import br.com.ragro.exception.NotFoundException;
-import br.com.ragro.exception.UnauthorizedException;
 import br.com.ragro.repository.AddressRepository;
 import br.com.ragro.repository.CustomerRepository;
 import br.com.ragro.repository.UserRepository;
 import java.time.OffsetDateTime;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -56,7 +55,7 @@ class CustomerServiceTest {
     when(userService.getAuthenticatedUser(jwt)).thenReturn(user);
 
     assertThatThrownBy(() -> customerService.getMyCustomer(jwt))
-        .isInstanceOf(UnauthorizedException.class)
+        .isInstanceOf(ForbiddenException.class)
         .hasMessage("Access restricted to customers");
   }
 
@@ -66,7 +65,7 @@ class CustomerServiceTest {
     when(userService.getAuthenticatedUser(jwt)).thenReturn(user);
 
     assertThatThrownBy(() -> customerService.getMyCustomer(jwt))
-        .isInstanceOf(UnauthorizedException.class);
+        .isInstanceOf(ForbiddenException.class);
   }
 
   @Test
@@ -97,20 +96,18 @@ class CustomerServiceTest {
     CustomerUpdateRequest request = buildUpdateRequest("Nome Qualquer", "51988887777");
 
     assertThatThrownBy(() -> customerService.updateMyCustomer(jwt, request))
-        .isInstanceOf(UnauthorizedException.class)
+        .isInstanceOf(ForbiddenException.class)
         .hasMessage("Access restricted to customers");
   }
 
   @Test
   void getCustomerById_shouldReturnCustomerResponse_whenCallerIsAdmin() {
-    User admin = buildUser(TypeUser.ADMIN);
     User customerUser = buildUser(TypeUser.CUSTOMER);
     Customer customer = buildCustomer(customerUser);
-    when(userService.getAuthenticatedUser(jwt)).thenReturn(admin);
-    when(customerRepository.findById(Objects.requireNonNull(customerUser.getId())))
+    when(customerRepository.findDetailedById(customerUser.getId()))
         .thenReturn(Optional.of(customer));
 
-    CustomerResponse response = customerService.getCustomerById(customerUser.getId(), jwt);
+    CustomerResponse response = customerService.getCustomerById(customerUser.getId());
 
     assertThat(response.getId()).isEqualTo(customerUser.getId());
     assertThat(response.getName()).isEqualTo(customerUser.getName());
@@ -120,35 +117,26 @@ class CustomerServiceTest {
 
   @Test
   void getCustomerById_shouldThrowNotFoundException_whenCustomerDoesNotExist() {
-    User admin = buildUser(TypeUser.ADMIN);
     UUID unknownId = UUID.randomUUID();
-    when(userService.getAuthenticatedUser(jwt)).thenReturn(admin);
-    when(customerRepository.findById(Objects.requireNonNull(unknownId)))
+    when(customerRepository.findDetailedById(unknownId))
         .thenReturn(Optional.empty());
 
-    assertThatThrownBy(() -> customerService.getCustomerById(unknownId, jwt))
+    assertThatThrownBy(() -> customerService.getCustomerById(unknownId))
         .isInstanceOf(NotFoundException.class)
         .hasMessage("Customer not found");
   }
 
   @Test
-  void getCustomerById_shouldThrowUnauthorizedException_whenCallerIsCustomer() {
+  void getCustomerById_shouldReturnCustomerResponse_whenCustomerExists() {
     User customer = buildUser(TypeUser.CUSTOMER);
-    when(userService.getAuthenticatedUser(jwt)).thenReturn(customer);
+    Customer persistedCustomer = buildCustomer(customer);
+    when(customerRepository.findDetailedById(customer.getId()))
+        .thenReturn(Optional.of(persistedCustomer));
 
-    assertThatThrownBy(() -> customerService.getCustomerById(customer.getId(), jwt))
-        .isInstanceOf(UnauthorizedException.class)
-        .hasMessage("Access restricted to admins");
-  }
+    CustomerResponse response = customerService.getCustomerById(customer.getId());
 
-  @Test
-  void getCustomerById_shouldThrowUnauthorizedException_whenCallerIsFarmer() {
-    User farmer = buildUser(TypeUser.FARMER);
-    when(userService.getAuthenticatedUser(jwt)).thenReturn(farmer);
-
-    assertThatThrownBy(() -> customerService.getCustomerById(farmer.getId(), jwt))
-        .isInstanceOf(UnauthorizedException.class)
-        .hasMessage("Access restricted to admins");
+    assertThat(response.getId()).isEqualTo(customer.getId());
+    assertThat(response.getName()).isEqualTo(customer.getName());
   }
 
   private CustomerUpdateRequest buildUpdateRequest(String name, String phone) {

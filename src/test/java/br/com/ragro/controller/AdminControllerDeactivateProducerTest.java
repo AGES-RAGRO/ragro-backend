@@ -7,9 +7,15 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
  
+import br.com.ragro.config.CorsConfig;
+import br.com.ragro.config.KeycloakRolesConverter;
+import br.com.ragro.config.SecurityConfig;
 import br.com.ragro.controller.response.ProducerResponse;
+import br.com.ragro.domain.User;
+import br.com.ragro.domain.enums.TypeUser;
 import br.com.ragro.exception.NotFoundException;
 import br.com.ragro.repository.UserRepository;
+import br.com.ragro.service.CustomerService;
 import br.com.ragro.service.ProducerRegistrationService;
 import br.com.ragro.service.ProducerService;
 import br.com.ragro.service.UserService;
@@ -20,11 +26,14 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
  
 @WebMvcTest(AdminController.class)
+@Import({SecurityConfig.class, KeycloakRolesConverter.class, CorsConfig.class})
 class AdminControllerDeactivateProducerTest {
  
     @Autowired
@@ -35,12 +44,18 @@ class AdminControllerDeactivateProducerTest {
  
     @MockBean
     private ProducerService producerService;
+
+        @MockBean
+        private CustomerService customerService;
  
     @MockBean
     private UserService userService;
  
     @MockBean
     private UserRepository userRepository;
+
+    @MockBean
+    private JwtDecoder jwtDecoder;
 
         @MockBean
         private ProducerRegistrationService producerRegistrationService;
@@ -90,6 +105,10 @@ class AdminControllerDeactivateProducerTest {
     @Test
     void deactivateProducer_shouldReturn403_whenUserIsNotAdmin() throws Exception {
         UUID producerId = UUID.randomUUID();
+        User activeFarmer = new User();
+        activeFarmer.setType(TypeUser.FARMER);
+        activeFarmer.setActive(true);
+        when(userRepository.findByAuthSub("some-sub")).thenReturn(java.util.Optional.of(activeFarmer));
  
         mockMvc
                 .perform(

@@ -2,11 +2,11 @@ package br.com.ragro.controller;
 
 import br.com.ragro.controller.request.ProducerRegistrationRequest;
 import br.com.ragro.controller.request.ProducerUpdateRequest;
-import br.com.ragro.controller.request.UserRequest;
+import br.com.ragro.controller.response.CustomerResponse;
 import br.com.ragro.controller.response.ProducerGetResponse;
 import br.com.ragro.controller.response.ProducerRegistrationResponse;
 import br.com.ragro.controller.response.ProducerResponse;
-import br.com.ragro.controller.response.UserResponse;
+import br.com.ragro.service.CustomerService;
 import br.com.ragro.service.ProducerRegistrationService;
 import br.com.ragro.service.ProducerService;
 import br.com.ragro.service.UserService;
@@ -21,6 +21,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -35,25 +36,22 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/admin")
+@PreAuthorize("hasRole('ADMIN')")
 @Tag(name = "Admin", description = "Administrative operations (requires ROLE_ADMIN)")
 public class AdminController {
 
-  private final UserService userService;
+  private final CustomerService customerService;
   private final ProducerService producerService;
   private final ProducerRegistrationService producerRegistrationService;
 
-  public AdminController(UserService userService, ProducerService producerService, ProducerRegistrationService producerRegistrationService) {
-    this.userService = userService;
+  public AdminController(
+      UserService userService,
+      CustomerService customerService,
+      ProducerService producerService,
+      ProducerRegistrationService producerRegistrationService) {
+    this.customerService = customerService;
     this.producerService = producerService;
     this.producerRegistrationService = producerRegistrationService;
-  }
-
-  @PostMapping("/users")
-  @Operation(summary = "Create a user", description = "Creates a new user with the given type.")
-  public ResponseEntity<UserResponse> addUser(
-          @AuthenticationPrincipal Jwt jwt, @Valid @RequestBody UserRequest request) {
-    UserResponse response = userService.addUser(jwt, request);
-    return ResponseEntity.status(HttpStatus.CREATED).body(response);
   }
 
   @GetMapping("/producers")
@@ -72,6 +70,14 @@ public class AdminController {
           description = "Returns the details of a specific producer by ID.")
   public ResponseEntity<ProducerGetResponse> getProducer(@PathVariable UUID id) {
     return ResponseEntity.ok(producerService.getProducerProfileById(id));
+  }
+
+  @GetMapping("/customers/{id}")
+  @Operation(
+      summary = "Get customer details",
+      description = "Returns the details of a specific customer by ID.")
+  public ResponseEntity<CustomerResponse> getCustomer(@PathVariable UUID id) {
+    return ResponseEntity.ok(customerService.getCustomerById(id));
   }
 
   @PutMapping("/producers/{id}")

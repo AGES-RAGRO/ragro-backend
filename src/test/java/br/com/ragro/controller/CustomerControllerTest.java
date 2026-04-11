@@ -1,10 +1,10 @@
 package br.com.ragro.controller;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -13,20 +13,24 @@ import br.com.ragro.config.CorsConfig;
 import br.com.ragro.config.KeycloakRolesConverter;
 import br.com.ragro.config.SecurityConfig;
 import br.com.ragro.controller.request.AddressRequest;
+import br.com.ragro.controller.request.CustomerRegistrationRequest;
 import br.com.ragro.controller.request.CustomerUpdateRequest;
+import br.com.ragro.controller.response.CustomerRegistrationResponse;
 import br.com.ragro.controller.response.CustomerResponse;
-import br.com.ragro.exception.NotFoundException;
-import br.com.ragro.exception.UnauthorizedException;
 import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.TypeUser;
 import br.com.ragro.repository.UserRepository;
+import br.com.ragro.service.CustomerRegistrationService;
 import br.com.ragro.service.CustomerService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,208 +39,226 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
-@SuppressWarnings("null")
 @WebMvcTest(CustomerController.class)
 @Import({SecurityConfig.class, KeycloakRolesConverter.class, CorsConfig.class})
 class CustomerControllerTest {
 
-  @Autowired private MockMvc mockMvc;
-  @Autowired private ObjectMapper objectMapper;
-  @MockBean private CustomerService customerService;
-  @MockBean private JwtDecoder jwtDecoder;
-  @MockBean private UserRepository userRepository;
+    @Autowired
+    private MockMvc mockMvc;
+    @Autowired
+    private ObjectMapper objectMapper;
+    @MockBean
+    private CustomerRegistrationService customerRegistrationService;
+    @MockBean
+    private CustomerService customerService;
+    @MockBean
+    private JwtDecoder jwtDecoder;
+    @MockBean
+    private UserRepository userRepository;
 
-  @BeforeEach
-  void stubActiveUserFilter() {
-    User activeUser = new User();
-    activeUser.setId(UUID.randomUUID());
-    activeUser.setActive(true);
-    activeUser.setType(TypeUser.CUSTOMER);
-    when(userRepository.findByAuthSub(any())).thenReturn(Optional.of(activeUser));
-  }
+    @BeforeEach
+    void stubActiveUserFilter() {
+        SecurityContextHolder.clearContext();
+        User activeUser = new User();
+        activeUser.setId(UUID.randomUUID());
+        activeUser.setActive(true);
+        activeUser.setType(TypeUser.CUSTOMER);
+        when(userRepository.findByAuthSub(any())).thenReturn(Optional.of(activeUser));
+    }
 
-  // ─── GET /customers/me ────────────────────────────────────────────────────
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
+    }
 
-  @Test
-  void getMyCustomer_shouldReturn200_whenAuthenticatedAsCustomer() throws Exception {
-    CustomerResponse response = buildCustomerResponse();
-    when(customerService.getMyCustomer(any())).thenReturn(response);
+    @Test
+    void registerCustomer_shouldReturn201_whenRequestIsValid() throws Exception {
+        CustomerRegistrationResponse response = buildRegistrationResponse();
+        when(customerRegistrationService.register(any(CustomerRegistrationRequest.class)))
+                .thenReturn(response);
 
-    mockMvc
-        .perform(get("/customers/me").with(asCustomer()))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.id").value(response.getId().toString()))
-        .andExpect(jsonPath("$.name").value(response.getName()))
-        .andExpect(jsonPath("$.email").value(response.getEmail()))
-        .andExpect(jsonPath("$.addresses").isArray());
-  }
+        CustomerRegistrationRequest request = buildRegistrationRequest();
 
-  @Test
-  void getMyCustomer_shouldReturn403_whenAuthenticatedWithoutCustomerRole() throws Exception {
-    mockMvc
-        .perform(get("/customers/me").with(asFarmer()))
-        .andExpect(status().isForbidden());
-  }
+        mockMvc
+                .perform(jsonPost("/customers", request))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(response.getId().toString()))
+                .andExpect(jsonPath("$.email").value(response.getEmail()))
+                .andExpect(jsonPath("$.type").value("customer"));
+    }
 
-  @Test
-  void getMyCustomer_shouldReturn401_whenUnauthenticated() throws Exception {
-    mockMvc.perform(get("/customers/me")).andExpect(status().isUnauthorized());
-  }
+    @Test
+    void registerCustomer_shouldReturn400_whenRequestIsInvalid() throws Exception {
+        CustomerRegistrationRequest request = buildRegistrationRequest();
+        request.setEmail("invalid-email");
 
-  // ─── PUT /customers/me ────────────────────────────────────────────────────
+        mockMvc
+                .perform(jsonPost("/customers", request))
+                .andExpect(status().isBadRequest());
+    }
 
-  @Test
-  void updateMyCustomer_shouldReturn200_whenRequestIsValid() throws Exception {
-    CustomerResponse response = buildCustomerResponse();
-    response.setName("Novo Nome");
-    response.setPhone("51988887777");
-    when(customerService.updateMyCustomer(any(), any(CustomerUpdateRequest.class)))
-        .thenReturn(response);
+    @Test
+    void getMyCustomer_shouldReturn200_whenAuthenticatedAsCustomer() throws Exception {
+        CustomerResponse response = buildCustomerResponse();
+        when(customerService.getMyCustomer(any())).thenReturn(response);
 
-    CustomerUpdateRequest request = buildUpdateRequest("Novo Nome", "51988887777");
+        mockMvc
+                .perform(get("/customers/me").with(asCustomer()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(response.getId().toString()))
+                .andExpect(jsonPath("$.name").value(response.getName()))
+                .andExpect(jsonPath("$.email").value(response.getEmail()))
+                .andExpect(jsonPath("$.addresses").isArray());
+    }
 
-    mockMvc
-        .perform(jsonPut("/customers/me", request).with(asCustomer()))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.name").value("Novo Nome"))
-        .andExpect(jsonPath("$.phone").value("51988887777"));
-  }
+    @Test
+    void getMyCustomer_shouldReturn403_whenAuthenticatedWithoutCustomerRole() throws Exception {
+        mockMvc
+                .perform(get("/customers/me").with(asFarmer()))
+                .andExpect(status().isForbidden());
+    }
 
-  @Test
-  void updateMyCustomer_shouldReturn400_whenNameIsBlank() throws Exception {
-    CustomerUpdateRequest request = buildUpdateRequest("", "51988887777");
+    @Test
+    void getMyCustomer_shouldReturn401_whenUnauthenticated() throws Exception {
+        mockMvc.perform(get("/customers/me")).andExpect(status().isUnauthorized());
+    }
 
-    mockMvc
-        .perform(jsonPut("/customers/me", request).with(asCustomer()))
-        .andExpect(status().isBadRequest());
-  }
+    @Test
+    void updateMyCustomer_shouldReturn200_whenRequestIsValid() throws Exception {
+        CustomerResponse response = buildCustomerResponse();
+        response.setName("Novo Nome");
+        response.setPhone("51988887777");
+        when(customerService.updateMyCustomer(any(), any(CustomerUpdateRequest.class)))
+                .thenReturn(response);
 
-  @Test
-  void updateMyCustomer_shouldReturn400_whenPhoneExceedsMaxLength() throws Exception {
-    CustomerUpdateRequest request = buildUpdateRequest("João Silva", "1".repeat(21));
+        CustomerUpdateRequest request = buildUpdateRequest("Novo Nome", "51988887777");
 
-    mockMvc
-        .perform(jsonPut("/customers/me", request).with(asCustomer()))
-        .andExpect(status().isBadRequest());
-  }
+        mockMvc
+                .perform(jsonPut("/customers/me", request).with(asCustomer()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Novo Nome"))
+                .andExpect(jsonPath("$.phone").value("51988887777"));
+    }
 
-  @Test
-  void updateMyCustomer_shouldReturn403_whenAuthenticatedWithoutCustomerRole() throws Exception {
-    CustomerUpdateRequest request = buildUpdateRequest("João Silva", "51988887777");
+    @Test
+    void updateMyCustomer_shouldReturn400_whenNameIsBlank() throws Exception {
+        CustomerUpdateRequest request = buildUpdateRequest("", "51988887777");
 
-    mockMvc
-        .perform(jsonPut("/customers/me", request).with(asFarmer()))
-        .andExpect(status().isForbidden());
-  }
+        mockMvc
+                .perform(jsonPut("/customers/me", request).with(asCustomer()))
+                .andExpect(status().isBadRequest());
+    }
 
-  @Test
-  void updateMyCustomer_shouldReturn401_whenUnauthenticated() throws Exception {
-    CustomerUpdateRequest request = buildUpdateRequest("João Silva", "51988887777");
+    @Test
+    void updateMyCustomer_shouldReturn400_whenPhoneExceedsMaxLength() throws Exception {
+        CustomerUpdateRequest request = buildUpdateRequest("João Silva", "1".repeat(21));
 
-    mockMvc.perform(jsonPut("/customers/me", request)).andExpect(status().isUnauthorized());
-  }
+        mockMvc
+                .perform(jsonPut("/customers/me", request).with(asCustomer()))
+                .andExpect(status().isBadRequest());
+    }
 
-  // ─── GET /customers/{id} ─────────────────────────────────────────────────
+    @Test
+    void updateMyCustomer_shouldReturn403_whenAuthenticatedWithoutCustomerRole() throws Exception {
+        CustomerUpdateRequest request = buildUpdateRequest("João Silva", "51988887777");
 
-  @Test
-  void getCustomerById_shouldReturn200_whenCustomerExists() throws Exception {
-    UUID id = UUID.randomUUID();
-    CustomerResponse response = buildCustomerResponse();
-    when(customerService.getCustomerById(eq(id), any())).thenReturn(response);
+        mockMvc
+                .perform(jsonPut("/customers/me", request).with(asFarmer()))
+                .andExpect(status().isForbidden());
+    }
 
-    mockMvc
-        .perform(get("/customers/{id}", id).with(asCustomer()))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.id").value(response.getId().toString()))
-        .andExpect(jsonPath("$.name").value(response.getName()));
-  }
+    @Test
+    void updateMyCustomer_shouldReturn401_whenUnauthenticated() throws Exception {
+        CustomerUpdateRequest request = buildUpdateRequest("João Silva", "51988887777");
 
-  @Test
-  void getCustomerById_shouldReturn404_whenCustomerDoesNotExist() throws Exception {
-    UUID id = UUID.randomUUID();
-    when(customerService.getCustomerById(eq(id), any()))
-        .thenThrow(new NotFoundException("Customer not found"));
+        mockMvc.perform(jsonPut("/customers/me", request)).andExpect(status().isUnauthorized());
+    }
 
-    mockMvc
-        .perform(get("/customers/{id}", id).with(asCustomer()))
-        .andExpect(status().isNotFound())
-        .andExpect(jsonPath("$.error").value("Customer not found"));
-  }
+    private static RequestPostProcessor asCustomer() {
+        return Objects.requireNonNull(
+                jwt().authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER")));
+    }
 
-  @Test
-  void getCustomerById_shouldReturn401_whenCallerIsNotAdmin() throws Exception {
-    UUID id = UUID.randomUUID();
-    when(customerService.getCustomerById(eq(id), any()))
-        .thenThrow(new UnauthorizedException("Access restricted to admins"));
+    private static RequestPostProcessor asFarmer() {
+        return Objects.requireNonNull(
+                jwt().authorities(new SimpleGrantedAuthority("ROLE_FARMER")));
+    }
 
-    mockMvc
-        .perform(get("/customers/{id}", id).with(asCustomer()))
-        .andExpect(status().isUnauthorized())
-        .andExpect(jsonPath("$.error").value("Access restricted to admins"));
-  }
+    private MockHttpServletRequestBuilder jsonPut(String url, Object body) throws Exception {
+        return put(url)
+                .contentType(Objects.requireNonNull(MediaType.APPLICATION_JSON))
+                .content(Objects.requireNonNull(objectMapper.writeValueAsString(body)));
+    }
 
-  @Test
-  void getCustomerById_shouldReturn403_whenAuthenticatedWithoutCustomerRole() throws Exception {
-    mockMvc
-        .perform(get("/customers/{id}", UUID.randomUUID()).with(asFarmer()))
-        .andExpect(status().isForbidden());
-  }
+    private MockHttpServletRequestBuilder jsonPost(String url, Object body) throws Exception {
+        return post(url)
+                .contentType(Objects.requireNonNull(MediaType.APPLICATION_JSON))
+                .content(Objects.requireNonNull(objectMapper.writeValueAsString(body)));
+    }
 
-  @Test
-  void getCustomerById_shouldReturn401_whenUnauthenticated() throws Exception {
-    mockMvc
-        .perform(get("/customers/{id}", UUID.randomUUID()))
-        .andExpect(status().isUnauthorized());
-  }
+    private CustomerRegistrationRequest buildRegistrationRequest() {
+        AddressRequest address = new AddressRequest();
+        address.setStreet("Rua das Flores");
+        address.setNumber("123");
+        address.setCity("Porto Alegre");
+        address.setState("RS");
+        address.setZipCode("90010120");
 
-  // ─── Helpers ─────────────────────────────────────────────────────────────
+        CustomerRegistrationRequest request = new CustomerRegistrationRequest();
+        request.setName("Maria Silva");
+        request.setPhone("51999998888");
+        request.setEmail("maria@example.com");
+        request.setPassword("Senha1234");
+        request.setFiscalNumber("12345678901");
+        request.setAddress(address);
+        return request;
+    }
 
-  private static RequestPostProcessor asCustomer() {
-    return Objects.requireNonNull(
-        jwt().authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER")));
-  }
+    private CustomerRegistrationResponse buildRegistrationResponse() {
+        return CustomerRegistrationResponse.builder()
+                .id(UUID.randomUUID())
+                .name("Maria Silva")
+                .email("maria@example.com")
+                .phone("51999998888")
+                .type("customer")
+                .active(true)
+                .fiscalNumber("12345678901")
+                .createdAt(OffsetDateTime.now().minusDays(1))
+                .updatedAt(OffsetDateTime.now())
+                .build();
+    }
 
-  private static RequestPostProcessor asFarmer() {
-    return Objects.requireNonNull(
-        jwt().authorities(new SimpleGrantedAuthority("ROLE_FARMER")));
-  }
+    private CustomerUpdateRequest buildUpdateRequest(String name, String phone) {
+        AddressRequest address = new AddressRequest();
+        address.setStreet("Rua das Flores");
+        address.setNumber("123");
+        address.setCity("Porto Alegre");
+        address.setState("RS");
+        address.setZipCode("90010120");
 
-  private MockHttpServletRequestBuilder jsonPut(String url, Object body) throws Exception {
-    return put(url)
-        .contentType(Objects.requireNonNull(MediaType.APPLICATION_JSON))
-        .content(Objects.requireNonNull(objectMapper.writeValueAsString(body)));
-  }
+        CustomerUpdateRequest request = new CustomerUpdateRequest();
+        request.setName(name);
+        request.setPhone(phone);
+        request.setAddress(address);
+        return request;
+    }
 
-  private CustomerUpdateRequest buildUpdateRequest(String name, String phone) {
-    AddressRequest address = new AddressRequest();
-    address.setStreet("Rua das Flores");
-    address.setNumber("123");
-    address.setCity("Porto Alegre");
-    address.setState("RS");
-    address.setZipCode("90010120");
-
-    CustomerUpdateRequest request = new CustomerUpdateRequest();
-    request.setName(name);
-    request.setPhone(phone);
-    request.setAddress(address);
-    return request;
-  }
-
-  private CustomerResponse buildCustomerResponse() {
-    return CustomerResponse.builder()
-        .id(UUID.randomUUID())
-        .name("Maria Silva")
-        .email("maria@example.com")
-        .phone("51999999999")
-        .active(true)
-        .createdAt(OffsetDateTime.now().minusDays(1))
-        .updatedAt(OffsetDateTime.now())
-        .addresses(List.of())
-        .build();
-  }
+    private CustomerResponse buildCustomerResponse() {
+        return CustomerResponse.builder()
+                .id(UUID.randomUUID())
+                .name("Maria Silva")
+                .email("maria@example.com")
+                .phone("51999999999")
+                .active(true)
+                .createdAt(OffsetDateTime.now().minusDays(1))
+                .updatedAt(OffsetDateTime.now())
+                .addresses(List.of())
+                .build();
+    }
 }

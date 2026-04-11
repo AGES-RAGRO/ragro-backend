@@ -1,12 +1,8 @@
 package br.com.ragro.service;
 
 import br.com.ragro.controller.request.UpdateUserRequest;
-import br.com.ragro.controller.request.UserRequest;
-import br.com.ragro.controller.response.UserResponse;
 import br.com.ragro.domain.User;
-import br.com.ragro.exception.BusinessException;
 import br.com.ragro.exception.UnauthorizedException;
-import br.com.ragro.mapper.UserMapper;
 import br.com.ragro.repository.UserRepository;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
@@ -21,33 +17,11 @@ public class UserService {
     this.userRepository = userRepository;
   }
 
-  public UserResponse addUser(Jwt jwt, UserRequest request) {
-    String email = getRequiredClaim(jwt, "email");
-    String sub = getRequiredClaim(jwt, "sub");
-
-    if (userRepository.existsByEmail(email) || userRepository.existsByAuthSub(sub)) {
-      throw new BusinessException("E-mail já cadastrado");
-    }
-
-    User user = UserMapper.toEntity(request);
-    user.setEmail(email);
-    user.setAuthSub(sub);
-    user.setActive(true);
-
-    User saved = userRepository.saveAndFlush(user);
-
-    return UserMapper.toResponse(saved);
-  }
-
   public User getAuthenticatedUser(Jwt jwt) {
     String sub = getRequiredClaim(jwt, "sub");
     return userRepository
-        .findByAuthSub(sub)
-        .orElseGet(
-            () ->
-                userRepository
-                    .findByEmail(getRequiredClaim(jwt, "email"))
-                    .orElseThrow(() -> new UnauthorizedException("Usuário não autenticado")));
+      .findByAuthSub(sub)
+      .orElseThrow(() -> new UnauthorizedException("Usuário não autenticado"));
   }
 
   @Transactional

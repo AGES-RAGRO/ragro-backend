@@ -12,6 +12,7 @@ import br.com.ragro.mapper.CustomerMapper;
 import br.com.ragro.repository.AddressRepository;
 import br.com.ragro.repository.CustomerRepository;
 import br.com.ragro.repository.UserRepository;
+import br.com.ragro.service.api.IdentityProviderService;
 import java.util.Locale;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

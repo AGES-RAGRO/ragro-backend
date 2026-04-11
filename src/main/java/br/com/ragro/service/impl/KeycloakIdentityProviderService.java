@@ -1,6 +1,7 @@
-package br.com.ragro.service;
+package br.com.ragro.service.impl;
 
 import br.com.ragro.exception.BusinessException;
+import br.com.ragro.service.api.IdentityProviderService;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.List;
@@ -41,16 +42,12 @@ public class KeycloakIdentityProviderService implements IdentityProviderService 
 
   @Override
   public String registerCustomer(String email, String rawPassword) {
-    String adminToken = getAdminToken();
-    String userId = createUser(adminToken, email);
-    try {
-      setPassword(adminToken, userId, rawPassword);
-    } catch (Exception e) {
-      log.error("Failed to set password for Keycloak user {}. Deleting orphaned user.", userId, e);
-      deleteUser(userId);
-      throw new BusinessException("Failed to complete user registration: " + e.getMessage());
-    }
-    return userId;
+    return registerUser(email, rawPassword, "CUSTOMER");
+  }
+
+  @Override
+  public String registerProducer(String email, String rawPassword) {
+    return registerUser(email, rawPassword, "FARMER");
   }
 
   @Override
@@ -68,14 +65,27 @@ public class KeycloakIdentityProviderService implements IdentityProviderService 
     }
   }
 
-  private String createUser(String adminToken, String email) {
+  private String registerUser(String email, String rawPassword, String group) {
+    String adminToken = getAdminToken();
+    String userId = createUser(adminToken, email, List.of(group));
+    try {
+      setPassword(adminToken, userId, rawPassword);
+    } catch (Exception e) {
+      log.error("Failed to set password for Keycloak user {}. Deleting orphaned user.", userId, e);
+      deleteUser(userId);
+      throw new BusinessException("Failed to complete user registration: " + e.getMessage());
+    }
+    return userId;
+  }
+
+  private String createUser(String adminToken, String email, List<String> groups) {
     Map<String, Object> userPayload = new HashMap<>();
     userPayload.put("username", email);
     userPayload.put("email", email);
     userPayload.put("enabled", true);
     userPayload.put("emailVerified", true);
     userPayload.put("requiredActions", List.of());
-    userPayload.put("groups", List.of("CUSTOMER"));
+    userPayload.put("groups", groups);
 
     try {
       ResponseEntity<Void> response =

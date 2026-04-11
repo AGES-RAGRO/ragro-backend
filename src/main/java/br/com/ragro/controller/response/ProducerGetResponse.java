@@ -21,7 +21,6 @@ public class ProducerGetResponse {
 
   private UUID id;
 
-  // dados do User
   @Schema(description = "Full name", example = "João Silva")
   private String name;
 
@@ -31,7 +30,6 @@ public class ProducerGetResponse {
   @Schema(description = "Phone number", example = "(51) 98765-4321")
   private String phone;
 
-  // dados do Producer (farmers)
   @Schema(description = "CPF or CNPJ (digits only)", example = "12345678901")
   private String fiscalNumber;
 
@@ -62,7 +60,6 @@ public class ProducerGetResponse {
   @Schema(description = "Total sales amount", example = "0.00")
   private BigDecimal totalSalesAmount;
 
-  // dados do ProducerProfile
   @Schema(description = "Producer's personal story")
   private String story;
 
@@ -72,11 +69,9 @@ public class ProducerGetResponse {
   @Schema(description = "Date when the producer became a member", example = "2020-03-15")
   private LocalDate memberSince;
 
-  // endereço primário
   @Schema(description = "Primary address")
   private AddressResponse address;
 
-  // métodos de pagamento ativos
   @Schema(description = "Active payment methods")
   private List<PaymentMethodResponse> paymentMethods;
 }

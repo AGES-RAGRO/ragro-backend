@@ -1,24 +1,30 @@
 package br.com.ragro.service;
 
+import br.com.ragro.controller.request.AvailabilityRequest;
 import br.com.ragro.controller.request.PaymentMethodRequest;
 import br.com.ragro.controller.request.ProducerUpdateRequest;
 import br.com.ragro.controller.response.ProducerGetResponse;
 import br.com.ragro.controller.response.ProducerResponse;
 import br.com.ragro.domain.Address;
+import br.com.ragro.domain.FarmerAvailability;
 import br.com.ragro.domain.PaymentMethod;
 import br.com.ragro.domain.Producer;
 import br.com.ragro.domain.ProducerProfile;
 import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.TypeUser;
+import br.com.ragro.exception.BusinessException;
+import br.com.ragro.exception.ForbiddenException;
 import br.com.ragro.exception.NotFoundException;
-import br.com.ragro.exception.UnauthorizedException;
 import br.com.ragro.mapper.AddressMapper;
 import br.com.ragro.mapper.ProducerMapper;
 import br.com.ragro.repository.AddressRepository;
+import br.com.ragro.repository.FarmerAvailabilityRepository;
 import br.com.ragro.repository.PaymentMethodRepository;
 import br.com.ragro.repository.ProducerProfileRepository;
 import br.com.ragro.repository.ProducerRepository;
 import br.com.ragro.repository.UserRepository;
+import java.time.LocalTime;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -36,32 +42,32 @@ public class ProducerService {
   private final ProducerRepository producerRepository;
   private final ProducerProfileRepository producerProfileRepository;
   private final AddressRepository addressRepository;
+  private final FarmerAvailabilityRepository farmerAvailabilityRepository;
   private final PaymentMethodRepository paymentMethodRepository;
   private final UserService userService;
 
   public ProducerResponse getProducerById(UUID id) {
-    var producer = userRepository
-        .findById(id)
-        .filter(user -> user.getType() == TypeUser.FARMER)
+    var producer = producerRepository
+        .findDetailedById(id)
         .orElseThrow(() -> new NotFoundException("Produtor não encontrado"));
 
-    return ProducerMapper.toResponse(producer);
+    return ProducerMapper.toResponse(producer.getUser());
   }
 
   public Page<ProducerResponse> getAllProducers(Pageable pageable) {
-    return producerRepository.findAllUsersSortedByRating(pageable).map(ProducerMapper::toResponse);
+    return producerRepository
+        .findAllUsersSortedByRating(pageable)
+        .map(Producer::getUser)
+        .map(ProducerMapper::toResponse);
   }
 
   @Transactional(readOnly = true)
   public ProducerGetResponse getProducerProfileById(UUID id) {
-    User user = userRepository
-        .findById(id)
-        .filter(u -> u.getType() == TypeUser.FARMER)
+    Producer producer = producerRepository
+        .findDetailedById(id)
         .orElseThrow(() -> new NotFoundException("Produtor não encontrado"));
 
-    Producer producer = producerRepository
-        .findById(id)
-        .orElseThrow(() -> new NotFoundException("Dados do produtor não encontrados"));
+    User user = producer.getUser();
 
     ProducerProfile profile = producerProfileRepository.findById(id).orElse(null);
     Address primaryAddress = addressRepository.findByUserIdAndIsPrimaryTrue(id).orElse(null);
@@ -70,16 +76,6 @@ public class ProducerService {
     return ProducerMapper.toGetResponse(user, producer, profile, primaryAddress, paymentMethods);
   }
 
-  /**
-   * Updates a producer's profile.
-   *
-   * <p>
-   * Authorization rules:
-   * <ul>
-   * <li>FARMER: can only update their own profile (JWT id must match path id).
-   * <li>ADMIN: can update any producer's profile.
-   * </ul>
-   */
   @Transactional
   public ProducerGetResponse updateProducerProfile(
       UUID id, Jwt jwt, ProducerUpdateRequest request) {
@@ -87,23 +83,20 @@ public class ProducerService {
     User authenticated = userService.getAuthenticatedUser(jwt);
     TypeUser role = authenticated.getType();
 
-    // Validação de autenticação
     if (role == TypeUser.FARMER) {
       if (!authenticated.getId().equals(id)) {
-        throw new UnauthorizedException("Você não tem permissão para alterar este perfil");
+        throw new ForbiddenException("Você não tem permissão para alterar este perfil");
       }
     } else if (role != TypeUser.ADMIN) {
-      throw new UnauthorizedException("Acesso restrito a produtores e administradores");
+      throw new ForbiddenException("Acesso restrito a produtores e administradores");
     }
 
-    // Carrega o User alvo (pode ser diferente do autenticado quando quem age é
-    // ADMIN)
-    User targetUser = userRepository
-        .findById(id)
-        .filter(u -> u.getType() == TypeUser.FARMER)
+    Producer producer = producerRepository
+        .findDetailedById(id)
         .orElseThrow(() -> new NotFoundException("Produtor não encontrado"));
 
-    // Atualizar User (name, phone)
+    User targetUser = producer.getUser();
+
     if (request.getName() != null) {
       targetUser.setName(request.getName().trim());
     }
@@ -111,11 +104,6 @@ public class ProducerService {
       targetUser.setPhone(request.getPhone().trim());
     }
     userRepository.save(targetUser);
-
-    // Atualizar Producer (farmName, description, avatarS3, displayPhotoS3)
-    Producer producer = producerRepository
-        .findById(id)
-        .orElseThrow(() -> new NotFoundException("Dados do produtor não encontrados"));
 
     if (request.getFarmName() != null) {
       producer.setFarmName(request.getFarmName().trim());
@@ -131,7 +119,6 @@ public class ProducerService {
     }
     producerRepository.save(producer);
 
-    // Upsert ProducerProfile (story, photoUrl, memberSince)
     ProducerProfile profile = producerProfileRepository
         .findById(id)
         .orElseGet(
@@ -152,7 +139,6 @@ public class ProducerService {
     }
     producerProfileRepository.save(profile);
 
-    // #110 — Upsert Address primário
     Address primaryAddress = null;
     if (request.getAddress() != null) {
       primaryAddress = addressRepository
@@ -170,9 +156,12 @@ public class ProducerService {
       primaryAddress = addressRepository.findByUserIdAndIsPrimaryTrue(id).orElse(null);
     }
 
-    // #110 — Upsert PaymentMethod (por tipo: pix ou bank_account)
     if (request.getPaymentMethod() != null && request.getPaymentMethod().getType() != null) {
       applyPaymentMethod(producer, request.getPaymentMethod());
+    }
+
+    if (request.getAvailability() != null) {
+      applyAvailability(producer, request.getAvailability());
     }
 
     List<PaymentMethod> paymentMethods = paymentMethodRepository.findByFarmerIdAndActiveTrue(id);
@@ -229,8 +218,40 @@ public class ProducerService {
         .findById(id)
         .filter(user -> user.getType() == TypeUser.FARMER)
         .orElseThrow(() -> new NotFoundException("Produtor não encontrado"));
+
     producer.setActive(false);
     userRepository.saveAndFlush(producer);
     return ProducerMapper.toResponse(producer);
+  }
+
+  private void applyAvailability(Producer producer, List<AvailabilityRequest> availability) {
+    farmerAvailabilityRepository.deleteByFarmerId(producer.getId());
+
+    for (AvailabilityRequest item : availability) {
+      LocalTime opensAt = parseTime(item.getOpensAt(), "opensAt");
+      LocalTime closesAt = parseTime(item.getClosesAt(), "closesAt");
+      validateTimeRange(opensAt, closesAt);
+
+      FarmerAvailability farmerAvailability = new FarmerAvailability();
+      farmerAvailability.setFarmer(producer);
+      farmerAvailability.setWeekday(item.getWeekday());
+      farmerAvailability.setOpensAt(opensAt);
+      farmerAvailability.setClosesAt(closesAt);
+      farmerAvailabilityRepository.save(farmerAvailability);
+    }
+  }
+
+  private LocalTime parseTime(String value, String field) {
+    try {
+      return LocalTime.parse(value);
+    } catch (DateTimeParseException ex) {
+      throw new BusinessException(field + " must be a valid HH:mm value");
+    }
+  }
+
+  private void validateTimeRange(LocalTime opensAt, LocalTime closesAt) {
+    if (!opensAt.isBefore(closesAt)) {
+      throw new BusinessException("opensAt must be earlier than closesAt");
+    }
   }
 }
