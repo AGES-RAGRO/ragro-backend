@@ -8,12 +8,16 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import br.com.ragro.controller.request.AddressRequest;
 import br.com.ragro.controller.request.ProducerRegistrationRequest;
 import br.com.ragro.controller.response.ProducerRegistrationResponse;
 import br.com.ragro.domain.Producer;
 import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.TypeUser;
 import br.com.ragro.exception.BusinessException;
+import br.com.ragro.repository.AddressRepository;
+import br.com.ragro.repository.FarmerAvailabilityRepository;
+import br.com.ragro.repository.PaymentMethodRepository;
 import br.com.ragro.repository.ProducerRepository;
 import br.com.ragro.repository.UserRepository;
 import java.math.BigDecimal;
@@ -31,10 +35,20 @@ class ProducerRegistrationServiceTest {
     @Mock private UserRepository userRepository;
     @Mock private ProducerRepository producerRepository;
     @Mock private IdentityProviderService identityProviderService;
+    @Mock private AddressRepository addressRepository;
+    @Mock private FarmerAvailabilityRepository availabilityRepository;
+    @Mock private PaymentMethodRepository paymentMethodRepository;
 
     @InjectMocks private ProducerRegistrationService producerRegistrationService;
 
     private ProducerRegistrationRequest validRequest() {
+        AddressRequest address = new AddressRequest();
+        address.setStreet("Rua das Flores");
+        address.setNumber("123");
+        address.setCity("Porto Alegre");
+        address.setState("RS");
+        address.setZipCode("90010120");
+
         ProducerRegistrationRequest request = new ProducerRegistrationRequest();
         request.setName("João Silva");
         request.setPhone("51988888888");
@@ -44,6 +58,7 @@ class ProducerRegistrationServiceTest {
         request.setFiscalNumberType("CPF");
         request.setFarmName("Fazenda São João");
         request.setDescription("Produção orgânica");
+        request.setAddress(address);
         return request;
     }
 
