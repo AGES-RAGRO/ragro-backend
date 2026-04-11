@@ -132,19 +132,23 @@ class AdminControllerProducerTest {
   @WithMockUser(roles = "ADMIN")
   void getProducer_shouldReturn200WithProducerDetails_whenProducerExists() throws Exception {
     UUID producerId = UUID.randomUUID();
-    ProducerResponse producerResponse =
-        ProducerResponse.builder()
+    ProducerGetResponse producerResponse =
+        ProducerGetResponse.builder()
             .id(producerId)
             .name("João Farmer")
             .email("joao@example.com")
             .phone("51988888888")
-            .active(true)
-            .address("Porto Alegre, RS - Rua das Acácias 45")
-            .createdAt(OffsetDateTime.now().minusDays(1))
-            .updatedAt(OffsetDateTime.now())
+            .farmName("Fazenda São João")
+            .fiscalNumber("12345678901")
+            .fiscalNumberType("CPF")
+            .totalReviews(0)
+            .averageRating(BigDecimal.ZERO)
+            .totalOrders(0)
+            .totalSalesAmount(BigDecimal.ZERO)
+            .paymentMethods(List.of())
             .build();
 
-    when(producerService.getProducerById(producerId)).thenReturn(producerResponse);
+    when(producerService.getProducerProfileById(producerId)).thenReturn(producerResponse);
 
     MvcResult result =
         mockMvc
@@ -154,13 +158,13 @@ class AdminControllerProducerTest {
             .andExpect(jsonPath("$.name").value("João Farmer"))
             .andExpect(jsonPath("$.email").value("joao@example.com"))
             .andExpect(jsonPath("$.phone").value("51988888888"))
-            .andExpect(jsonPath("$.active").value(true))
-            .andExpect(jsonPath("$.address").value("Porto Alegre, RS - Rua das Acácias 45"))
+            .andExpect(jsonPath("$.farmName").value("Fazenda São João"))
+            .andExpect(jsonPath("$.fiscalNumber").value("12345678901"))
             .andReturn();
 
-    ProducerResponse response =
+    ProducerGetResponse response =
         objectMapper.readValue(
-            result.getResponse().getContentAsString(), ProducerResponse.class);
+            result.getResponse().getContentAsString(), ProducerGetResponse.class);
     assertThat(response.getId()).isEqualTo(producerId);
     assertThat(response.getEmail()).isEqualTo("joao@example.com");
   }
@@ -169,7 +173,7 @@ class AdminControllerProducerTest {
   @WithMockUser(roles = "ADMIN")
   void getProducer_shouldReturn404_whenProducerNotFound() throws Exception {
     UUID producerId = UUID.randomUUID();
-    when(producerService.getProducerById(producerId))
+    when(producerService.getProducerProfileById(producerId))
         .thenThrow(new NotFoundException("Produtor não encontrado"));
 
     mockMvc
@@ -181,7 +185,7 @@ class AdminControllerProducerTest {
   @Test
   void getProducer_shouldReturn404_whenUserIsNotFarmer() throws Exception {
     UUID customerId = UUID.randomUUID();
-    when(producerService.getProducerById(customerId))
+    when(producerService.getProducerProfileById(customerId))
         .thenThrow(new NotFoundException("Produtor não encontrado"));
 
     mockMvc
@@ -193,7 +197,7 @@ class AdminControllerProducerTest {
   @Test
   void getProducer_shouldReturn404_whenUserIsAdmin() throws Exception {
     UUID adminId = UUID.randomUUID();
-    when(producerService.getProducerById(adminId))
+    when(producerService.getProducerProfileById(adminId))
         .thenThrow(new NotFoundException("Produtor não encontrado"));
 
     mockMvc
@@ -203,32 +207,35 @@ class AdminControllerProducerTest {
 
   @WithMockUser(roles = "ADMIN")
   @Test
-  void getProducer_shouldReturnProducerWithTimestamps() throws Exception {
+  void getProducer_shouldReturnFullProducerProfile() throws Exception {
     UUID producerId = UUID.randomUUID();
-    OffsetDateTime createdAt = OffsetDateTime.now().minusDays(5);
-    OffsetDateTime updatedAt = OffsetDateTime.now();
 
-    ProducerResponse producerResponse =
-        ProducerResponse.builder()
+    ProducerGetResponse producerResponse =
+        ProducerGetResponse.builder()
             .id(producerId)
             .name("Maria Farmer")
             .email("maria@example.com")
             .phone("51987654321")
-            .active(true)
-            .address("Canoas, RS - Rua dos Jasmins 120")
-            .createdAt(createdAt)
-            .updatedAt(updatedAt)
+            .farmName("Fazenda dos Jasmins")
+            .fiscalNumber("98765432100")
+            .fiscalNumberType("CPF")
+            .totalReviews(3)
+            .averageRating(new BigDecimal("4.50"))
+            .totalOrders(10)
+            .totalSalesAmount(new BigDecimal("1500.00"))
+            .paymentMethods(List.of())
             .build();
 
-    when(producerService.getProducerById(producerId)).thenReturn(producerResponse);
+    when(producerService.getProducerProfileById(producerId)).thenReturn(producerResponse);
 
     mockMvc
         .perform(get("/admin/producers/{id}", producerId))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.id").value(producerId.toString()))
         .andExpect(jsonPath("$.name").value("Maria Farmer"))
-        .andExpect(jsonPath("$.createdAt").isNotEmpty())
-        .andExpect(jsonPath("$.updatedAt").isNotEmpty());
+        .andExpect(jsonPath("$.farmName").value("Fazenda dos Jasmins"))
+        .andExpect(jsonPath("$.totalReviews").value(3))
+        .andExpect(jsonPath("$.averageRating").value(4.50));
   }
 
   // ─── PUT /admin/producers/{id} ───────────────────────────────────────────────
