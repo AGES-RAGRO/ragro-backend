@@ -47,6 +47,7 @@ public class ProducerMapper {
         .story(profile != null ? profile.getStory() : null)
         .photoUrl(profile != null ? profile.getPhotoUrl() : null)
         .memberSince(profile != null ? profile.getMemberSince() : null)
+        .active(user.isActive())
         .address(primaryAddress != null ? AddressMapper.toResponse(primaryAddress) : null)
         .paymentMethods(pmResponses)
         .build();
