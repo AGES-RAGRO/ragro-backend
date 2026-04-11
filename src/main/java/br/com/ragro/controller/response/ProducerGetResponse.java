@@ -69,6 +69,9 @@ public class ProducerGetResponse {
   @Schema(description = "Date when the producer became a member", example = "2020-03-15")
   private LocalDate memberSince;
 
+  @Schema(description = "Whether the producer is active", example = "true")
+  private Boolean active;
+
   @Schema(description = "Primary address")
   private AddressResponse address;
 
