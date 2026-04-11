@@ -70,16 +70,6 @@ public class ProducerService {
     return ProducerMapper.toGetResponse(user, producer, profile, primaryAddress, paymentMethods);
   }
 
-  /**
-   * Updates a producer's profile.
-   *
-   * <p>
-   * Authorization rules:
-   * <ul>
-   * <li>FARMER: can only update their own profile (JWT id must match path id).
-   * <li>ADMIN: can update any producer's profile.
-   * </ul>
-   */
   @Transactional
   public ProducerGetResponse updateProducerProfile(
       UUID id, Jwt jwt, ProducerUpdateRequest request) {
@@ -87,7 +77,6 @@ public class ProducerService {
     User authenticated = userService.getAuthenticatedUser(jwt);
     TypeUser role = authenticated.getType();
 
-    // Validação de autenticação
     if (role == TypeUser.FARMER) {
       if (!authenticated.getId().equals(id)) {
         throw new UnauthorizedException("Você não tem permissão para alterar este perfil");
@@ -96,14 +85,11 @@ public class ProducerService {
       throw new UnauthorizedException("Acesso restrito a produtores e administradores");
     }
 
-    // Carrega o User alvo (pode ser diferente do autenticado quando quem age é
-    // ADMIN)
     User targetUser = userRepository
         .findById(id)
         .filter(u -> u.getType() == TypeUser.FARMER)
         .orElseThrow(() -> new NotFoundException("Produtor não encontrado"));
 
-    // Atualizar User (name, phone)
     if (request.getName() != null) {
       targetUser.setName(request.getName().trim());
     }
@@ -112,7 +98,6 @@ public class ProducerService {
     }
     userRepository.save(targetUser);
 
-    // Atualizar Producer (farmName, description, avatarS3, displayPhotoS3)
     Producer producer = producerRepository
         .findById(id)
         .orElseThrow(() -> new NotFoundException("Dados do produtor não encontrados"));
@@ -131,7 +116,6 @@ public class ProducerService {
     }
     producerRepository.save(producer);
 
-    // Upsert ProducerProfile (story, photoUrl, memberSince)
     ProducerProfile profile = producerProfileRepository
         .findById(id)
         .orElseGet(
@@ -152,7 +136,6 @@ public class ProducerService {
     }
     producerProfileRepository.save(profile);
 
-    // #110 — Upsert Address primário
     Address primaryAddress = null;
     if (request.getAddress() != null) {
       primaryAddress = addressRepository
@@ -170,7 +153,6 @@ public class ProducerService {
       primaryAddress = addressRepository.findByUserIdAndIsPrimaryTrue(id).orElse(null);
     }
 
-    // #110 — Upsert PaymentMethod (por tipo: pix ou bank_account)
     if (request.getPaymentMethod() != null && request.getPaymentMethod().getType() != null) {
       applyPaymentMethod(producer, request.getPaymentMethod());
     }

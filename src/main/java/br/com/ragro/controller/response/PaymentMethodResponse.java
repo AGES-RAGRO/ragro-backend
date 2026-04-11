@@ -21,15 +21,11 @@ public class PaymentMethodResponse {
   @Schema(description = "Payment type: pix or bank_account", example = "pix")
   private String type;
 
-  // ── PIX ──────────────────────────────────────────────────────────────────────
-
   @Schema(description = "PIX key type", example = "email")
   private String pixKeyType;
 
   @Schema(description = "PIX key", example = "joao@email.com")
   private String pixKey;
-
-  // ── Bank account ─────────────────────────────────────────────────────────────
 
   @Schema(description = "Bank code", example = "001")
   private String bankCode;
