@@ -7,6 +7,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import br.com.ragro.controller.request.AvailabilityRequest;
+import br.com.ragro.controller.request.PaymentMethodRequest;
 import br.com.ragro.controller.request.ProducerRegistrationRequest;
 import br.com.ragro.controller.request.AddressRequest;
 import br.com.ragro.controller.response.ProducerRegistrationResponse;
@@ -19,6 +21,7 @@ import br.com.ragro.service.UserService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -55,6 +58,16 @@ class AdminControllerProducerRegistrationTest {
         address.setState("RS");
         address.setZipCode("90010120");
 
+        PaymentMethodRequest paymentMethod = new PaymentMethodRequest();
+        paymentMethod.setType("pix");
+        paymentMethod.setPixKeyType("email");
+        paymentMethod.setPixKey("joao@example.com");
+
+        AvailabilityRequest availability = new AvailabilityRequest();
+        availability.setWeekday((short) 1);
+        availability.setOpensAt("08:00");
+        availability.setClosesAt("18:00");
+
         ProducerRegistrationRequest request = new ProducerRegistrationRequest();
         request.setName("João Silva");
         request.setPhone("51988888888");
@@ -65,8 +78,8 @@ class AdminControllerProducerRegistrationTest {
         request.setFarmName("Fazenda São João");
         request.setDescription("Produção orgânica");
         request.setAddress(address);
-        request.setAvatarS3(null);
-        request.setDisplayPhotoS3(null);
+        request.setPaymentMethod(paymentMethod);
+        request.setAvailability(List.of(availability));
         return request;
     }
 
@@ -248,6 +261,34 @@ class AdminControllerProducerRegistrationTest {
     void registerProducer_shouldReturn400_whenFarmNameIsBlank() throws Exception {
         ProducerRegistrationRequest request = validRequest();
         request.setFarmName("");
+
+        mockMvc
+                .perform(post("/admin/producers")
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void registerProducer_shouldReturn400_whenPaymentMethodIsNull() throws Exception {
+        ProducerRegistrationRequest request = validRequest();
+        request.setPaymentMethod(null);
+
+        mockMvc
+                .perform(post("/admin/producers")
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void registerProducer_shouldReturn400_whenAvailabilityIsEmpty() throws Exception {
+        ProducerRegistrationRequest request = validRequest();
+        request.setAvailability(List.of());
 
         mockMvc
                 .perform(post("/admin/producers")

@@ -9,6 +9,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import br.com.ragro.controller.request.AddressRequest;
+import br.com.ragro.controller.request.AvailabilityRequest;
+import br.com.ragro.controller.request.PaymentMethodRequest;
 import br.com.ragro.controller.request.ProducerRegistrationRequest;
 import br.com.ragro.controller.response.ProducerRegistrationResponse;
 import br.com.ragro.domain.Producer;
@@ -23,6 +25,7 @@ import br.com.ragro.repository.UserRepository;
 import br.com.ragro.service.api.IdentityProviderService;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -50,6 +53,16 @@ class ProducerRegistrationServiceTest {
         address.setState("RS");
         address.setZipCode("90010120");
 
+        PaymentMethodRequest paymentMethod = new PaymentMethodRequest();
+        paymentMethod.setType("pix");
+        paymentMethod.setPixKeyType("email");
+        paymentMethod.setPixKey("joao@example.com");
+
+        AvailabilityRequest availability = new AvailabilityRequest();
+        availability.setWeekday((short) 1);
+        availability.setOpensAt("08:00");
+        availability.setClosesAt("18:00");
+
         ProducerRegistrationRequest request = new ProducerRegistrationRequest();
         request.setName("João Silva");
         request.setPhone("51988888888");
@@ -60,6 +73,8 @@ class ProducerRegistrationServiceTest {
         request.setFarmName("Fazenda São João");
         request.setDescription("Produção orgânica");
         request.setAddress(address);
+        request.setPaymentMethod(paymentMethod);
+        request.setAvailability(List.of(availability));
         return request;
     }
 

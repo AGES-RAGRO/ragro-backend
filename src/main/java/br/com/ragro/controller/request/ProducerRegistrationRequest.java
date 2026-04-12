@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -61,15 +62,13 @@ public class ProducerRegistrationRequest {
     private AddressRequest address;
 
     @Valid
-    @Schema(description = "Bank account details")
-    private BankAccountRequest bankAccount;
-
-    @Valid
-    @Schema(description = "Payment method data (pix or bank_account). Prefer this over bankAccount.")
+    @NotNull(message = "Payment method is required")
+    @Schema(description = "Payment method data (pix or bank_account)", requiredMode = Schema.RequiredMode.REQUIRED)
     private PaymentMethodRequest paymentMethod;
 
     @Valid
-    @Schema(description = "Availability schedule")
+    @NotEmpty(message = "At least one availability slot is required")
+    @Schema(description = "Availability schedule", requiredMode = Schema.RequiredMode.REQUIRED)
     private List<AvailabilityRequest> availability;
 
     @Schema(description = "Description of the farm")
