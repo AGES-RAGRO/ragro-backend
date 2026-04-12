@@ -113,38 +113,22 @@ public class ProducerRegistrationService {
     }
 
     private void applyRegistrationPaymentMethod(Producer savedProducer, ProducerRegistrationRequest request) {
-        if (request.getPaymentMethod() != null && request.getPaymentMethod().getType() != null) {
-            PaymentMethodRequest pmRequest = request.getPaymentMethod();
-            PaymentMethod pm = new PaymentMethod();
-            pm.setFarmer(savedProducer);
-            pm.setType(pmRequest.getType());
-            pm.setPixKeyType(pmRequest.getPixKeyType());
-            pm.setPixKey(pmRequest.getPixKey());
-            pm.setBankCode(pmRequest.getBankCode());
-            pm.setBankName(pmRequest.getBankName());
-            pm.setAgency(pmRequest.getAgency());
-            pm.setAccountNumber(pmRequest.getAccountNumber());
-            pm.setAccountType(pmRequest.getAccountType());
-            pm.setHolderName(pmRequest.getHolderName());
-            if (pmRequest.getFiscalNumber() != null) {
-                pm.setFiscalNumber(digitsOnly(pmRequest.getFiscalNumber()));
-            }
-            paymentMethodRepository.save(pm);
-            return;
+        PaymentMethodRequest pmRequest = request.getPaymentMethod();
+        PaymentMethod pm = new PaymentMethod();
+        pm.setFarmer(savedProducer);
+        pm.setType(pmRequest.getType());
+        pm.setPixKeyType(pmRequest.getPixKeyType());
+        pm.setPixKey(pmRequest.getPixKey());
+        pm.setBankCode(pmRequest.getBankCode());
+        pm.setBankName(pmRequest.getBankName());
+        pm.setAgency(pmRequest.getAgency());
+        pm.setAccountNumber(pmRequest.getAccountNumber());
+        pm.setAccountType(pmRequest.getAccountType());
+        pm.setHolderName(pmRequest.getHolderName());
+        if (pmRequest.getFiscalNumber() != null) {
+            pm.setFiscalNumber(digitsOnly(pmRequest.getFiscalNumber()));
         }
-
-        if (request.getBankAccount() != null) {
-            PaymentMethod pm = new PaymentMethod();
-            pm.setFarmer(savedProducer);
-            pm.setType("bank_account");
-            pm.setBankName(request.getBankAccount().getBankName());
-            pm.setBankCode(request.getBankAccount().getBankCode());
-            pm.setAgency(request.getBankAccount().getAgency());
-            pm.setAccountNumber(request.getBankAccount().getAccountNumber());
-            pm.setHolderName(request.getBankAccount().getHolderName());
-            pm.setFiscalNumber(digitsOnly(request.getBankAccount().getFiscalNumber()));
-            paymentMethodRepository.save(pm);
-        }
+        paymentMethodRepository.save(pm);
     }
 
     private void applyAvailability(Producer producer, java.util.List<AvailabilityRequest> availability) {

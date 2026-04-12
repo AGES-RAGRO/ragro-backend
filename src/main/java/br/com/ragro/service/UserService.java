@@ -17,11 +17,29 @@ public class UserService {
     this.userRepository = userRepository;
   }
 
+  /**
+   * Resolves the authenticated user from JWT claims.
+   * Lookup strategy (D6):
+   * 1. Try findByAuthSub(sub)
+   * 2. If not found, try findByEmail(email) and self-heal auth_sub
+   * 3. If neither matches, throw UnauthorizedException
+   */
+  @Transactional
   public User getAuthenticatedUser(Jwt jwt) {
     String sub = getRequiredClaim(jwt, "sub");
-    return userRepository
-      .findByAuthSub(sub)
-      .orElseThrow(() -> new UnauthorizedException("Usuário não autenticado"));
+    String email = jwt.getClaimAsString("email");
+
+    return userRepository.findByAuthSub(sub)
+        .orElseGet(() -> {
+          if (email == null || email.isBlank()) {
+            throw new UnauthorizedException("Usuário não autenticado");
+          }
+          User user = userRepository.findByEmail(email)
+              .orElseThrow(() -> new UnauthorizedException("Usuário não autenticado"));
+          // Self-heal: update auth_sub so future lookups hit the fast path
+          user.setAuthSub(sub);
+          return userRepository.save(user);
+        });
   }
 
   @Transactional

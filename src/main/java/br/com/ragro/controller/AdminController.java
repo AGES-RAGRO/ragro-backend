@@ -3,6 +3,7 @@ package br.com.ragro.controller;
 import br.com.ragro.controller.request.ProducerRegistrationRequest;
 import br.com.ragro.controller.request.ProducerUpdateRequest;
 import br.com.ragro.controller.response.CustomerResponse;
+import br.com.ragro.controller.response.PaginatedResponse;
 import br.com.ragro.controller.response.ProducerGetResponse;
 import br.com.ragro.controller.response.ProducerRegistrationResponse;
 import br.com.ragro.controller.response.ProducerResponse;
@@ -17,7 +18,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -58,10 +58,11 @@ public class AdminController {
   @Operation(
       summary = "List all producers",
       description = "Returns a paginated list of all producers (active and inactive), sorted by rating desc.")
-  public ResponseEntity<Page<ProducerResponse>> getProducers(
+  public ResponseEntity<PaginatedResponse<ProducerResponse>> getProducers(
       @RequestParam(defaultValue = "0") int page,
       @RequestParam(defaultValue = "10") int size) {
-    return ResponseEntity.ok(producerService.getAllProducers(PageRequest.of(page, size)));
+    return ResponseEntity.ok(
+        PaginatedResponse.of(producerService.getAllProducers(PageRequest.of(page, size))));
   }
 
   @GetMapping("/producers/{id}")

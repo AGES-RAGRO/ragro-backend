@@ -101,7 +101,7 @@ Verifies `ROLE_ADMIN` access. Returns JWT claims.
 
 ---
 
-#### GET /farmer/dashboard
+#### GET /producers/dashboard
 
 Verifies `ROLE_FARMER` access. Returns JWT claims.
 
