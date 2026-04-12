@@ -21,7 +21,7 @@ ragro-backend/
 │       │   │   ├── AuthController.java        # /auth — registration, config, session
 │       │   │   ├── AdminController.java       # /admin — user management, dashboard (ROLE_ADMIN)
 │       │   │   ├── CustomerController.java    # /customers — customer profile with addresses (ROLE_CUSTOMER)
-│       │   │   ├── ProducerController.java    # /farmer — producer dashboard (ROLE_FARMER)
+│       │   │   ├── ProducerController.java    # /producers — producer dashboard (ROLE_FARMER)
 │       │   │   ├── request/                   # Request DTOs (inbound)
 │       │   │   │   ├── UserRequest.java       # name, email, phone, type — with validation
 │       │   │   │   └── CustomerRegistrationRequest.java  # Full registration DTO

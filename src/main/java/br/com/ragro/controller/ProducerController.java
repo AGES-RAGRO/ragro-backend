@@ -15,7 +15,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/farmer")
+@RequestMapping("/producers")
 @RequiredArgsConstructor
 @Tag(name = "Producer", description = "Producer operations (requires ROLE_FARMER)")
 public class ProducerController {

@@ -38,7 +38,7 @@ The central security configuration (`SecurityConfig.java`) defines:
 
 ```
 /admin/**    → requires ROLE_ADMIN
-/farmer/**   → requires ROLE_FARMER
+/producers/**   → requires ROLE_FARMER
 /customers/** → requires ROLE_CUSTOMER
 All other    → requires authentication (any role)
 ```
@@ -115,7 +115,7 @@ The `CustomerRegistrationService` wraps this in a compensating transaction: if t
 
 When adding a new endpoint that requires role-based access:
 
-1. **URL pattern** — if it follows `/admin/**`, `/farmer/**`, or `/customers/**`, it is automatically protected by the existing rules
+1. **URL pattern** — if it follows `/admin/**`, `/producers/**`, or `/customers/**`, it is automatically protected by the existing rules
 2. **Custom pattern** — add a new matcher in `SecurityConfig.java`:
    ```java
    .requestMatchers("/new-path/**").hasRole("REQUIRED_ROLE")

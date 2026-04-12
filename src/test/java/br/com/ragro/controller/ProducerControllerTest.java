@@ -74,7 +74,7 @@ class ProducerControllerTest {
 
     mockMvc
         .perform(
-            get("/farmer/" + producerId)
+            get("/producers/" + producerId)
                 .with(
                     SecurityMockMvcRequestPostProcessors.jwt()
                         .jwt(jwt -> jwt.claim("sub", sub).claim("email", "farmer@test.com"))
@@ -96,7 +96,7 @@ class ProducerControllerTest {
 
     mockMvc
         .perform(
-            get("/farmer/" + producerId)
+            get("/producers/" + producerId)
                 .with(
                     SecurityMockMvcRequestPostProcessors.jwt()
                         .jwt(jwt -> jwt.claim("sub", sub).claim("email", "farmer@test.com"))
@@ -113,7 +113,7 @@ class ProducerControllerTest {
 
     mockMvc
         .perform(
-            get("/farmer/" + producerId)
+            get("/producers/" + producerId)
                 .with(
                     SecurityMockMvcRequestPostProcessors.jwt()
                         .jwt(jwt -> jwt.claim("sub", sub).claim("email", "farmer@test.com"))
@@ -130,7 +130,7 @@ class ProducerControllerTest {
 
     mockMvc
         .perform(
-            get("/farmer/" + producerId)
+            get("/producers/" + producerId)
                 .with(
                     SecurityMockMvcRequestPostProcessors.jwt()
                         .jwt(jwt -> jwt.claim("sub", sub).claim("email", "farmer@test.com"))
@@ -142,7 +142,7 @@ class ProducerControllerTest {
   @Test
   void shouldReturn401_whenNoTokenProvided() throws Exception {
     UUID producerId = UUID.randomUUID();
-    mockMvc.perform(get("/farmer/" + producerId)).andExpect(status().isUnauthorized());
+    mockMvc.perform(get("/producers/" + producerId)).andExpect(status().isUnauthorized());
   }
 
   @Test
@@ -154,7 +154,7 @@ class ProducerControllerTest {
 
     mockMvc
         .perform(
-            get("/farmer/" + producerId)
+            get("/producers/" + producerId)
                 .with(
                     SecurityMockMvcRequestPostProcessors.jwt()
                         .jwt(jwt -> jwt.claim("sub", sub).claim("email", "customer@test.com"))
@@ -194,7 +194,7 @@ class ProducerControllerTest {
 
     mockMvc
         .perform(
-            put("/farmer/" + producerId)
+            put("/producers/" + producerId)
                 .with(
                     SecurityMockMvcRequestPostProcessors.jwt()
                         .jwt(jwt -> jwt.claim("sub", sub).claim("email", "farmer@test.com"))
@@ -221,7 +221,7 @@ class ProducerControllerTest {
 
     mockMvc
         .perform(
-            put("/farmer/" + otherProducerId)
+            put("/producers/" + otherProducerId)
                 .with(
                     SecurityMockMvcRequestPostProcessors.jwt()
                         .jwt(jwt -> jwt.claim("sub", sub).claim("email", "farmer@test.com"))
@@ -239,7 +239,7 @@ class ProducerControllerTest {
 
     mockMvc
         .perform(
-            put("/farmer/" + producerId)
+            put("/producers/" + producerId)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isUnauthorized());
@@ -257,7 +257,7 @@ class ProducerControllerTest {
 
     mockMvc
         .perform(
-            put("/farmer/" + producerId)
+            put("/producers/" + producerId)
                 .with(
                     SecurityMockMvcRequestPostProcessors.jwt()
                         .jwt(jwt -> jwt.claim("sub", sub).claim("email", "cust@test.com"))
@@ -279,7 +279,7 @@ class ProducerControllerTest {
 
     mockMvc
         .perform(
-            put("/farmer/" + producerId)
+            put("/producers/" + producerId)
                 .with(
                     SecurityMockMvcRequestPostProcessors.jwt()
                         .jwt(jwt -> jwt.claim("sub", sub).claim("email", "farmer@test.com"))
