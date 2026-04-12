@@ -70,7 +70,7 @@ class ProducerControllerTest {
             .totalSalesAmount(BigDecimal.ZERO)
             .build();
 
-    when(producerService.getProducerProfileById(producerId)).thenReturn(response);
+    when(producerService.getProducerProfileById(eq(producerId), any())).thenReturn(response);
 
     mockMvc
         .perform(
@@ -91,7 +91,7 @@ class ProducerControllerTest {
     User activeUser = buildUser(sub, true);
     when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(activeUser));
 
-    when(producerService.getProducerProfileById(producerId))
+    when(producerService.getProducerProfileById(eq(producerId), any()))
         .thenThrow(new NotFoundException("Produtor não encontrado"));
 
     mockMvc
@@ -160,6 +160,67 @@ class ProducerControllerTest {
                         .jwt(jwt -> jwt.claim("sub", sub).claim("email", "customer@test.com"))
                         .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"))))
         .andExpect(status().isForbidden());
+  }
+
+
+  // ─── Ownership check on GET /{id} ─────────────────────────────────────────
+
+  @Test
+  void getProducer_shouldReturn403_whenFarmerTriesToReadAnotherFarmersProfile() throws Exception {
+    UUID farmerAId = UUID.randomUUID();
+    UUID farmerBId = UUID.randomUUID();
+    String sub = "keycloak-sub-farmer-a";
+    User farmerA = buildUser(sub, true);
+    farmerA.setId(farmerAId);
+    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(farmerA));
+
+    when(producerService.getProducerProfileById(eq(farmerBId), any()))
+        .thenThrow(new ForbiddenException("Você não tem permissão para visualizar este perfil"));
+
+    mockMvc
+        .perform(
+            get("/producers/" + farmerBId)
+                .with(
+                    SecurityMockMvcRequestPostProcessors.jwt()
+                        .jwt(jwt -> jwt.claim("sub", sub).claim("email", "farmera@test.com"))
+                        .authorities(new SimpleGrantedAuthority("ROLE_FARMER"))))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  void getProducer_shouldReturn200_whenFarmerReadsOwnProfile() throws Exception {
+    UUID farmerAId = UUID.randomUUID();
+    String sub = "keycloak-sub-farmer-a";
+    User farmerA = buildUser(sub, true);
+    farmerA.setId(farmerAId);
+    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(farmerA));
+
+    ProducerGetResponse response =
+        ProducerGetResponse.builder()
+            .id(farmerAId)
+            .name("Farmer A")
+            .email("farmera@test.com")
+            .phone("51999999999")
+            .fiscalNumber("12345678901")
+            .fiscalNumberType("CPF")
+            .farmName("Fazenda A")
+            .totalReviews(0)
+            .averageRating(BigDecimal.ZERO)
+            .totalOrders(0)
+            .totalSalesAmount(BigDecimal.ZERO)
+            .build();
+
+    when(producerService.getProducerProfileById(eq(farmerAId), any())).thenReturn(response);
+
+    mockMvc
+        .perform(
+            get("/producers/" + farmerAId)
+                .with(
+                    SecurityMockMvcRequestPostProcessors.jwt()
+                        .jwt(jwt -> jwt.claim("sub", sub).claim("email", "farmera@test.com"))
+                        .authorities(new SimpleGrantedAuthority("ROLE_FARMER"))))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.name").value("Farmer A"));
   }
 
   // ─── PUT /{id} ──────────────────────────────────────────────────────────────

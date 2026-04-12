@@ -26,9 +26,11 @@ public class ProducerController {
   @PreAuthorize("hasRole('FARMER')")
   @Operation(
       summary = "Get producer by ID",
-      description = "Returns consolidated producer profile with user and farmer data")
-  public ResponseEntity<ProducerGetResponse> getProducerById(@PathVariable UUID id) {
-    return ResponseEntity.ok(producerService.getProducerProfileById(id));
+      description = "Returns consolidated producer profile. Farmer can only read their own profile; admin can read any.")
+  public ResponseEntity<ProducerGetResponse> getProducerById(
+      @PathVariable UUID id,
+      @AuthenticationPrincipal Jwt jwt) {
+    return ResponseEntity.ok(producerService.getProducerProfileById(id, jwt));
   }
 
   @PutMapping("/{id}")
@@ -44,4 +46,3 @@ public class ProducerController {
     return ResponseEntity.ok(producerService.updateProducerProfile(id, jwt, request));
   }
 }
-

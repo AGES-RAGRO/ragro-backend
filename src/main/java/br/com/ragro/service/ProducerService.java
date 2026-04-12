@@ -63,6 +63,19 @@ public class ProducerService {
 
   @Transactional(readOnly = true)
   public ProducerGetResponse getProducerProfileById(UUID id) {
+    return getProducerProfileById(id, null);
+  }
+
+  @Transactional(readOnly = true)
+  public ProducerGetResponse getProducerProfileById(UUID id, Jwt jwt) {
+    if (jwt != null) {
+      User authenticated = userService.getAuthenticatedUser(jwt);
+      TypeUser role = authenticated.getType();
+      if (role == TypeUser.FARMER && !authenticated.getId().equals(id)) {
+        throw new ForbiddenException("Você não tem permissão para visualizar este perfil");
+      }
+    }
+
     Producer producer = producerRepository
         .findDetailedById(id)
         .orElseThrow(() -> new NotFoundException("Produtor não encontrado"));
