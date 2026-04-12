@@ -14,11 +14,15 @@ import br.com.ragro.repository.CustomerRepository;
 import br.com.ragro.repository.UserRepository;
 import br.com.ragro.service.api.IdentityProviderService;
 import java.util.Locale;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class CustomerRegistrationService {
+
+  private static final Logger log = LoggerFactory.getLogger(CustomerRegistrationService.class);
 
   private final UserRepository userRepository;
   private final CustomerRepository customerRepository;
@@ -64,9 +68,13 @@ public class CustomerRegistrationService {
 
       Address address = AddressMapper.toEntity(normalizedAddress, savedUser, true);
       savedAddress = addressRepository.save(address);
-    } catch (Exception e) {
-      identityProviderService.deleteUser(externalUserId);
-      throw e;
+    } catch (Exception original) {
+      try {
+        identityProviderService.deleteUser(externalUserId);
+      } catch (Exception compensation) {
+        log.error("Keycloak compensation failed for user {}: {}", externalUserId, compensation.getMessage());
+      }
+      throw original;
     }
 
     return CustomerRegistrationResponse.builder()
