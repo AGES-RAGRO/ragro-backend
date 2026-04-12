@@ -14,7 +14,8 @@ public class PaymentMethodRequest {
 
   @NotBlank(message = "Payment method type is required")
   @Pattern(regexp = "pix|bank_account", message = "Type must be 'pix' or 'bank_account'")
-  @Schema(description = "Payment method type", example = "pix", allowableValues = {"pix", "bank_account"}, requiredMode = Schema.RequiredMode.REQUIRED)
+  @Schema(description = "Payment method type", example = "pix",
+      allowableValues = {"pix", "bank_account"}, requiredMode = Schema.RequiredMode.REQUIRED)
   private String type;
 
   // ── PIX ──────────────────────────────────────────────────────────────────────
