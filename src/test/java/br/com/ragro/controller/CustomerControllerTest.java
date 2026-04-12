@@ -4,7 +4,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -13,14 +12,11 @@ import br.com.ragro.config.CorsConfig;
 import br.com.ragro.config.KeycloakRolesConverter;
 import br.com.ragro.config.SecurityConfig;
 import br.com.ragro.controller.request.AddressRequest;
-import br.com.ragro.controller.request.CustomerRegistrationRequest;
 import br.com.ragro.controller.request.CustomerUpdateRequest;
-import br.com.ragro.controller.response.CustomerRegistrationResponse;
 import br.com.ragro.controller.response.CustomerResponse;
 import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.TypeUser;
 import br.com.ragro.repository.UserRepository;
-import br.com.ragro.service.CustomerRegistrationService;
 import br.com.ragro.service.CustomerService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -54,8 +50,6 @@ class CustomerControllerTest {
     @Autowired
     private ObjectMapper objectMapper;
     @MockBean
-    private CustomerRegistrationService customerRegistrationService;
-    @MockBean
     private CustomerService customerService;
     @MockBean
     private JwtDecoder jwtDecoder;
@@ -75,32 +69,6 @@ class CustomerControllerTest {
     @AfterEach
     void tearDown() {
         SecurityContextHolder.clearContext();
-    }
-
-    @Test
-    void registerCustomer_shouldReturn201_whenRequestIsValid() throws Exception {
-        CustomerRegistrationResponse response = buildRegistrationResponse();
-        when(customerRegistrationService.register(any(CustomerRegistrationRequest.class)))
-                .thenReturn(response);
-
-        CustomerRegistrationRequest request = buildRegistrationRequest();
-
-        mockMvc
-                .perform(jsonPost("/customers", request))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").value(response.getId().toString()))
-                .andExpect(jsonPath("$.email").value(response.getEmail()))
-                .andExpect(jsonPath("$.type").value("customer"));
-    }
-
-    @Test
-    void registerCustomer_shouldReturn400_whenRequestIsInvalid() throws Exception {
-        CustomerRegistrationRequest request = buildRegistrationRequest();
-        request.setEmail("invalid-email");
-
-        mockMvc
-                .perform(jsonPost("/customers", request))
-                .andExpect(status().isBadRequest());
     }
 
     @Test
@@ -194,44 +162,6 @@ class CustomerControllerTest {
         return put(url)
                 .contentType(Objects.requireNonNull(MediaType.APPLICATION_JSON))
                 .content(Objects.requireNonNull(objectMapper.writeValueAsString(body)));
-    }
-
-    private MockHttpServletRequestBuilder jsonPost(String url, Object body) throws Exception {
-        return post(url)
-                .contentType(Objects.requireNonNull(MediaType.APPLICATION_JSON))
-                .content(Objects.requireNonNull(objectMapper.writeValueAsString(body)));
-    }
-
-    private CustomerRegistrationRequest buildRegistrationRequest() {
-        AddressRequest address = new AddressRequest();
-        address.setStreet("Rua das Flores");
-        address.setNumber("123");
-        address.setCity("Porto Alegre");
-        address.setState("RS");
-        address.setZipCode("90010120");
-
-        CustomerRegistrationRequest request = new CustomerRegistrationRequest();
-        request.setName("Maria Silva");
-        request.setPhone("51999998888");
-        request.setEmail("maria@example.com");
-        request.setPassword("Senha1234");
-        request.setFiscalNumber("12345678901");
-        request.setAddress(address);
-        return request;
-    }
-
-    private CustomerRegistrationResponse buildRegistrationResponse() {
-        return CustomerRegistrationResponse.builder()
-                .id(UUID.randomUUID())
-                .name("Maria Silva")
-                .email("maria@example.com")
-                .phone("51999998888")
-                .type("customer")
-                .active(true)
-                .fiscalNumber("12345678901")
-                .createdAt(OffsetDateTime.now().minusDays(1))
-                .updatedAt(OffsetDateTime.now())
-                .build();
     }
 
     private CustomerUpdateRequest buildUpdateRequest(String name, String phone) {
