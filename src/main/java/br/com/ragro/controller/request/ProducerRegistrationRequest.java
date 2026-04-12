@@ -1,6 +1,6 @@
 package br.com.ragro.controller.request;
 
-import java.util.List;
+import br.com.ragro.validation.ValidFiscalNumber;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
@@ -8,11 +8,13 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import java.util.List;
 import lombok.Getter;
 import lombok.Setter;
 
 @Getter
 @Setter
+@ValidFiscalNumber
 @Schema(description = "Request payload for producer registration")
 public class ProducerRegistrationRequest {
 

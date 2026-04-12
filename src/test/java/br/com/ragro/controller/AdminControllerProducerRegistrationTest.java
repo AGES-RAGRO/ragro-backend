@@ -60,7 +60,7 @@ class AdminControllerProducerRegistrationTest {
         request.setPhone("51988888888");
         request.setEmail("joao@example.com");
         request.setPassword("Senha@123");
-        request.setFiscalNumber("12345678901");
+        request.setFiscalNumber("52998224725");
         request.setFiscalNumberType("CPF");
         request.setFarmName("Fazenda São João");
         request.setDescription("Produção orgânica");
@@ -78,7 +78,7 @@ class AdminControllerProducerRegistrationTest {
                 .phone("51988888888")
                 .type("farmer")
                 .active(true)
-                .fiscalNumber("12345678901")
+                .fiscalNumber("52998224725")
                 .fiscalNumberType("CPF")
                 .farmName("Fazenda São João")
                 .description("Produção orgânica")
@@ -109,7 +109,7 @@ class AdminControllerProducerRegistrationTest {
                 .andExpect(jsonPath("$.phone").value("51988888888"))
                 .andExpect(jsonPath("$.type").value("farmer"))
                 .andExpect(jsonPath("$.active").value(true))
-                .andExpect(jsonPath("$.fiscalNumber").value("12345678901"))
+                .andExpect(jsonPath("$.fiscalNumber").value("52998224725"))
                 .andExpect(jsonPath("$.fiscalNumberType").value("CPF"))
                 .andExpect(jsonPath("$.farmName").value("Fazenda São João"))
                 .andExpect(jsonPath("$.totalReviews").value(0))
