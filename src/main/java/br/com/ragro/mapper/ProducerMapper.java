@@ -1,6 +1,7 @@
 package br.com.ragro.mapper;
 
 import br.com.ragro.controller.request.ProducerRegistrationRequest;
+import br.com.ragro.controller.response.MarketplaceProducerResponse;
 import br.com.ragro.controller.response.PaymentMethodResponse;
 import br.com.ragro.controller.response.ProducerGetResponse;
 import br.com.ragro.controller.response.ProducerRegistrationResponse;
@@ -129,6 +130,17 @@ public class ProducerMapper {
         .address(address)
         .createdAt(entity.getCreatedAt())
         .updatedAt(entity.getUpdatedAt())
+        .build();
+  }
+
+  public static MarketplaceProducerResponse toMarketplaceResponse(Producer producer) {
+    return MarketplaceProducerResponse.builder()
+        .id(producer.getId())
+        .name(producer.getUser().getName())
+        .farmName(producer.getFarmName())
+        .description(producer.getDescription())
+        .avatarS3(producer.getAvatarS3())
+        .averageRating(producer.getAverageRating())
         .build();
   }
 }

@@ -1,6 +1,8 @@
 package br.com.ragro.controller;
 
 import br.com.ragro.controller.request.ProducerUpdateRequest;
+import br.com.ragro.controller.response.MarketplaceProducerResponse;
+import br.com.ragro.controller.response.PaginatedResponse;
 import br.com.ragro.controller.response.ProducerGetResponse;
 import br.com.ragro.service.ProducerService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -8,6 +10,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -22,11 +25,19 @@ public class ProducerController {
 
   private final ProducerService producerService;
 
+  @GetMapping
+  @PreAuthorize("hasRole('CUSTOMER')")
+  @Operation(summary = "List active producers for marketplace", description = "Returns a paginated list of active producers, sorted by rating desc. Restricted to Customers.")
+  public ResponseEntity<PaginatedResponse<MarketplaceProducerResponse>> getActiveProducers(
+      @RequestParam(defaultValue = "0") int page,
+      @RequestParam(defaultValue = "10") int size) {
+    return ResponseEntity.ok(
+        PaginatedResponse.of(producerService.getActiveProducers(PageRequest.of(page, size))));
+  }
+
   @GetMapping("/{id}")
   @PreAuthorize("hasRole('FARMER')")
-  @Operation(
-      summary = "Get producer by ID",
-      description = "Returns consolidated producer profile. Farmer can only read their own profile; admin can read any.")
+  @Operation(summary = "Get producer by ID", description = "Returns consolidated producer profile. Farmer can only read their own profile; admin can read any.")
   public ResponseEntity<ProducerGetResponse> getProducerById(
       @PathVariable UUID id,
       @AuthenticationPrincipal Jwt jwt) {
@@ -35,10 +46,7 @@ public class ProducerController {
 
   @PutMapping("/{id}")
   @PreAuthorize("hasAnyRole('FARMER', 'ADMIN')")
-  @Operation(
-      summary = "Update producer profile",
-      description =
-          "Updates the authenticated producer's own profile. Only the owner can update their data.")
+  @Operation(summary = "Update producer profile", description = "Updates the authenticated producer's own profile. Only the owner can update their data.")
   public ResponseEntity<ProducerGetResponse> updateProducerProfile(
       @PathVariable UUID id,
       @AuthenticationPrincipal Jwt jwt,
