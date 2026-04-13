@@ -16,6 +16,7 @@ import br.com.ragro.controller.response.ProducerRegistrationResponse;
 import br.com.ragro.domain.Producer;
 import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.TypeUser;
+import br.com.ragro.exception.BusinessException;
 import br.com.ragro.exception.ConflictException;
 import br.com.ragro.repository.AddressRepository;
 import br.com.ragro.repository.FarmerAvailabilityRepository;
