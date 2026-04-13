@@ -17,7 +17,7 @@ import br.com.ragro.controller.request.CustomerRegistrationRequest;
 import br.com.ragro.controller.response.CustomerRegistrationResponse;
 import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.TypeUser;
-import br.com.ragro.exception.BusinessException;
+import br.com.ragro.exception.ConflictException;
 import br.com.ragro.repository.UserRepository;
 import br.com.ragro.service.CustomerRegistrationService;
 import br.com.ragro.service.UserService;
@@ -81,15 +81,15 @@ class AuthControllerTest {
   }
 
   @Test
-  void registerCustomer_shouldReturn400_whenEmailAlreadyRegistered() throws Exception {
+  void registerCustomer_shouldReturn409_whenEmailAlreadyRegistered() throws Exception {
     when(customerRegistrationService.register(any()))
-        .thenThrow(new BusinessException("E-mail already registered"));
+        .thenThrow(new ConflictException("E-mail already registered"));
 
     mockMvc.perform(post("/auth/register/customer")
             .with(csrf())
             .contentType(MediaType.APPLICATION_JSON)
             .content(objectMapper.writeValueAsString(validRegistrationRequest())))
-        .andExpect(status().isBadRequest())
+        .andExpect(status().isConflict())
         .andExpect(jsonPath("$.error").value("E-mail already registered"));
   }
 
