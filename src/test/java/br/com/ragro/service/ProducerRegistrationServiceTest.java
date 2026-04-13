@@ -16,7 +16,7 @@ import br.com.ragro.controller.response.ProducerRegistrationResponse;
 import br.com.ragro.domain.Producer;
 import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.TypeUser;
-import br.com.ragro.exception.BusinessException;
+import br.com.ragro.exception.ConflictException;
 import br.com.ragro.repository.AddressRepository;
 import br.com.ragro.repository.FarmerAvailabilityRepository;
 import br.com.ragro.repository.PaymentMethodRepository;
@@ -192,11 +192,11 @@ class ProducerRegistrationServiceTest {
     }
 
     @Test
-    void register_shouldThrowBusinessException_whenEmailAlreadyRegistered() {
+    void register_shouldThrowConflictException_whenEmailAlreadyRegistered() {
         when(userRepository.existsByEmail("joao@example.com")).thenReturn(true);
 
         assertThatThrownBy(() -> producerRegistrationService.register(validRequest()))
-                .isInstanceOf(BusinessException.class)
+                .isInstanceOf(ConflictException.class)
                 .hasMessage("E-mail already registered");
 
         verify(identityProviderService, never()).registerProducer(anyString(), anyString());
@@ -205,12 +205,12 @@ class ProducerRegistrationServiceTest {
     }
 
     @Test
-    void register_shouldThrowBusinessException_whenFiscalNumberAlreadyRegistered() {
+    void register_shouldThrowConflictException_whenFiscalNumberAlreadyRegistered() {
         when(userRepository.existsByEmail(anyString())).thenReturn(false);
         when(producerRepository.existsByFiscalNumber("12345678901")).thenReturn(true);
 
         assertThatThrownBy(() -> producerRegistrationService.register(validRequest()))
-                .isInstanceOf(BusinessException.class)
+                .isInstanceOf(ConflictException.class)
                 .hasMessage("Fiscal number already registered");
 
         verify(identityProviderService, never()).registerProducer(anyString(), anyString());

@@ -8,6 +8,7 @@ import br.com.ragro.domain.Producer;
 import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.TypeUser;
 import br.com.ragro.exception.BusinessException;
+import br.com.ragro.exception.ConflictException;
 import br.com.ragro.mapper.ProducerMapper;
 import br.com.ragro.repository.ProducerRepository;
 import br.com.ragro.repository.UserRepository;
@@ -95,10 +96,10 @@ public class ProducerRegistrationService {
 
     private void validateUniqueness(String email, String fiscalNumber) {
         if (userRepository.existsByEmail(email)) {
-            throw new BusinessException("E-mail already registered");
+            throw new ConflictException("E-mail already registered");
         }
         if (producerRepository.existsByFiscalNumber(fiscalNumber)) {
-            throw new BusinessException("Fiscal number already registered");
+            throw new ConflictException("Fiscal number already registered");
         }
     }
 

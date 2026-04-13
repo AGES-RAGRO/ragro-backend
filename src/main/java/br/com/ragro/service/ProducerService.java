@@ -3,6 +3,7 @@ package br.com.ragro.service;
 import br.com.ragro.controller.request.AvailabilityRequest;
 import br.com.ragro.controller.request.PaymentMethodRequest;
 import br.com.ragro.controller.request.ProducerUpdateRequest;
+import br.com.ragro.controller.response.MarketplaceProducerResponse;
 import br.com.ragro.controller.response.ProducerGetResponse;
 import br.com.ragro.controller.response.ProducerResponse;
 import br.com.ragro.domain.Address;
@@ -61,6 +62,12 @@ public class ProducerService {
         .findAllUsersSortedByRating(pageable)
         .map(Producer::getUser)
         .map(ProducerMapper::toResponse);
+  }
+
+  public Page<MarketplaceProducerResponse> getActiveProducers(Pageable pageable) {
+    return producerRepository
+        .findAllActiveSortedByRating(pageable)
+        .map(ProducerMapper::toMarketplaceResponse);
   }
 
   @Transactional(readOnly = true)

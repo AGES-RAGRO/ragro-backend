@@ -12,7 +12,7 @@ import br.com.ragro.controller.request.PaymentMethodRequest;
 import br.com.ragro.controller.request.ProducerRegistrationRequest;
 import br.com.ragro.controller.request.AddressRequest;
 import br.com.ragro.controller.response.ProducerRegistrationResponse;
-import br.com.ragro.exception.BusinessException;
+import br.com.ragro.exception.ConflictException;
 import br.com.ragro.repository.UserRepository;
 import br.com.ragro.service.CustomerService;
 import br.com.ragro.service.ProducerRegistrationService;
@@ -221,30 +221,30 @@ class AdminControllerProducerRegistrationTest {
 
     @Test
     @WithMockUser(roles = "ADMIN")
-    void registerProducer_shouldReturn400_whenEmailAlreadyRegistered() throws Exception {
+    void registerProducer_shouldReturn409_whenEmailAlreadyRegistered() throws Exception {
         when(producerRegistrationService.register(any()))
-                .thenThrow(new BusinessException("E-mail already registered"));
+                .thenThrow(new ConflictException("E-mail already registered"));
 
         mockMvc
                 .perform(post("/admin/producers")
                         .with(SecurityMockMvcRequestPostProcessors.csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(validRequest())))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isConflict());
     }
 
     @Test
     @WithMockUser(roles = "ADMIN")
-    void registerProducer_shouldReturn400_whenFiscalNumberAlreadyRegistered() throws Exception {
+    void registerProducer_shouldReturn409_whenFiscalNumberAlreadyRegistered() throws Exception {
         when(producerRegistrationService.register(any()))
-                .thenThrow(new BusinessException("Fiscal number already registered"));
+                .thenThrow(new ConflictException("Fiscal number already registered"));
 
         mockMvc
                 .perform(post("/admin/producers")
                         .with(SecurityMockMvcRequestPostProcessors.csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(validRequest())))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isConflict());
     }
 
     @Test
