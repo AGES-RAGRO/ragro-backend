@@ -62,9 +62,10 @@ public class ProducerRegistrationRequest {
     private AddressRequest address;
 
     @Valid
-    @NotNull(message = "Payment method is required")
-    @Schema(description = "Payment method data (pix or bank_account)", requiredMode = Schema.RequiredMode.REQUIRED)
-    private PaymentMethodRequest paymentMethod;
+    @NotNull(message = "Payment methods are required")
+    @Size(min = 2, max = 2, message = "Exactly two payment methods are required: one pix and one bank_account")
+    @Schema(description = "List of payment methods (exactly one pix and one bank_account)", requiredMode = Schema.RequiredMode.REQUIRED)
+    private List<PaymentMethodRequest> paymentMethods;
 
     @Valid
     @NotEmpty(message = "At least one availability slot is required")

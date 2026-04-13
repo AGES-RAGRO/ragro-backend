@@ -45,6 +45,25 @@ class ProducerRegistrationServiceTest {
 
     @InjectMocks private ProducerRegistrationService producerRegistrationService;
 
+    private PaymentMethodRequest buildPixMethod() {
+        PaymentMethodRequest pm = new PaymentMethodRequest();
+        pm.setType("pix");
+        pm.setPixKeyType("email");
+        pm.setPixKey("joao@example.com");
+        return pm;
+    }
+
+    private PaymentMethodRequest buildBankMethod() {
+        PaymentMethodRequest pm = new PaymentMethodRequest();
+        pm.setType("bank_account");
+        pm.setBankName("Banco do Brasil");
+        pm.setAgency("1234");
+        pm.setAccountNumber("56789-0");
+        pm.setAccountType("checking");
+        pm.setHolderName("João Silva");
+        return pm;
+    }
+
     private ProducerRegistrationRequest validRequest() {
         AddressRequest address = new AddressRequest();
         address.setStreet("Rua das Flores");
@@ -52,11 +71,6 @@ class ProducerRegistrationServiceTest {
         address.setCity("Porto Alegre");
         address.setState("RS");
         address.setZipCode("90010120");
-
-        PaymentMethodRequest paymentMethod = new PaymentMethodRequest();
-        paymentMethod.setType("pix");
-        paymentMethod.setPixKeyType("email");
-        paymentMethod.setPixKey("joao@example.com");
 
         AvailabilityRequest availability = new AvailabilityRequest();
         availability.setWeekday((short) 1);
@@ -73,7 +87,7 @@ class ProducerRegistrationServiceTest {
         request.setFarmName("Fazenda São João");
         request.setDescription("Produção orgânica");
         request.setAddress(address);
-        request.setPaymentMethod(paymentMethod);
+        request.setPaymentMethods(List.of(buildPixMethod(), buildBankMethod()));
         request.setAvailability(List.of(availability));
         return request;
     }
@@ -251,5 +265,86 @@ class ProducerRegistrationServiceTest {
         ProducerRegistrationResponse response = producerRegistrationService.register(validRequest());
 
         assertThat(response.getType()).isEqualTo("farmer");
+    }
+
+    @Test
+    void register_shouldPersistBothPaymentMethods_whenListContainsPixAndBankAccount() {
+        UUID id = UUID.randomUUID();
+        User savedUser = buildSavedUser(id);
+        Producer savedProducer = buildSavedProducer(savedUser);
+
+        when(userRepository.existsByEmail("joao@example.com")).thenReturn(false);
+        when(producerRepository.existsByFiscalNumber("12345678901")).thenReturn(false);
+        when(identityProviderService.registerProducer(anyString(), anyString())).thenReturn("auth-sub");
+        when(userRepository.saveAndFlush(any())).thenReturn(savedUser);
+        when(producerRepository.saveAndFlush(any())).thenReturn(savedProducer);
+
+        producerRegistrationService.register(validRequest());
+
+        verify(paymentMethodRepository, org.mockito.Mockito.times(2)).save(any());
+    }
+
+    @Test
+    void register_shouldThrowBusinessException_whenOnlyPixProvided() {
+        ProducerRegistrationRequest request = validRequest();
+        request.setPaymentMethods(List.of(buildPixMethod()));
+
+        when(userRepository.existsByEmail(anyString())).thenReturn(false);
+        when(producerRepository.existsByFiscalNumber(anyString())).thenReturn(false);
+        when(identityProviderService.registerProducer(anyString(), anyString())).thenReturn("auth-sub-pix-only");
+        when(userRepository.saveAndFlush(any())).thenReturn(buildSavedUser(UUID.randomUUID()));
+        when(producerRepository.saveAndFlush(any())).thenReturn(buildSavedProducer(buildSavedUser(UUID.randomUUID())));
+
+        assertThatThrownBy(() -> producerRegistrationService.register(request))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("Both pix and bank_account payment methods are required");
+
+        verify(identityProviderService).deleteUser("auth-sub-pix-only");
+    }
+
+    @Test
+    void register_shouldThrowBusinessException_whenOnlyBankAccountProvided() {
+        ProducerRegistrationRequest request = validRequest();
+        request.setPaymentMethods(List.of(buildBankMethod()));
+
+        when(userRepository.existsByEmail(anyString())).thenReturn(false);
+        when(producerRepository.existsByFiscalNumber(anyString())).thenReturn(false);
+        when(identityProviderService.registerProducer(anyString(), anyString())).thenReturn("auth-sub-bank-only");
+        when(userRepository.saveAndFlush(any())).thenReturn(buildSavedUser(UUID.randomUUID()));
+        when(producerRepository.saveAndFlush(any())).thenReturn(buildSavedProducer(buildSavedUser(UUID.randomUUID())));
+
+        assertThatThrownBy(() -> producerRegistrationService.register(request))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("Both pix and bank_account payment methods are required");
+
+        verify(identityProviderService).deleteUser("auth-sub-bank-only");
+    }
+
+    @Test
+    void register_shouldThrowBusinessException_whenDuplicatePaymentMethodTypes() {
+        PaymentMethodRequest pix1 = new PaymentMethodRequest();
+        pix1.setType("pix");
+        pix1.setPixKeyType("email");
+        pix1.setPixKey("a@example.com");
+
+        PaymentMethodRequest pix2 = new PaymentMethodRequest();
+        pix2.setType("pix");
+        pix2.setPixKeyType("phone");
+        pix2.setPixKey("51999999999");
+
+        ProducerRegistrationRequest request = validRequest();
+        request.setPaymentMethods(List.of(pix1, pix2));
+
+        when(userRepository.existsByEmail(anyString())).thenReturn(false);
+        when(producerRepository.existsByFiscalNumber(anyString())).thenReturn(false);
+        when(identityProviderService.registerProducer(anyString(), anyString())).thenReturn("auth-sub-dup");
+        when(userRepository.saveAndFlush(any())).thenReturn(buildSavedUser(UUID.randomUUID()));
+        when(producerRepository.saveAndFlush(any())).thenReturn(buildSavedProducer(buildSavedUser(UUID.randomUUID())));
+
+        assertThatThrownBy(() -> producerRegistrationService.register(request))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Duplicate payment method type: pix");
+
+        verify(identityProviderService).deleteUser("auth-sub-dup");
     }
 }
