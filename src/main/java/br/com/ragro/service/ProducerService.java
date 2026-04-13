@@ -188,6 +188,9 @@ public class ProducerService {
         if (!seen.add(pm.getType())) {
           throw new BusinessException("Duplicate payment method type: " + pm.getType());
         }
+      }
+      for (PaymentMethodRequest pm : request.getPaymentMethods()) {
+        if (pm.getType() == null) continue;
         applyPaymentMethod(producer, pm);
       }
     }
