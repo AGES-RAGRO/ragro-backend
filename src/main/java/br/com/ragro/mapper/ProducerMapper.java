@@ -1,15 +1,18 @@
 package br.com.ragro.mapper;
 
 import br.com.ragro.controller.request.ProducerRegistrationRequest;
+import br.com.ragro.controller.response.AvailabilityResponse;
 import br.com.ragro.controller.response.PaymentMethodResponse;
 import br.com.ragro.controller.response.ProducerGetResponse;
 import br.com.ragro.controller.response.ProducerRegistrationResponse;
 import br.com.ragro.controller.response.ProducerResponse;
 import br.com.ragro.domain.Address;
+import br.com.ragro.domain.FarmerAvailability;
 import br.com.ragro.domain.PaymentMethod;
 import br.com.ragro.domain.Producer;
 import br.com.ragro.domain.ProducerProfile;
 import br.com.ragro.domain.User;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import lombok.NonNull;
 import lombok.experimental.UtilityClass;
@@ -17,17 +20,25 @@ import lombok.experimental.UtilityClass;
 @UtilityClass
 public class ProducerMapper {
 
+  private static final DateTimeFormatter HHMM = DateTimeFormatter.ofPattern("HH:mm");
+
   public static ProducerGetResponse toGetResponse(
       User user,
       Producer producer,
       ProducerProfile profile,
       Address primaryAddress,
-      List<PaymentMethod> paymentMethods) {
+      List<PaymentMethod> paymentMethods,
+      List<FarmerAvailability> availability) {
 
     List<PaymentMethodResponse> pmResponses =
         paymentMethods == null
             ? List.of()
             : paymentMethods.stream().map(ProducerMapper::toPaymentMethodResponse).toList();
+
+    List<AvailabilityResponse> availabilityResponses =
+        availability == null
+            ? List.of()
+            : availability.stream().map(ProducerMapper::toAvailabilityResponse).toList();
 
     return ProducerGetResponse.builder()
         .id(user.getId())
@@ -50,6 +61,15 @@ public class ProducerMapper {
         .active(user.isActive())
         .address(primaryAddress != null ? AddressMapper.toResponse(primaryAddress) : null)
         .paymentMethods(pmResponses)
+        .availability(availabilityResponses)
+        .build();
+  }
+
+  public static AvailabilityResponse toAvailabilityResponse(FarmerAvailability slot) {
+    return AvailabilityResponse.builder()
+        .weekday(slot.getWeekday() == null ? null : slot.getWeekday().intValue())
+        .opensAt(slot.getOpensAt() == null ? null : slot.getOpensAt().format(HHMM))
+        .closesAt(slot.getClosesAt() == null ? null : slot.getClosesAt().format(HHMM))
         .build();
   }
 

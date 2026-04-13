@@ -87,8 +87,11 @@ public class ProducerService {
     ProducerProfile profile = producerProfileRepository.findById(id).orElse(null);
     Address primaryAddress = addressRepository.findByUserIdAndIsPrimaryTrue(id).orElse(null);
     List<PaymentMethod> paymentMethods = paymentMethodRepository.findByFarmerIdAndActiveTrue(id);
+    List<FarmerAvailability> availability =
+        farmerAvailabilityRepository.findByFarmerIdAndActiveTrueOrderByWeekdayAsc(id);
 
-    return ProducerMapper.toGetResponse(user, producer, profile, primaryAddress, paymentMethods);
+    return ProducerMapper.toGetResponse(
+        user, producer, profile, primaryAddress, paymentMethods, availability);
   }
 
   @Transactional
@@ -187,8 +190,11 @@ public class ProducerService {
     }
 
     List<PaymentMethod> paymentMethods = paymentMethodRepository.findByFarmerIdAndActiveTrue(id);
+    List<FarmerAvailability> availability =
+        farmerAvailabilityRepository.findByFarmerIdAndActiveTrueOrderByWeekdayAsc(id);
 
-    return ProducerMapper.toGetResponse(targetUser, producer, profile, primaryAddress, paymentMethods);
+    return ProducerMapper.toGetResponse(
+        targetUser, producer, profile, primaryAddress, paymentMethods, availability);
   }
 
   private void applyPaymentMethod(Producer producer, PaymentMethodRequest pmRequest) {
@@ -247,6 +253,16 @@ public class ProducerService {
   }
 
   private void applyAvailability(Producer producer, List<AvailabilityRequest> availability) {
+    Set<Short> seenWeekdays = new HashSet<>();
+    for (AvailabilityRequest item : availability) {
+      if (item.getWeekday() == null) {
+        throw new BusinessException("weekday is required for each availability slot");
+      }
+      if (!seenWeekdays.add(item.getWeekday())) {
+        throw new BusinessException("Duplicate availability weekday: " + item.getWeekday());
+      }
+    }
+
     farmerAvailabilityRepository.deleteByFarmerId(producer.getId());
 
     for (AvailabilityRequest item : availability) {
