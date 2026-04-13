@@ -26,7 +26,9 @@ import br.com.ragro.repository.ProducerRepository;
 import br.com.ragro.repository.UserRepository;
 import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -92,8 +94,11 @@ public class ProducerService {
     ProducerProfile profile = producerProfileRepository.findById(id).orElse(null);
     Address primaryAddress = addressRepository.findByUserIdAndIsPrimaryTrue(id).orElse(null);
     List<PaymentMethod> paymentMethods = paymentMethodRepository.findByFarmerIdAndActiveTrue(id);
+    List<FarmerAvailability> availability =
+        farmerAvailabilityRepository.findByFarmerIdAndActiveTrueOrderByWeekdayAsc(id);
 
-    return ProducerMapper.toGetResponse(user, producer, profile, primaryAddress, paymentMethods);
+    return ProducerMapper.toGetResponse(
+        user, producer, profile, primaryAddress, paymentMethods, availability);
   }
 
   @Transactional
@@ -176,8 +181,18 @@ public class ProducerService {
       primaryAddress = addressRepository.findByUserIdAndIsPrimaryTrue(id).orElse(null);
     }
 
-    if (request.getPaymentMethod() != null && request.getPaymentMethod().getType() != null) {
-      applyPaymentMethod(producer, request.getPaymentMethod());
+    if (request.getPaymentMethods() != null && !request.getPaymentMethods().isEmpty()) {
+      Set<String> seen = new HashSet<>();
+      for (PaymentMethodRequest pm : request.getPaymentMethods()) {
+        if (pm.getType() == null) continue;
+        if (!seen.add(pm.getType())) {
+          throw new BusinessException("Duplicate payment method type: " + pm.getType());
+        }
+      }
+      for (PaymentMethodRequest pm : request.getPaymentMethods()) {
+        if (pm.getType() == null) continue;
+        applyPaymentMethod(producer, pm);
+      }
     }
 
     if (request.getAvailability() != null) {
@@ -185,8 +200,11 @@ public class ProducerService {
     }
 
     List<PaymentMethod> paymentMethods = paymentMethodRepository.findByFarmerIdAndActiveTrue(id);
+    List<FarmerAvailability> availability =
+        farmerAvailabilityRepository.findByFarmerIdAndActiveTrueOrderByWeekdayAsc(id);
 
-    return ProducerMapper.toGetResponse(targetUser, producer, profile, primaryAddress, paymentMethods);
+    return ProducerMapper.toGetResponse(
+        targetUser, producer, profile, primaryAddress, paymentMethods, availability);
   }
 
   private void applyPaymentMethod(Producer producer, PaymentMethodRequest pmRequest) {
@@ -245,6 +263,16 @@ public class ProducerService {
   }
 
   private void applyAvailability(Producer producer, List<AvailabilityRequest> availability) {
+    Set<Short> seenWeekdays = new HashSet<>();
+    for (AvailabilityRequest item : availability) {
+      if (item.getWeekday() == null) {
+        throw new BusinessException("weekday is required for each availability slot");
+      }
+      if (!seenWeekdays.add(item.getWeekday())) {
+        throw new BusinessException("Duplicate availability weekday: " + item.getWeekday());
+      }
+    }
+
     farmerAvailabilityRepository.deleteByFarmerId(producer.getId());
 
     for (AvailabilityRequest item : availability) {

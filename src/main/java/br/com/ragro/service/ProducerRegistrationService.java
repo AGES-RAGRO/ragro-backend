@@ -22,6 +22,8 @@ import br.com.ragro.repository.PaymentMethodRepository;
 import br.com.ragro.service.api.IdentityProviderService;
 
 import java.time.LocalTime;
+import java.util.HashSet;
+import java.util.Set;
 import java.time.format.DateTimeParseException;
 import java.util.Locale;
 import org.springframework.stereotype.Service;
@@ -114,22 +116,39 @@ public class ProducerRegistrationService {
     }
 
     private void applyRegistrationPaymentMethod(Producer savedProducer, ProducerRegistrationRequest request) {
-        PaymentMethodRequest pmRequest = request.getPaymentMethod();
-        PaymentMethod pm = new PaymentMethod();
-        pm.setFarmer(savedProducer);
-        pm.setType(pmRequest.getType());
-        pm.setPixKeyType(pmRequest.getPixKeyType());
-        pm.setPixKey(pmRequest.getPixKey());
-        pm.setBankCode(pmRequest.getBankCode());
-        pm.setBankName(pmRequest.getBankName());
-        pm.setAgency(pmRequest.getAgency());
-        pm.setAccountNumber(pmRequest.getAccountNumber());
-        pm.setAccountType(pmRequest.getAccountType());
-        pm.setHolderName(pmRequest.getHolderName());
-        if (pmRequest.getFiscalNumber() != null) {
-            pm.setFiscalNumber(digitsOnly(pmRequest.getFiscalNumber()));
+        // Passo 1: validações
+        Set<String> seenTypes = new HashSet<>();
+        for (PaymentMethodRequest pmRequest : request.getPaymentMethods()) {
+            if (!seenTypes.add(pmRequest.getType())) {
+                throw new BusinessException("Duplicate payment method type: " + pmRequest.getType());
+            }
         }
-        paymentMethodRepository.save(pm);
+        boolean hasPix = request.getPaymentMethods().stream()
+                .anyMatch(pm -> "pix".equals(pm.getType()));
+        boolean hasBank = request.getPaymentMethods().stream()
+                .anyMatch(pm -> "bank_account".equals(pm.getType()));
+        if (!hasPix || !hasBank) {
+            throw new BusinessException("Both pix and bank_account payment methods are required");
+        }
+
+        // Passo 2: persistir
+        for (PaymentMethodRequest pmRequest : request.getPaymentMethods()) {
+            PaymentMethod pm = new PaymentMethod();
+            pm.setFarmer(savedProducer);
+            pm.setType(pmRequest.getType());
+            pm.setPixKeyType(pmRequest.getPixKeyType());
+            pm.setPixKey(pmRequest.getPixKey());
+            pm.setBankCode(pmRequest.getBankCode());
+            pm.setBankName(pmRequest.getBankName());
+            pm.setAgency(pmRequest.getAgency());
+            pm.setAccountNumber(pmRequest.getAccountNumber());
+            pm.setAccountType(pmRequest.getAccountType());
+            pm.setHolderName(pmRequest.getHolderName());
+            if (pmRequest.getFiscalNumber() != null) {
+                pm.setFiscalNumber(digitsOnly(pmRequest.getFiscalNumber()));
+            }
+            paymentMethodRepository.save(pm);
+        }
     }
 
     private void applyAvailability(Producer producer, java.util.List<AvailabilityRequest> availability) {

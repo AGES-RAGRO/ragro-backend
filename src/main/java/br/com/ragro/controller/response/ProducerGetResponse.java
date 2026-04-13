@@ -77,5 +77,8 @@ public class ProducerGetResponse {
 
   @Schema(description = "Active payment methods")
   private List<PaymentMethodResponse> paymentMethods;
+
+  @Schema(description = "Producer availability (service hours per weekday)")
+  private List<AvailabilityResponse> availability;
 }
 

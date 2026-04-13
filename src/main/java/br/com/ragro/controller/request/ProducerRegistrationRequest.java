@@ -24,8 +24,8 @@ public class ProducerRegistrationRequest {
     private String name;
 
     @NotBlank(message = "Phone is required")
-    @Size(max = 20, message = "Phone must contain at most 20 characters")
-    @Schema(description = "Phone number", example = "(51) 98765-4321", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Pattern(regexp = "^\\d{11}$", message = "Phone must contain 11 digits (DDD + number)")
+    @Schema(description = "Phone number", example = "51988888888", requiredMode = Schema.RequiredMode.REQUIRED)
     private String phone;
 
     @NotBlank(message = "Email is required")
@@ -62,9 +62,10 @@ public class ProducerRegistrationRequest {
     private AddressRequest address;
 
     @Valid
-    @NotNull(message = "Payment method is required")
-    @Schema(description = "Payment method data (pix or bank_account)", requiredMode = Schema.RequiredMode.REQUIRED)
-    private PaymentMethodRequest paymentMethod;
+    @NotNull(message = "Payment methods are required")
+    @Size(min = 2, max = 2, message = "Exactly two payment methods are required: one pix and one bank_account")
+    @Schema(description = "List of payment methods (exactly one pix and one bank_account)", requiredMode = Schema.RequiredMode.REQUIRED)
+    private List<PaymentMethodRequest> paymentMethods;
 
     @Valid
     @NotEmpty(message = "At least one availability slot is required")

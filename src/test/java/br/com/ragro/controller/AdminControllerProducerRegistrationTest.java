@@ -50,6 +50,25 @@ class AdminControllerProducerRegistrationTest {
 
     @MockBean private UserRepository userRepository;
 
+    private PaymentMethodRequest buildPixMethod() {
+        PaymentMethodRequest pm = new PaymentMethodRequest();
+        pm.setType("pix");
+        pm.setPixKeyType("email");
+        pm.setPixKey("joao@example.com");
+        return pm;
+    }
+
+    private PaymentMethodRequest buildBankMethod() {
+        PaymentMethodRequest pm = new PaymentMethodRequest();
+        pm.setType("bank_account");
+        pm.setBankName("Banco do Brasil");
+        pm.setAgency("1234");
+        pm.setAccountNumber("56789-0");
+        pm.setAccountType("checking");
+        pm.setHolderName("João Silva");
+        return pm;
+    }
+
     private ProducerRegistrationRequest validRequest() {
         AddressRequest address = new AddressRequest();
         address.setStreet("Rua das Flores");
@@ -57,11 +76,6 @@ class AdminControllerProducerRegistrationTest {
         address.setCity("Porto Alegre");
         address.setState("RS");
         address.setZipCode("90010120");
-
-        PaymentMethodRequest paymentMethod = new PaymentMethodRequest();
-        paymentMethod.setType("pix");
-        paymentMethod.setPixKeyType("email");
-        paymentMethod.setPixKey("joao@example.com");
 
         AvailabilityRequest availability = new AvailabilityRequest();
         availability.setWeekday((short) 1);
@@ -78,7 +92,7 @@ class AdminControllerProducerRegistrationTest {
         request.setFarmName("Fazenda São João");
         request.setDescription("Produção orgânica");
         request.setAddress(address);
-        request.setPaymentMethod(paymentMethod);
+        request.setPaymentMethods(List.of(buildPixMethod(), buildBankMethod()));
         request.setAvailability(List.of(availability));
         return request;
     }
@@ -272,9 +286,23 @@ class AdminControllerProducerRegistrationTest {
 
     @Test
     @WithMockUser(roles = "ADMIN")
-    void registerProducer_shouldReturn400_whenPaymentMethodIsNull() throws Exception {
+    void registerProducer_shouldReturn400_whenPaymentMethodsIsEmpty() throws Exception {
         ProducerRegistrationRequest request = validRequest();
-        request.setPaymentMethod(null);
+        request.setPaymentMethods(java.util.List.of());
+
+        mockMvc
+                .perform(post("/admin/producers")
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void registerProducer_shouldReturn400_whenPaymentMethodsHasOnlyOneItem() throws Exception {
+        ProducerRegistrationRequest request = validRequest();
+        request.setPaymentMethods(List.of(buildPixMethod()));
 
         mockMvc
                 .perform(post("/admin/producers")
@@ -289,6 +317,20 @@ class AdminControllerProducerRegistrationTest {
     void registerProducer_shouldReturn400_whenAvailabilityIsEmpty() throws Exception {
         ProducerRegistrationRequest request = validRequest();
         request.setAvailability(List.of());
+
+        mockMvc
+                .perform(post("/admin/producers")
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void registerProducer_shouldReturn400_whenPhoneHasNonDigitCharacters() throws Exception {
+        ProducerRegistrationRequest request = validRequest();
+        request.setPhone("(51) 98888-8888");
 
         mockMvc
                 .perform(post("/admin/producers")

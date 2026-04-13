@@ -2,6 +2,7 @@ package br.com.ragro.controller.request;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
 import java.util.List;
@@ -17,7 +18,7 @@ public class ProducerUpdateRequest {
   @Schema(description = "Full name of the producer", example = "João Silva")
   private String name;
 
-  @Size(max = 20, message = "Phone must contain at most 20 characters")
+  @Pattern(regexp = "^\\d{11}$", message = "Phone must contain 11 digits (DDD + number)")
   @Schema(description = "Phone number", example = "(51) 98765-4321")
   private String phone;
 
@@ -48,8 +49,8 @@ public class ProducerUpdateRequest {
   private AddressRequest address;
 
   @Valid
-  @Schema(description = "Payment method data (pix or bank_account). Upserts the active record of the given type.")
-  private PaymentMethodRequest paymentMethod;
+  @Schema(description = "Payment methods to upsert (pix and/or bank_account). Partial update: null or empty list means no change.")
+  private List<PaymentMethodRequest> paymentMethods;
 
   @Valid
   @Schema(description = "Availability schedule to replace current producer availability")

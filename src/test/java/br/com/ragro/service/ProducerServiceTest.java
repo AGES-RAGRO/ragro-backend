@@ -3,19 +3,25 @@ package br.com.ragro.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import br.com.ragro.controller.request.AvailabilityRequest;
 import br.com.ragro.controller.request.PaymentMethodRequest;
 import br.com.ragro.controller.request.ProducerUpdateRequest;
 import br.com.ragro.controller.response.ProducerGetResponse;
 import br.com.ragro.controller.response.ProducerResponse;
+import br.com.ragro.domain.FarmerAvailability;
 import br.com.ragro.domain.PaymentMethod;
 import br.com.ragro.domain.Producer;
 import br.com.ragro.domain.ProducerProfile;
 import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.TypeUser;
+import br.com.ragro.exception.BusinessException;
 import br.com.ragro.exception.ForbiddenException;
 import br.com.ragro.exception.NotFoundException;
 import br.com.ragro.repository.AddressRepository;
@@ -398,7 +404,7 @@ class ProducerServiceTest {
     pmRequest.setPixKey("joao@email.com");
 
     ProducerUpdateRequest request = new ProducerUpdateRequest();
-    request.setPaymentMethod(pmRequest);
+    request.setPaymentMethods(List.of(pmRequest));
 
     PaymentMethod savedPm = new PaymentMethod();
     savedPm.setId(UUID.randomUUID());
@@ -454,7 +460,289 @@ class ProducerServiceTest {
     verify(paymentMethodRepository, never()).save(any(PaymentMethod.class));
   }
 
+
+  @Test
+  void updateProducerProfile_shouldUpsertBothPaymentMethods_whenListHasTwoItems() {
+    UUID producerId = UUID.randomUUID();
+    User farmer = buildProducer(producerId);
+    Producer producer = buildProducerEntity(producerId, farmer);
+    ProducerProfile profile = new ProducerProfile();
+
+    Jwt jwt = buildJwt(farmer.getAuthSub(), farmer.getEmail());
+
+    PaymentMethodRequest pix = new PaymentMethodRequest();
+    pix.setType("pix");
+    pix.setPixKeyType("email");
+    pix.setPixKey("joao@email.com");
+
+    PaymentMethodRequest bank = new PaymentMethodRequest();
+    bank.setType("bank_account");
+    bank.setBankName("Banco do Brasil");
+    bank.setAgency("0001");
+    bank.setAccountNumber("123456-0");
+    bank.setHolderName("João");
+
+    ProducerUpdateRequest request = new ProducerUpdateRequest();
+    request.setPaymentMethods(List.of(pix, bank));
+
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(farmer);
+    when(producerRepository.findDetailedById(producerId)).thenReturn(Optional.of(producer));
+    when(userRepository.save(farmer)).thenReturn(farmer);
+    when(producerRepository.save(producer)).thenReturn(producer);
+    when(producerProfileRepository.findById(producerId)).thenReturn(Optional.of(profile));
+    when(producerProfileRepository.save(profile)).thenReturn(profile);
+    when(addressRepository.findByUserIdAndIsPrimaryTrue(producerId)).thenReturn(Optional.empty());
+    when(paymentMethodRepository.findByFarmerIdAndTypeAndActiveTrue(eq(producerId), anyString()))
+        .thenReturn(Optional.empty());
+    when(paymentMethodRepository.save(any(PaymentMethod.class))).thenAnswer(i -> i.getArgument(0));
+    when(paymentMethodRepository.findByFarmerIdAndActiveTrue(producerId)).thenReturn(List.of());
+
+    producerService.updateProducerProfile(producerId, jwt, request);
+
+    verify(paymentMethodRepository, times(2)).save(any(PaymentMethod.class));
+  }
+
+  @Test
+  void updateProducerProfile_shouldThrowBusinessException_whenDuplicatePaymentMethodTypes() {
+    UUID producerId = UUID.randomUUID();
+    User farmer = buildProducer(producerId);
+    Producer producer = buildProducerEntity(producerId, farmer);
+    ProducerProfile profile = new ProducerProfile();
+
+    Jwt jwt = buildJwt(farmer.getAuthSub(), farmer.getEmail());
+
+    PaymentMethodRequest pix1 = new PaymentMethodRequest();
+    pix1.setType("pix");
+    pix1.setPixKeyType("email");
+    pix1.setPixKey("joao@email.com");
+
+    PaymentMethodRequest pix2 = new PaymentMethodRequest();
+    pix2.setType("pix");
+    pix2.setPixKeyType("cpf");
+    pix2.setPixKey("12345678901");
+
+    ProducerUpdateRequest request = new ProducerUpdateRequest();
+    request.setPaymentMethods(List.of(pix1, pix2));
+
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(farmer);
+    when(producerRepository.findDetailedById(producerId)).thenReturn(Optional.of(producer));
+    when(userRepository.save(farmer)).thenReturn(farmer);
+    when(producerRepository.save(producer)).thenReturn(producer);
+    when(producerProfileRepository.findById(producerId)).thenReturn(Optional.of(profile));
+    when(producerProfileRepository.save(profile)).thenReturn(profile);
+    when(addressRepository.findByUserIdAndIsPrimaryTrue(producerId)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> producerService.updateProducerProfile(producerId, jwt, request))
+        .isInstanceOf(BusinessException.class)
+        .hasMessageContaining("Duplicate payment method type");
+  }
+
+  @Test
+  void updateProducerProfile_shouldNotTouchPaymentMethods_whenListIsEmpty() {
+    UUID producerId = UUID.randomUUID();
+    User farmer = buildProducer(producerId);
+    Producer producer = buildProducerEntity(producerId, farmer);
+    ProducerProfile profile = new ProducerProfile();
+
+    Jwt jwt = buildJwt(farmer.getAuthSub(), farmer.getEmail());
+
+    ProducerUpdateRequest request = new ProducerUpdateRequest();
+    request.setPaymentMethods(List.of());
+
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(farmer);
+    when(producerRepository.findDetailedById(producerId)).thenReturn(Optional.of(producer));
+    when(userRepository.save(farmer)).thenReturn(farmer);
+    when(producerRepository.save(producer)).thenReturn(producer);
+    when(producerProfileRepository.findById(producerId)).thenReturn(Optional.of(profile));
+    when(producerProfileRepository.save(profile)).thenReturn(profile);
+    when(addressRepository.findByUserIdAndIsPrimaryTrue(producerId)).thenReturn(Optional.empty());
+    when(paymentMethodRepository.findByFarmerIdAndActiveTrue(producerId)).thenReturn(List.of());
+
+    producerService.updateProducerProfile(producerId, jwt, request);
+
+    verify(paymentMethodRepository, never()).save(any(PaymentMethod.class));
+  }
+
+  // ─── applyAvailability ──────────────────────────────────────────────────────
+
+  @Test
+  void updateProducerProfile_shouldReplaceAvailability_whenValidSlotsProvided() {
+    UUID producerId = UUID.randomUUID();
+    User farmer = buildProducer(producerId);
+    Producer producer = buildProducerEntity(producerId, farmer);
+    ProducerProfile profile = new ProducerProfile();
+    Jwt jwt = buildJwt(farmer.getAuthSub(), farmer.getEmail());
+
+    ProducerUpdateRequest request = new ProducerUpdateRequest();
+    request.setAvailability(List.of(
+        buildAvailabilityRequest((short) 1, "08:00", "18:00"),
+        buildAvailabilityRequest((short) 2, "09:00", "17:00")));
+
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(farmer);
+    when(producerRepository.findDetailedById(producerId)).thenReturn(Optional.of(producer));
+    when(userRepository.save(farmer)).thenReturn(farmer);
+    when(producerRepository.save(producer)).thenReturn(producer);
+    when(producerProfileRepository.findById(producerId)).thenReturn(Optional.of(profile));
+    when(producerProfileRepository.save(profile)).thenReturn(profile);
+    when(addressRepository.findByUserIdAndIsPrimaryTrue(producerId)).thenReturn(Optional.empty());
+    when(paymentMethodRepository.findByFarmerIdAndActiveTrue(producerId)).thenReturn(List.of());
+    when(farmerAvailabilityRepository.findByFarmerIdAndActiveTrueOrderByWeekdayAsc(producerId))
+        .thenReturn(List.of());
+
+    producerService.updateProducerProfile(producerId, jwt, request);
+
+    verify(farmerAvailabilityRepository, times(1)).deleteByFarmerId(producerId);
+    verify(farmerAvailabilityRepository, times(2)).save(any(FarmerAvailability.class));
+  }
+
+  @Test
+  void updateProducerProfile_shouldThrowBusinessException_whenAvailabilityHasDuplicateWeekday() {
+    UUID producerId = UUID.randomUUID();
+    User farmer = buildProducer(producerId);
+    Producer producer = buildProducerEntity(producerId, farmer);
+    ProducerProfile profile = new ProducerProfile();
+    Jwt jwt = buildJwt(farmer.getAuthSub(), farmer.getEmail());
+
+    ProducerUpdateRequest request = new ProducerUpdateRequest();
+    request.setAvailability(List.of(
+        buildAvailabilityRequest((short) 1, "08:00", "12:00"),
+        buildAvailabilityRequest((short) 1, "14:00", "18:00")));
+
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(farmer);
+    when(producerRepository.findDetailedById(producerId)).thenReturn(Optional.of(producer));
+    when(userRepository.save(farmer)).thenReturn(farmer);
+    when(producerRepository.save(producer)).thenReturn(producer);
+    when(producerProfileRepository.findById(producerId)).thenReturn(Optional.of(profile));
+    when(producerProfileRepository.save(profile)).thenReturn(profile);
+    when(addressRepository.findByUserIdAndIsPrimaryTrue(producerId)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> producerService.updateProducerProfile(producerId, jwt, request))
+        .isInstanceOf(BusinessException.class)
+        .hasMessageContaining("Duplicate availability weekday");
+
+    verify(farmerAvailabilityRepository, never()).deleteByFarmerId(any(UUID.class));
+    verify(farmerAvailabilityRepository, never()).save(any(FarmerAvailability.class));
+  }
+
+  @Test
+  void updateProducerProfile_shouldThrowBusinessException_whenAvailabilityWeekdayIsNull() {
+    UUID producerId = UUID.randomUUID();
+    User farmer = buildProducer(producerId);
+    Producer producer = buildProducerEntity(producerId, farmer);
+    ProducerProfile profile = new ProducerProfile();
+    Jwt jwt = buildJwt(farmer.getAuthSub(), farmer.getEmail());
+
+    ProducerUpdateRequest request = new ProducerUpdateRequest();
+    request.setAvailability(List.of(
+        buildAvailabilityRequest(null, "08:00", "18:00")));
+
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(farmer);
+    when(producerRepository.findDetailedById(producerId)).thenReturn(Optional.of(producer));
+    when(userRepository.save(farmer)).thenReturn(farmer);
+    when(producerRepository.save(producer)).thenReturn(producer);
+    when(producerProfileRepository.findById(producerId)).thenReturn(Optional.of(profile));
+    when(producerProfileRepository.save(profile)).thenReturn(profile);
+    when(addressRepository.findByUserIdAndIsPrimaryTrue(producerId)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> producerService.updateProducerProfile(producerId, jwt, request))
+        .isInstanceOf(BusinessException.class)
+        .hasMessageContaining("weekday is required");
+
+    verify(farmerAvailabilityRepository, never()).deleteByFarmerId(any(UUID.class));
+    verify(farmerAvailabilityRepository, never()).save(any(FarmerAvailability.class));
+  }
+
+  @Test
+  void updateProducerProfile_shouldThrowBusinessException_whenOpensAtNotBeforeClosesAt() {
+    UUID producerId = UUID.randomUUID();
+    User farmer = buildProducer(producerId);
+    Producer producer = buildProducerEntity(producerId, farmer);
+    ProducerProfile profile = new ProducerProfile();
+    Jwt jwt = buildJwt(farmer.getAuthSub(), farmer.getEmail());
+
+    ProducerUpdateRequest request = new ProducerUpdateRequest();
+    request.setAvailability(List.of(
+        buildAvailabilityRequest((short) 1, "18:00", "08:00")));
+
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(farmer);
+    when(producerRepository.findDetailedById(producerId)).thenReturn(Optional.of(producer));
+    when(userRepository.save(farmer)).thenReturn(farmer);
+    when(producerRepository.save(producer)).thenReturn(producer);
+    when(producerProfileRepository.findById(producerId)).thenReturn(Optional.of(profile));
+    when(producerProfileRepository.save(profile)).thenReturn(profile);
+    when(addressRepository.findByUserIdAndIsPrimaryTrue(producerId)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> producerService.updateProducerProfile(producerId, jwt, request))
+        .isInstanceOf(BusinessException.class)
+        .hasMessageContaining("opensAt must be earlier than closesAt");
+
+    verify(farmerAvailabilityRepository, never()).save(any(FarmerAvailability.class));
+  }
+
+  @Test
+  void updateProducerProfile_shouldThrowBusinessException_whenOpensAtIsInvalidFormat() {
+    UUID producerId = UUID.randomUUID();
+    User farmer = buildProducer(producerId);
+    Producer producer = buildProducerEntity(producerId, farmer);
+    ProducerProfile profile = new ProducerProfile();
+    Jwt jwt = buildJwt(farmer.getAuthSub(), farmer.getEmail());
+
+    ProducerUpdateRequest request = new ProducerUpdateRequest();
+    request.setAvailability(List.of(
+        buildAvailabilityRequest((short) 1, "not-a-time", "18:00")));
+
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(farmer);
+    when(producerRepository.findDetailedById(producerId)).thenReturn(Optional.of(producer));
+    when(userRepository.save(farmer)).thenReturn(farmer);
+    when(producerRepository.save(producer)).thenReturn(producer);
+    when(producerProfileRepository.findById(producerId)).thenReturn(Optional.of(profile));
+    when(producerProfileRepository.save(profile)).thenReturn(profile);
+    when(addressRepository.findByUserIdAndIsPrimaryTrue(producerId)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> producerService.updateProducerProfile(producerId, jwt, request))
+        .isInstanceOf(BusinessException.class)
+        .hasMessageContaining("opensAt must be a valid HH:mm value");
+
+    verify(farmerAvailabilityRepository, never()).save(any(FarmerAvailability.class));
+  }
+
+  @Test
+  void updateProducerProfile_shouldClearAllAvailability_whenListIsEmpty() {
+    UUID producerId = UUID.randomUUID();
+    User farmer = buildProducer(producerId);
+    Producer producer = buildProducerEntity(producerId, farmer);
+    ProducerProfile profile = new ProducerProfile();
+    Jwt jwt = buildJwt(farmer.getAuthSub(), farmer.getEmail());
+
+    ProducerUpdateRequest request = new ProducerUpdateRequest();
+    request.setAvailability(List.of());
+
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(farmer);
+    when(producerRepository.findDetailedById(producerId)).thenReturn(Optional.of(producer));
+    when(userRepository.save(farmer)).thenReturn(farmer);
+    when(producerRepository.save(producer)).thenReturn(producer);
+    when(producerProfileRepository.findById(producerId)).thenReturn(Optional.of(profile));
+    when(producerProfileRepository.save(profile)).thenReturn(profile);
+    when(addressRepository.findByUserIdAndIsPrimaryTrue(producerId)).thenReturn(Optional.empty());
+    when(paymentMethodRepository.findByFarmerIdAndActiveTrue(producerId)).thenReturn(List.of());
+    when(farmerAvailabilityRepository.findByFarmerIdAndActiveTrueOrderByWeekdayAsc(producerId))
+        .thenReturn(List.of());
+
+    producerService.updateProducerProfile(producerId, jwt, request);
+
+    verify(farmerAvailabilityRepository, times(1)).deleteByFarmerId(producerId);
+    verify(farmerAvailabilityRepository, never()).save(any(FarmerAvailability.class));
+  }
+
   // ─── helpers ────────────────────────────────────────────────────────────────
+
+  private AvailabilityRequest buildAvailabilityRequest(Short weekday, String opensAt, String closesAt) {
+    AvailabilityRequest req = new AvailabilityRequest();
+    req.setWeekday(weekday);
+    req.setOpensAt(opensAt);
+    req.setClosesAt(closesAt);
+    return req;
+  }
 
   private User buildProducer(UUID id) {
     return buildUser(id, TypeUser.FARMER, "João Farmer");
