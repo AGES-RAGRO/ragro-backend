@@ -350,7 +350,60 @@ class AdminControllerProducerTest {
         .andExpect(status().isNotFound());
   }
 
-  @WithMockUser(roles = "FARMER")
+  @WithMockUser(roles = "ADMIN")
+  @Test
+  void putProducer_shouldReturn400_whenPhoneHasNonDigitCharacters() throws Exception {
+    UUID producerId = UUID.randomUUID();
+
+    ProducerUpdateRequest request = new ProducerUpdateRequest();
+    request.setPhone("(51) 98765-4321");
+
+    mockMvc
+        .perform(
+            put("/admin/producers/{id}", producerId)
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+        .andExpect(status().isBadRequest());
+  }
+
+  @WithMockUser(roles = "ADMIN")
+  @Test
+  void putProducer_shouldAcceptPaymentMethodsList_whenContainsPixAndBankAccount() throws Exception {
+    UUID producerId = UUID.randomUUID();
+
+    ProducerUpdateRequest request = new ProducerUpdateRequest();
+    request.setFarmName("Fazenda Nova");
+
+    ProducerGetResponse response =
+        ProducerGetResponse.builder()
+            .id(producerId)
+            .name("João Farmer")
+            .email("joao@example.com")
+            .phone("51911111111")
+            .farmName("Fazenda Nova")
+            .fiscalNumber("12345678901")
+            .fiscalNumberType("CPF")
+            .totalReviews(0)
+            .averageRating(BigDecimal.ZERO)
+            .totalOrders(0)
+            .totalSalesAmount(BigDecimal.ZERO)
+            .paymentMethods(List.of())
+            .build();
+
+    when(producerService.updateProducerProfile(eq(producerId), any(), any())).thenReturn(response);
+
+    mockMvc
+        .perform(
+            put("/admin/producers/{id}", producerId)
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.farmName").value("Fazenda Nova"));
+  }
+
+    @WithMockUser(roles = "FARMER")
   @Test
   void putProducer_shouldReturn403_whenCalledByNonAdmin() throws Exception {
     UUID producerId = UUID.randomUUID();

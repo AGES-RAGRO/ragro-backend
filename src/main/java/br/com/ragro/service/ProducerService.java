@@ -25,7 +25,9 @@ import br.com.ragro.repository.ProducerRepository;
 import br.com.ragro.repository.UserRepository;
 import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -169,8 +171,15 @@ public class ProducerService {
       primaryAddress = addressRepository.findByUserIdAndIsPrimaryTrue(id).orElse(null);
     }
 
-    if (request.getPaymentMethod() != null && request.getPaymentMethod().getType() != null) {
-      applyPaymentMethod(producer, request.getPaymentMethod());
+    if (request.getPaymentMethods() != null && !request.getPaymentMethods().isEmpty()) {
+      Set<String> seen = new HashSet<>();
+      for (PaymentMethodRequest pm : request.getPaymentMethods()) {
+        if (pm.getType() == null) continue;
+        if (!seen.add(pm.getType())) {
+          throw new BusinessException("Duplicate payment method type: " + pm.getType());
+        }
+        applyPaymentMethod(producer, pm);
+      }
     }
 
     if (request.getAvailability() != null) {
