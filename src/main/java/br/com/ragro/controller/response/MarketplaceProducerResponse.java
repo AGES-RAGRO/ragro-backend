@@ -34,6 +34,9 @@ public class MarketplaceProducerResponse {
   @Schema(description = "Avatar URL or S3 key", example = "producers/avatar.png")
   private String avatarS3;
 
+  @Schema(description = "Cover/background photo URL or S3 key", example = "producers/cover.png")
+  private String displayPhotoS3;
+
   @Schema(description = "Average rating of the producer", example = "4.95")
   private BigDecimal averageRating;
 }

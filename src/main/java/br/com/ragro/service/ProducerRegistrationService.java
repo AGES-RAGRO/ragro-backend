@@ -38,6 +38,7 @@ public class ProducerRegistrationService {
     private final AddressRepository addressRepository;
     private final FarmerAvailabilityRepository availabilityRepository;
     private final PaymentMethodRepository paymentMethodRepository;
+    private final ProducerMapper producerMapper;
 
     public ProducerRegistrationService(
             UserRepository userRepository,
@@ -45,13 +46,15 @@ public class ProducerRegistrationService {
             IdentityProviderService identityProviderService,
             AddressRepository addressRepository,
             FarmerAvailabilityRepository availabilityRepository,
-            PaymentMethodRepository paymentMethodRepository) {
+            PaymentMethodRepository paymentMethodRepository,
+            ProducerMapper producerMapper) {
         this.userRepository = userRepository;
         this.producerRepository = producerRepository;
         this.identityProviderService = identityProviderService;
         this.addressRepository = addressRepository;
         this.availabilityRepository = availabilityRepository;
         this.paymentMethodRepository = paymentMethodRepository;
+        this.producerMapper = producerMapper;
     }
 
     @Transactional
@@ -80,13 +83,13 @@ public class ProducerRegistrationService {
             addressRepository.save(address);
 
             Producer savedProducer = producerRepository.saveAndFlush(
-                    ProducerMapper.toEntity(savedUser, request, normalizedFiscalNumber)
+                    producerMapper.toEntity(savedUser, request, normalizedFiscalNumber)
             );
 
             applyRegistrationPaymentMethod(savedProducer, request);
             applyAvailability(savedProducer, request.getAvailability());
 
-            return ProducerMapper.toRegistrationResponse(savedUser, savedProducer);
+            return producerMapper.toRegistrationResponse(savedUser, savedProducer);
 
         } catch (Exception e) {
             identityProviderService.deleteUser(externalUserId);

@@ -19,6 +19,11 @@ spring:
     pathmatch:
       matching-strategy: ANT_PATH_MATCHER
 
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 5MB
+
   security:
     oauth2:
       resourceserver:
@@ -33,6 +38,13 @@ keycloak:
   admin:
     username: ${KEYCLOAK_ADMIN:admin}
     password: ${KEYCLOAK_ADMIN_PASSWORD:admin}
+
+minio:
+  endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+  public-url: ${MINIO_PUBLIC_URL:http://localhost:9000}
+  access-key: ${MINIO_ACCESS_KEY:minioadmin}
+  secret-key: ${MINIO_SECRET_KEY:minioadmin}
+  bucket: ${MINIO_BUCKET:ragro-media}
 
 springdoc:
   api-docs:

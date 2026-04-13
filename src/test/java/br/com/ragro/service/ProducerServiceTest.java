@@ -24,6 +24,7 @@ import br.com.ragro.domain.enums.TypeUser;
 import br.com.ragro.exception.BusinessException;
 import br.com.ragro.exception.ForbiddenException;
 import br.com.ragro.exception.NotFoundException;
+import br.com.ragro.mapper.ProducerMapper;
 import br.com.ragro.repository.AddressRepository;
 import br.com.ragro.repository.FarmerAvailabilityRepository;
 import br.com.ragro.repository.PaymentMethodRepository;
@@ -35,9 +36,9 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
@@ -63,9 +64,26 @@ class ProducerServiceTest {
   private PaymentMethodRepository paymentMethodRepository;
   @Mock
   private UserService userService;
+  @Mock
+  private MinioStorageService minioStorageService;
 
-  @InjectMocks
   private ProducerService producerService;
+
+  @BeforeEach
+  void setUp() {
+    ProducerMapper producerMapper = new ProducerMapper(minioStorageService);
+    producerService =
+        new ProducerService(
+            userRepository,
+            producerRepository,
+            producerProfileRepository,
+            addressRepository,
+            farmerAvailabilityRepository,
+            paymentMethodRepository,
+            userService,
+            minioStorageService,
+            producerMapper);
+  }
 
   // ─── getAllProducers ─────────────────────────────────────────────────────────
 

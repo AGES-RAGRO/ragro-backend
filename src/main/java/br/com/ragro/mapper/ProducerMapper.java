@@ -13,33 +13,29 @@ import br.com.ragro.domain.PaymentMethod;
 import br.com.ragro.domain.Producer;
 import br.com.ragro.domain.ProducerProfile;
 import br.com.ragro.domain.User;
+import br.com.ragro.service.MinioStorageService;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.function.Function;
 import lombok.NonNull;
-import lombok.experimental.UtilityClass;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
 
-@UtilityClass
+@Component
+@RequiredArgsConstructor
 public class ProducerMapper {
 
   private static final DateTimeFormatter HHMM = DateTimeFormatter.ofPattern("HH:mm");
 
-  public static ProducerGetResponse toGetResponse(
+  private final MinioStorageService minioStorageService;
+
+  public ProducerGetResponse toGetResponse(
       User user,
       Producer producer,
       ProducerProfile profile,
       Address primaryAddress,
       List<PaymentMethod> paymentMethods,
       List<FarmerAvailability> availability) {
-
-    List<PaymentMethodResponse> pmResponses =
-        paymentMethods == null
-            ? List.of()
-            : paymentMethods.stream().map(ProducerMapper::toPaymentMethodResponse).toList();
-
-    List<AvailabilityResponse> availabilityResponses =
-        availability == null
-            ? List.of()
-            : availability.stream().map(ProducerMapper::toAvailabilityResponse).toList();
 
     return ProducerGetResponse.builder()
         .id(user.getId())
@@ -50,23 +46,27 @@ public class ProducerMapper {
         .fiscalNumberType(producer.getFiscalNumberType())
         .farmName(producer.getFarmName())
         .description(producer.getDescription())
-        .avatarS3(producer.getAvatarS3())
-        .displayPhotoS3(producer.getDisplayPhotoS3())
+        .avatarS3(minioStorageService.composePublicUrl(producer.getAvatarS3()))
+        .displayPhotoS3(minioStorageService.composePublicUrl(producer.getDisplayPhotoS3()))
         .totalReviews(producer.getTotalReviews())
         .averageRating(producer.getAverageRating())
         .totalOrders(producer.getTotalOrders())
         .totalSalesAmount(producer.getTotalSalesAmount())
-        .story(profile != null ? profile.getStory() : null)
-        .photoUrl(profile != null ? profile.getPhotoUrl() : null)
-        .memberSince(profile != null ? profile.getMemberSince() : null)
+        .story(profile == null ? null : profile.getStory())
+        .photoUrl(profile == null ? null : minioStorageService.composePublicUrl(profile.getPhotoUrl()))
+        .memberSince(profile == null ? null : profile.getMemberSince())
         .active(user.isActive())
-        .address(primaryAddress != null ? AddressMapper.toResponse(primaryAddress) : null)
-        .paymentMethods(pmResponses)
-        .availability(availabilityResponses)
+        .address(primaryAddress == null ? null : AddressMapper.toResponse(primaryAddress))
+        .paymentMethods(mapList(paymentMethods, this::toPaymentMethodResponse))
+        .availability(mapList(availability, this::toAvailabilityResponse))
         .build();
   }
 
-  public static AvailabilityResponse toAvailabilityResponse(FarmerAvailability slot) {
+  private static <T, R> List<R> mapList(List<T> source, Function<T, R> mapper) {
+    return source == null ? List.of() : source.stream().map(mapper).toList();
+  }
+
+  public AvailabilityResponse toAvailabilityResponse(FarmerAvailability slot) {
     return AvailabilityResponse.builder()
         .weekday(slot.getWeekday() == null ? null : slot.getWeekday().intValue())
         .opensAt(slot.getOpensAt() == null ? null : slot.getOpensAt().format(HHMM))
@@ -74,7 +74,7 @@ public class ProducerMapper {
         .build();
   }
 
-  public static PaymentMethodResponse toPaymentMethodResponse(PaymentMethod pm) {
+  public PaymentMethodResponse toPaymentMethodResponse(PaymentMethod pm) {
     return PaymentMethodResponse.builder()
         .id(pm.getId())
         .type(pm.getType())
@@ -90,7 +90,7 @@ public class ProducerMapper {
   }
 
   @NonNull
-  public static Producer toEntity(
+  public Producer toEntity(
       @NonNull User user,
       @NonNull ProducerRegistrationRequest request,
       @NonNull String normalizedFiscalNumber) {
@@ -106,7 +106,7 @@ public class ProducerMapper {
   }
 
   @NonNull
-  public static ProducerRegistrationResponse toRegistrationResponse(
+  public ProducerRegistrationResponse toRegistrationResponse(
       @NonNull User user, @NonNull Producer producer) {
     return ProducerRegistrationResponse.builder()
         .id(user.getId())
@@ -119,8 +119,8 @@ public class ProducerMapper {
         .fiscalNumberType(producer.getFiscalNumberType())
         .farmName(producer.getFarmName())
         .description(producer.getDescription())
-        .avatarS3(producer.getAvatarS3())
-        .displayPhotoS3(producer.getDisplayPhotoS3())
+        .avatarS3(minioStorageService.composePublicUrl(producer.getAvatarS3()))
+        .displayPhotoS3(minioStorageService.composePublicUrl(producer.getDisplayPhotoS3()))
         .totalReviews(producer.getTotalReviews())
         .averageRating(producer.getAverageRating())
         .totalOrders(producer.getTotalOrders())
@@ -130,7 +130,7 @@ public class ProducerMapper {
         .build();
   }
 
-  public static ProducerResponse toResponse(User entity) {
+  public ProducerResponse toResponse(User entity) {
     String address =
         entity.getAddresses().stream()
             .filter(Address::isPrimary)
@@ -153,13 +153,14 @@ public class ProducerMapper {
         .build();
   }
 
-  public static MarketplaceProducerResponse toMarketplaceResponse(Producer producer) {
+  public MarketplaceProducerResponse toMarketplaceResponse(Producer producer) {
     return MarketplaceProducerResponse.builder()
         .id(producer.getId())
         .ownerName(producer.getUser().getName())
         .farmName(producer.getFarmName())
         .description(producer.getDescription())
-        .avatarS3(producer.getAvatarS3())
+        .avatarS3(minioStorageService.composePublicUrl(producer.getAvatarS3()))
+        .displayPhotoS3(minioStorageService.composePublicUrl(producer.getDisplayPhotoS3()))
         .averageRating(producer.getAverageRating())
         .build();
   }

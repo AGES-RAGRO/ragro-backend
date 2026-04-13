@@ -11,11 +11,13 @@ import jakarta.validation.Valid;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/producers")
@@ -52,5 +54,25 @@ public class ProducerController {
       @AuthenticationPrincipal Jwt jwt,
       @Valid @RequestBody ProducerUpdateRequest request) {
     return ResponseEntity.ok(producerService.updateProducerProfile(id, jwt, request));
+  }
+
+  @PostMapping(value = "/{id}/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  @PreAuthorize("hasAnyRole('FARMER', 'ADMIN')")
+  @Operation(summary = "Upload producer avatar", description = "Uploads a new profile photo (avatar) for the producer and replaces the previous one.")
+  public ResponseEntity<ProducerGetResponse> uploadAvatar(
+      @PathVariable UUID id,
+      @AuthenticationPrincipal Jwt jwt,
+      @RequestPart("file") MultipartFile file) {
+    return ResponseEntity.ok(producerService.updateAvatarPhoto(id, jwt, file));
+  }
+
+  @PostMapping(value = "/{id}/cover", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  @PreAuthorize("hasAnyRole('FARMER', 'ADMIN')")
+  @Operation(summary = "Upload producer cover photo", description = "Uploads a new cover/background photo for the producer and replaces the previous one.")
+  public ResponseEntity<ProducerGetResponse> uploadCover(
+      @PathVariable UUID id,
+      @AuthenticationPrincipal Jwt jwt,
+      @RequestPart("file") MultipartFile file) {
+    return ResponseEntity.ok(producerService.updateCoverPhoto(id, jwt, file));
   }
 }
