@@ -136,7 +136,7 @@ public class ProducerMapper {
   public static MarketplaceProducerResponse toMarketplaceResponse(Producer producer) {
     return MarketplaceProducerResponse.builder()
         .id(producer.getId())
-        .name(producer.getUser().getName())
+        .ownerName(producer.getUser().getName())
         .farmName(producer.getFarmName())
         .description(producer.getDescription())
         .avatarS3(producer.getAvatarS3())
