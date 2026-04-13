@@ -325,4 +325,18 @@ class AdminControllerProducerRegistrationTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
     }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void registerProducer_shouldReturn400_whenPhoneHasNonDigitCharacters() throws Exception {
+        ProducerRegistrationRequest request = validRequest();
+        request.setPhone("(51) 98888-8888");
+
+        mockMvc
+                .perform(post("/admin/producers")
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
 }

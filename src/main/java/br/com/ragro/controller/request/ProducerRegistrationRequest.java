@@ -24,8 +24,8 @@ public class ProducerRegistrationRequest {
     private String name;
 
     @NotBlank(message = "Phone is required")
-    @Size(max = 20, message = "Phone must contain at most 20 characters")
-    @Schema(description = "Phone number", example = "(51) 98765-4321", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Pattern(regexp = "^\\d{11}$", message = "Phone must contain 11 digits (DDD + number)")
+    @Schema(description = "Phone number", example = "51988888888", requiredMode = Schema.RequiredMode.REQUIRED)
     private String phone;
 
     @NotBlank(message = "Email is required")
