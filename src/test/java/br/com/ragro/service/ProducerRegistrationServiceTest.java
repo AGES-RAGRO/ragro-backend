@@ -18,6 +18,7 @@ import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.TypeUser;
 import br.com.ragro.exception.BusinessException;
 import br.com.ragro.exception.ConflictException;
+import br.com.ragro.mapper.ProducerMapper;
 import br.com.ragro.repository.AddressRepository;
 import br.com.ragro.repository.FarmerAvailabilityRepository;
 import br.com.ragro.repository.PaymentMethodRepository;
@@ -28,9 +29,9 @@ import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -43,8 +44,23 @@ class ProducerRegistrationServiceTest {
     @Mock private AddressRepository addressRepository;
     @Mock private FarmerAvailabilityRepository availabilityRepository;
     @Mock private PaymentMethodRepository paymentMethodRepository;
+    @Mock private MinioStorageService minioStorageService;
 
-    @InjectMocks private ProducerRegistrationService producerRegistrationService;
+    private ProducerRegistrationService producerRegistrationService;
+
+    @BeforeEach
+    void setUp() {
+        ProducerMapper producerMapper = new ProducerMapper(minioStorageService);
+        producerRegistrationService =
+                new ProducerRegistrationService(
+                        userRepository,
+                        producerRepository,
+                        identityProviderService,
+                        addressRepository,
+                        availabilityRepository,
+                        paymentMethodRepository,
+                        producerMapper);
+    }
 
     private PaymentMethodRequest buildPixMethod() {
         PaymentMethodRequest pm = new PaymentMethodRequest();

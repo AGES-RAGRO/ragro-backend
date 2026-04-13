@@ -36,6 +36,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 @RequiredArgsConstructor
@@ -48,26 +49,28 @@ public class ProducerService {
   private final FarmerAvailabilityRepository farmerAvailabilityRepository;
   private final PaymentMethodRepository paymentMethodRepository;
   private final UserService userService;
+  private final MinioStorageService minioStorageService;
+  private final ProducerMapper producerMapper;
 
   public ProducerResponse getProducerById(UUID id) {
     var producer = producerRepository
         .findDetailedById(id)
         .orElseThrow(() -> new NotFoundException("Produtor não encontrado"));
 
-    return ProducerMapper.toResponse(producer.getUser());
+    return producerMapper.toResponse(producer.getUser());
   }
 
   public Page<ProducerResponse> getAllProducers(Pageable pageable) {
     return producerRepository
         .findAllUsersSortedByRating(pageable)
         .map(Producer::getUser)
-        .map(ProducerMapper::toResponse);
+        .map(producerMapper::toResponse);
   }
 
   public Page<MarketplaceProducerResponse> getActiveProducers(Pageable pageable) {
     return producerRepository
         .findAllActiveSortedByRating(pageable)
-        .map(ProducerMapper::toMarketplaceResponse);
+        .map(producerMapper::toMarketplaceResponse);
   }
 
   @Transactional(readOnly = true)
@@ -97,7 +100,7 @@ public class ProducerService {
     List<FarmerAvailability> availability =
         farmerAvailabilityRepository.findByFarmerIdAndActiveTrueOrderByWeekdayAsc(id);
 
-    return ProducerMapper.toGetResponse(
+    return producerMapper.toGetResponse(
         user, producer, profile, primaryAddress, paymentMethods, availability);
   }
 
@@ -105,16 +108,7 @@ public class ProducerService {
   public ProducerGetResponse updateProducerProfile(
       UUID id, Jwt jwt, ProducerUpdateRequest request) {
 
-    User authenticated = userService.getAuthenticatedUser(jwt);
-    TypeUser role = authenticated.getType();
-
-    if (role == TypeUser.FARMER) {
-      if (!authenticated.getId().equals(id)) {
-        throw new ForbiddenException("Você não tem permissão para alterar este perfil");
-      }
-    } else if (role != TypeUser.ADMIN) {
-      throw new ForbiddenException("Acesso restrito a produtores e administradores");
-    }
+    requireFarmerOrAdmin(id, jwt);
 
     Producer producer = producerRepository
         .findDetailedById(id)
@@ -203,7 +197,7 @@ public class ProducerService {
     List<FarmerAvailability> availability =
         farmerAvailabilityRepository.findByFarmerIdAndActiveTrueOrderByWeekdayAsc(id);
 
-    return ProducerMapper.toGetResponse(
+    return producerMapper.toGetResponse(
         targetUser, producer, profile, primaryAddress, paymentMethods, availability);
   }
 
@@ -248,7 +242,7 @@ public class ProducerService {
 
     producer.setActive(true);
     userRepository.saveAndFlush(producer);
-    return ProducerMapper.toResponse(producer);
+    return producerMapper.toResponse(producer);
   }
 
   public ProducerResponse deactivateProducer(UUID id) {
@@ -259,7 +253,7 @@ public class ProducerService {
 
     producer.setActive(false);
     userRepository.saveAndFlush(producer);
-    return ProducerMapper.toResponse(producer);
+    return producerMapper.toResponse(producer);
   }
 
   private void applyAvailability(Producer producer, List<AvailabilityRequest> availability) {
@@ -301,5 +295,82 @@ public class ProducerService {
     if (!opensAt.isBefore(closesAt)) {
       throw new BusinessException("opensAt must be earlier than closesAt");
     }
+  }
+
+  @Transactional
+  public ProducerGetResponse updateAvatarPhoto(UUID id, Jwt jwt, MultipartFile file) {
+    return updateProducerPhoto(id, jwt, file, PhotoTarget.AVATAR);
+  }
+
+  @Transactional
+  public ProducerGetResponse updateCoverPhoto(UUID id, Jwt jwt, MultipartFile file) {
+    return updateProducerPhoto(id, jwt, file, PhotoTarget.COVER);
+  }
+
+  private ProducerGetResponse updateProducerPhoto(
+      UUID id, Jwt jwt, MultipartFile file, PhotoTarget target) {
+
+    requireFarmerOrAdmin(id, jwt);
+
+    Producer producer = producerRepository
+        .findDetailedById(id)
+        .orElseThrow(() -> new NotFoundException("Produtor não encontrado"));
+
+    String oldKey = target.currentKey(producer);
+    String newKey = minioStorageService.upload(file, target.folder);
+    target.assignKey(producer, newKey);
+    producerRepository.save(producer);
+
+    minioStorageService.delete(oldKey);
+
+    return getProducerProfileById(id, jwt);
+  }
+
+  private void requireFarmerOrAdmin(UUID id, Jwt jwt) {
+    User authenticated = userService.getAuthenticatedUser(jwt);
+    TypeUser role = authenticated.getType();
+
+    if (role == TypeUser.FARMER) {
+      if (!authenticated.getId().equals(id)) {
+        throw new ForbiddenException("Você não tem permissão para alterar este perfil");
+      }
+    } else if (role != TypeUser.ADMIN) {
+      throw new ForbiddenException("Acesso restrito a produtores e administradores");
+    }
+  }
+
+  private enum PhotoTarget {
+    AVATAR("profile_pic") {
+      @Override
+      String currentKey(Producer producer) {
+        return producer.getAvatarS3();
+      }
+
+      @Override
+      void assignKey(Producer producer, String key) {
+        producer.setAvatarS3(key);
+      }
+    },
+    COVER("background_pic") {
+      @Override
+      String currentKey(Producer producer) {
+        return producer.getDisplayPhotoS3();
+      }
+
+      @Override
+      void assignKey(Producer producer, String key) {
+        producer.setDisplayPhotoS3(key);
+      }
+    };
+
+    final String folder;
+
+    PhotoTarget(String folder) {
+      this.folder = folder;
+    }
+
+    abstract String currentKey(Producer producer);
+
+    abstract void assignKey(Producer producer, String key);
   }
 }

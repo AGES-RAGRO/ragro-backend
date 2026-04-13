@@ -9,6 +9,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -121,5 +122,35 @@ public class GlobalExceptionHandler {
             .build();
 
     return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+  }
+
+  @ExceptionHandler(MaxUploadSizeExceededException.class)
+  public ResponseEntity<ErrorResponse> handleMaxUploadSizeExceeded(
+      MaxUploadSizeExceededException ex, HttpServletRequest request) {
+
+    ErrorResponse response =
+        ErrorResponse.builder()
+            .timestamp(java.time.LocalDateTime.now())
+            .status(HttpStatus.BAD_REQUEST.value())
+            .error("Arquivo muito grande. Tamanho máximo permitido: 5MB")
+            .path(request.getRequestURI())
+            .build();
+
+    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+  }
+
+  @ExceptionHandler(InternalServerException.class)
+  public ResponseEntity<ErrorResponse> handleInternalServer(
+      InternalServerException ex, HttpServletRequest request) {
+
+    ErrorResponse response =
+        ErrorResponse.builder()
+            .timestamp(java.time.LocalDateTime.now())
+            .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
+            .error(ex.getMessage())
+            .path(request.getRequestURI())
+            .build();
+
+    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
   }
 }
