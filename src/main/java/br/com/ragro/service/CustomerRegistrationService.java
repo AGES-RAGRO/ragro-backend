@@ -7,6 +7,7 @@ import br.com.ragro.domain.Address;
 import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.TypeUser;
 import br.com.ragro.exception.BusinessException;
+import br.com.ragro.exception.ConflictException;
 import br.com.ragro.mapper.AddressMapper;
 import br.com.ragro.mapper.CustomerMapper;
 import br.com.ragro.repository.AddressRepository;
@@ -93,11 +94,11 @@ public class CustomerRegistrationService {
 
   private void validateUniqueness(String email, String fiscalNumber) {
     if (userRepository.existsByEmail(email)) {
-      throw new BusinessException("E-mail already registered");
+      throw new ConflictException("E-mail already registered");
     }
 
     if (customerRepository.existsByFiscalNumber(fiscalNumber)) {
-      throw new BusinessException("Fiscal number already registered");
+      throw new ConflictException("Fiscal number already registered");
     }
   }
 

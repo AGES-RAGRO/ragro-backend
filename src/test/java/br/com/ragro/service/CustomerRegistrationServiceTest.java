@@ -16,6 +16,7 @@ import br.com.ragro.domain.Address;
 import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.TypeUser;
 import br.com.ragro.exception.BusinessException;
+import br.com.ragro.exception.ConflictException;
 import br.com.ragro.repository.AddressRepository;
 import br.com.ragro.repository.CustomerRepository;
 import br.com.ragro.repository.UserRepository;
@@ -154,11 +155,11 @@ class CustomerRegistrationServiceTest {
   // ─── uniqueness validation ────────────────────────────────────────────────
 
   @Test
-  void register_shouldThrowBusinessException_whenEmailAlreadyRegistered() {
+  void register_shouldThrowConflictException_whenEmailAlreadyRegistered() {
     when(userRepository.existsByEmail("maria@example.com")).thenReturn(true);
 
     assertThatThrownBy(() -> customerRegistrationService.register(validRequest()))
-        .isInstanceOf(BusinessException.class)
+        .isInstanceOf(ConflictException.class)
         .hasMessage("E-mail already registered");
 
     verify(identityProviderService, never()).registerCustomer(anyString(), anyString());
@@ -166,12 +167,12 @@ class CustomerRegistrationServiceTest {
   }
 
   @Test
-  void register_shouldThrowBusinessException_whenFiscalNumberAlreadyRegistered() {
+  void register_shouldThrowConflictException_whenFiscalNumberAlreadyRegistered() {
     when(userRepository.existsByEmail(anyString())).thenReturn(false);
     when(customerRepository.existsByFiscalNumber("52998224725")).thenReturn(true);
 
     assertThatThrownBy(() -> customerRegistrationService.register(validRequest()))
-        .isInstanceOf(BusinessException.class)
+        .isInstanceOf(ConflictException.class)
         .hasMessage("Fiscal number already registered");
 
     verify(identityProviderService, never()).registerCustomer(anyString(), anyString());
