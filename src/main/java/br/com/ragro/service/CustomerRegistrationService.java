@@ -6,7 +6,6 @@ import br.com.ragro.controller.response.CustomerRegistrationResponse;
 import br.com.ragro.domain.Address;
 import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.TypeUser;
-import br.com.ragro.exception.BusinessException;
 import br.com.ragro.exception.ConflictException;
 import br.com.ragro.mapper.AddressMapper;
 import br.com.ragro.mapper.CustomerMapper;
