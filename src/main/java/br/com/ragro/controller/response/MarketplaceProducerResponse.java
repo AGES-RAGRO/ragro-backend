@@ -1,5 +1,7 @@
 package br.com.ragro.controller.response;
 
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -14,13 +16,14 @@ import lombok.Setter;
 @NoArgsConstructor
 @Getter
 @Setter
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public class MarketplaceProducerResponse {
 
   @Schema(description = "Unique identifier of the producer")
   private UUID id;
 
   @Schema(description = "Full name of the owner", example = "João Silva")
-  private String name;
+  private String ownerName;
 
   @Schema(description = "Farm name", example = "Fazenda Sol Nascente")
   private String farmName;
