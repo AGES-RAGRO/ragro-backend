@@ -6,12 +6,11 @@ import br.com.ragro.service.CustomerService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import java.util.UUID;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -29,6 +28,7 @@ public class CustomerController {
   }
 
   @GetMapping("/me")
+  @PreAuthorize("hasRole('CUSTOMER')")
   @Operation(
       summary = "Get customer profile",
       description = "Returns the customer profile with personal data and addresses.")
@@ -37,6 +37,7 @@ public class CustomerController {
   }
 
   @PutMapping("/me")
+  @PreAuthorize("hasRole('CUSTOMER')")
   @Operation(
       summary = "Update customer profile",
       description =
@@ -44,14 +45,5 @@ public class CustomerController {
   public ResponseEntity<CustomerResponse> updateMyCustomer(
       @AuthenticationPrincipal Jwt jwt, @Valid @RequestBody CustomerUpdateRequest request) {
     return ResponseEntity.ok(customerService.updateMyCustomer(jwt, request));
-  }
-
-  @GetMapping("/{id}")
-  @Operation(
-      summary = "Get customer by ID",
-      description = "Returns a customer profile by ID.")
-  public ResponseEntity<CustomerResponse> getCustomerById(
-      @AuthenticationPrincipal Jwt jwt, @PathVariable UUID id) {
-    return ResponseEntity.ok(customerService.getCustomerById(id, jwt));
   }
 }

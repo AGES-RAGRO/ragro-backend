@@ -29,7 +29,6 @@ public class AddressMapper {
     return address;
   }
 
-  /** Updates an existing address from a request (does not change user or primary flag). */
   public static void applyRequest(@NonNull Address address, @NonNull AddressRequest request) {
     address.setStreet(request.getStreet().trim());
     address.setNumber(request.getNumber().trim());

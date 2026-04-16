@@ -6,6 +6,7 @@ import br.com.ragro.domain.Address;
 import br.com.ragro.domain.Customer;
 import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.TypeUser;
+import br.com.ragro.exception.ForbiddenException;
 import br.com.ragro.exception.NotFoundException;
 import br.com.ragro.exception.UnauthorizedException;
 import br.com.ragro.mapper.AddressMapper;
@@ -42,7 +43,7 @@ public class CustomerService {
     User user = userService.getAuthenticatedUser(jwt);
 
     if (user.getType() != TypeUser.CUSTOMER) {
-      throw new UnauthorizedException("Access restricted to customers");
+      throw new ForbiddenException("Access restricted to customers");
     }
 
     return CustomerMapper.toResponse(user);
@@ -53,7 +54,7 @@ public class CustomerService {
     User user = userService.getAuthenticatedUser(jwt);
 
     if (user.getType() != TypeUser.CUSTOMER) {
-      throw new UnauthorizedException("Access restricted to customers");
+      throw new ForbiddenException("Access restricted to customers");
     }
 
     user.setName(request.getName().trim());
@@ -81,14 +82,10 @@ public class CustomerService {
   }
 
   @Transactional(readOnly = true)
-  public CustomerResponse getCustomerById(UUID id, Jwt jwt) {
-    User requester = userService.getAuthenticatedUser(jwt);
-    if (requester.getType() != TypeUser.ADMIN) {
-      throw new UnauthorizedException("Access restricted to admins");
-    }
+  public CustomerResponse getCustomerById(UUID id) {
     Customer customer =
         customerRepository
-            .findById(id)
+            .findDetailedById(id)
             .orElseThrow(() -> new NotFoundException("Customer not found"));
 
     return CustomerMapper.toResponse(customer.getUser());

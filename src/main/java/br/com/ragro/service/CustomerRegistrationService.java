@@ -6,18 +6,23 @@ import br.com.ragro.controller.response.CustomerRegistrationResponse;
 import br.com.ragro.domain.Address;
 import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.TypeUser;
-import br.com.ragro.exception.BusinessException;
+import br.com.ragro.exception.ConflictException;
 import br.com.ragro.mapper.AddressMapper;
 import br.com.ragro.mapper.CustomerMapper;
 import br.com.ragro.repository.AddressRepository;
 import br.com.ragro.repository.CustomerRepository;
 import br.com.ragro.repository.UserRepository;
+import br.com.ragro.service.api.IdentityProviderService;
 import java.util.Locale;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class CustomerRegistrationService {
+
+  private static final Logger log = LoggerFactory.getLogger(CustomerRegistrationService.class);
 
   private final UserRepository userRepository;
   private final CustomerRepository customerRepository;
@@ -58,14 +63,18 @@ public class CustomerRegistrationService {
       user.setActive(true);
       user.setAuthSub(externalUserId);
 
-      savedUser = userRepository.save(user);
-      customerRepository.save(CustomerMapper.toEntity(savedUser, normalizedFiscalNumber));
+      savedUser = userRepository.saveAndFlush(user);
+      customerRepository.saveAndFlush(CustomerMapper.toEntity(savedUser, normalizedFiscalNumber));
 
       Address address = AddressMapper.toEntity(normalizedAddress, savedUser, true);
       savedAddress = addressRepository.save(address);
-    } catch (Exception e) {
-      identityProviderService.deleteUser(externalUserId);
-      throw e;
+    } catch (Exception original) {
+      try {
+        identityProviderService.deleteUser(externalUserId);
+      } catch (Exception compensation) {
+        log.error("Keycloak compensation failed for user {}: {}", externalUserId, compensation.getMessage());
+      }
+      throw original;
     }
 
     return CustomerRegistrationResponse.builder()
@@ -84,11 +93,11 @@ public class CustomerRegistrationService {
 
   private void validateUniqueness(String email, String fiscalNumber) {
     if (userRepository.existsByEmail(email)) {
-      throw new BusinessException("E-mail already registered");
+      throw new ConflictException("E-mail already registered");
     }
 
     if (customerRepository.existsByFiscalNumber(fiscalNumber)) {
-      throw new BusinessException("Fiscal number already registered");
+      throw new ConflictException("Fiscal number already registered");
     }
   }
 

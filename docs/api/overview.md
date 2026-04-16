@@ -49,7 +49,7 @@ Endpoints are protected based on Keycloak group membership:
 | URL Pattern | Required Role | Description |
 |-------------|---------------|-------------|
 | `/admin/**` | `ROLE_ADMIN` | Administrative operations |
-| `/farmer/**` | `ROLE_FARMER` | Farmer-specific operations |
+| `/producers/**` | `ROLE_FARMER` | Farmer-specific operations |
 | `/customers/**` | `ROLE_CUSTOMER` | Customer-specific operations |
 | All other endpoints | Authenticated | Any valid JWT |
 

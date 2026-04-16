@@ -1,5 +1,6 @@
 package br.com.ragro.controller.request;
 
+import br.com.ragro.validation.ValidCpf;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
@@ -52,6 +53,7 @@ public class CustomerRegistrationRequest {
 
   @NotBlank(message = "Fiscal number is required")
   @Pattern(regexp = "^\\d{11}$", message = "Fiscal number must contain 11 digits")
+  @ValidCpf
   @Schema(
       description = "CPF (11 digits, numbers only)",
       example = "12345678901",

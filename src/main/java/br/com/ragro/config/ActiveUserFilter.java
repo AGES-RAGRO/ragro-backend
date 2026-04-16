@@ -9,6 +9,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -57,13 +58,14 @@ public class ActiveUserFilter extends OncePerRequestFilter {
   }
 
   private void writeErrorResponse(HttpServletResponse response, String path) throws IOException {
-    response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
     response.setContentType("application/json");
+    response.setCharacterEncoding(StandardCharsets.UTF_8.name());
 
     Map<String, Object> body = new LinkedHashMap<>();
     body.put("timestamp", LocalDateTime.now().toString());
-    body.put("status", HttpServletResponse.SC_FORBIDDEN);
-    body.put("error", "Conta desativada");
+    body.put("status", HttpServletResponse.SC_UNAUTHORIZED);
+    body.put("error", "Conta desativada ou usuário não encontrado");
     body.put("path", path);
 
     objectMapper.writeValue(response.getOutputStream(), body);

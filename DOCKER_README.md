@@ -49,8 +49,6 @@ Isso ira:
 - Volumes:
   - Dados persistidos em `postgres_data:/var/lib/postgresql/data`
   - Init script: `data/00-create-keycloak-db.sh` (cria banco `keycloak`)
-  - Schema SQL: `data/01-schema.sql` (cria tabelas do `gearheads`)
-  - Seed SQL: `data/02-seed-users.sql` (insere usuários de teste)
 - Health Check: Valida conexao com o banco
 
 #### Servico: `keycloak`
@@ -67,6 +65,7 @@ Isso ira:
 
 #### Servico: `backend`
 - Build a partir do `Dockerfile`
+- Migrações executadas automaticamente via Flyway (`src/main/resources/db/migration`)
 - Variaveis de ambiente:
   - `SPRING_DATASOURCE_URL`: jdbc:postgresql://postgres:5432/gearheads
   - `KEYCLOAK_SERVER_URL`: http://keycloak:8180 (comunicacao interna)
@@ -83,8 +82,7 @@ Isso ira:
 /docker-compose.yml               - Orquestracao: postgres + keycloak + backend
 /docker-compose.test.yml          - Orquestracao para testes
 /.dockerignore                    - Arquivos ignorados no build
-/data/01-schema.sql               - Schema SQL (montado no postgres)
-/data/02-seed-users.sql           - Seed: test users (synced with Keycloak)
+/src/main/resources/db/migration/ - Migrations Flyway (schema e seed)
 /data/00-create-keycloak-db.sh    - Init script: cria banco keycloak no postgres
 /keycloak/ragro-realm.json        - Realm Keycloak pre-configurado
 ```
