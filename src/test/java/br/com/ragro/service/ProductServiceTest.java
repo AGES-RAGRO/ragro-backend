@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 
 import br.com.ragro.controller.request.ProductPhotoRequest;
 import br.com.ragro.controller.request.ProductRequest;
+import br.com.ragro.controller.response.ProductCategoryResponse;
 import br.com.ragro.controller.response.ProductResponse;
 import br.com.ragro.domain.Producer;
 import br.com.ragro.domain.Product;
@@ -56,6 +57,20 @@ class ProductServiceTest {
     assertThat(response).hasSize(1);
     assertThat(response.getFirst().getId()).isEqualTo(product.getId());
     assertThat(response.getFirst().getFarmerId()).isEqualTo(farmer.getId());
+  }
+
+  @Test
+  void getMyProductById_shouldReturnProduct() {
+    Producer farmer = buildAuthenticatedFarmer();
+    Product product = buildProduct(farmer);
+    when(productRepository.findByIdAndFarmerId(product.getId(), farmer.getId()))
+        .thenReturn(Optional.of(product));
+
+    ProductResponse response = productService.getMyProductById(product.getId(), jwt());
+
+    assertThat(response.getId()).isEqualTo(product.getId());
+    assertThat(response.getFarmerId()).isEqualTo(farmer.getId());
+    assertThat(response.getName()).isEqualTo("Organic strawberries");
   }
 
   @Test
@@ -134,6 +149,18 @@ class ProductServiceTest {
   }
 
   @Test
+  void updateProduct_shouldThrowNotFound_whenProductDoesNotBelongToFarmer() {
+    Producer farmer = buildAuthenticatedFarmer();
+    UUID productId = UUID.randomUUID();
+    when(productRepository.findByIdAndFarmerId(productId, farmer.getId()))
+        .thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> productService.updateProduct(productId, productRequest(), jwt()))
+        .isInstanceOf(NotFoundException.class)
+        .hasMessage("Produto não encontrado");
+  }
+
+  @Test
   void deactivateProduct_shouldSetActiveFalse() {
     Producer farmer = buildAuthenticatedFarmer();
     Product product = buildProduct(farmer);
@@ -145,6 +172,33 @@ class ProductServiceTest {
 
     assertThat(response.isActive()).isFalse();
     verify(productRepository).saveAndFlush(product);
+  }
+
+  @Test
+  void deactivateProduct_shouldThrowNotFound_whenProductDoesNotBelongToFarmer() {
+    Producer farmer = buildAuthenticatedFarmer();
+    UUID productId = UUID.randomUUID();
+    when(productRepository.findByIdAndFarmerId(productId, farmer.getId()))
+        .thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> productService.deactivateProduct(productId, jwt()))
+        .isInstanceOf(NotFoundException.class)
+        .hasMessage("Produto não encontrado");
+  }
+
+  @Test
+  void getCategories_shouldReturnAllCategories() {
+    when(productCategoryRepository.findAll())
+        .thenReturn(
+            List.of(
+                buildCategory(1, "Fruits"),
+                buildCategory(2, "Vegetables")));
+
+    List<ProductCategoryResponse> response = productService.getCategories();
+
+    assertThat(response).hasSize(2);
+    assertThat(response.stream().map(ProductCategoryResponse::getName).toList())
+        .containsExactlyInAnyOrder("Fruits", "Vegetables");
   }
 
   private Producer buildAuthenticatedFarmer() {

@@ -12,6 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import br.com.ragro.config.CorsConfig;
 import br.com.ragro.config.KeycloakRolesConverter;
 import br.com.ragro.config.SecurityConfig;
+import br.com.ragro.controller.response.ProductCategoryResponse;
 import br.com.ragro.controller.response.ProductResponse;
 import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.TypeUser;
@@ -53,11 +54,28 @@ class ProductControllerTest {
         .thenReturn(List.of(productResponse(productId, farmerId, true)));
 
     mockMvc
-        .perform(get("/farmer/products").with(farmerJwt(sub)))
+        .perform(get("/producers/products").with(farmerJwt(sub)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.length()").value(1))
         .andExpect(jsonPath("$[0].id").value(productId.toString()))
         .andExpect(jsonPath("$[0].name").value("Organic strawberries"));
+  }
+
+  @Test
+  void getMyProductById_shouldReturn200WithProduct() throws Exception {
+    String sub = "active-farmer";
+    User user = buildUser(sub);
+    UUID productId = UUID.randomUUID();
+    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(user));
+    when(productService.getMyProductById(
+            org.mockito.ArgumentMatchers.eq(productId), org.mockito.ArgumentMatchers.any()))
+        .thenReturn(productResponse(productId, user.getId(), true));
+
+    mockMvc
+        .perform(get("/producers/products/{id}", productId).with(farmerJwt(sub)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id").value(productId.toString()))
+        .andExpect(jsonPath("$.name").value("Organic strawberries"));
   }
 
   @Test
@@ -72,12 +90,12 @@ class ProductControllerTest {
 
     mockMvc
         .perform(
-            post("/farmer/products")
+            post("/producers/products")
                 .with(farmerJwt(sub))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(productJson()))
         .andExpect(status().isCreated())
-        .andExpect(header().string("Location", "/farmer/products/" + productId))
+        .andExpect(header().string("Location", "/producers/products/" + productId))
         .andExpect(jsonPath("$.id").value(productId.toString()));
   }
 
@@ -95,7 +113,7 @@ class ProductControllerTest {
 
     mockMvc
         .perform(
-            put("/farmer/products/{id}", productId)
+            put("/producers/products/{id}", productId)
                 .with(farmerJwt(sub))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(productJson()))
@@ -114,9 +132,28 @@ class ProductControllerTest {
         .thenReturn(productResponse(productId, user.getId(), false));
 
     mockMvc
-        .perform(delete("/farmer/products/{id}", productId).with(farmerJwt(sub)))
+        .perform(delete("/producers/products/{id}", productId).with(farmerJwt(sub)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.active").value(false));
+  }
+
+  @Test
+  void getCategories_shouldReturn200WithCategories() throws Exception {
+    String sub = "active-farmer";
+    User user = buildUser(sub);
+    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(user));
+    when(productService.getCategories())
+        .thenReturn(
+            List.of(
+                ProductCategoryResponse.builder().id(1).name("Fruits").description("Fresh fruits").build(),
+                ProductCategoryResponse.builder().id(2).name("Vegetables").description("Fresh vegetables").build()));
+
+    mockMvc
+        .perform(get("/producers/products/categories").with(farmerJwt(sub)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(2))
+        .andExpect(jsonPath("$[0].name").value("Fruits"))
+        .andExpect(jsonPath("$[1].name").value("Vegetables"));
   }
 
   @Test
@@ -127,7 +164,7 @@ class ProductControllerTest {
 
     mockMvc
         .perform(
-            post("/farmer/products")
+            post("/producers/products")
                 .with(farmerJwt(sub))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{}"))
@@ -142,7 +179,7 @@ class ProductControllerTest {
 
     mockMvc
         .perform(
-            get("/farmer/products")
+            get("/producers/products")
                 .with(
                     SecurityMockMvcRequestPostProcessors.jwt()
                         .jwt(jwt -> jwt.claim("sub", sub).claim("email", "customer@test.com"))

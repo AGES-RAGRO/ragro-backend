@@ -24,7 +24,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/farmer/products")
+@RequestMapping("/producers/products")
 @RequiredArgsConstructor
 @Tag(name = "Products", description = "Product operations (requires ROLE_FARMER)")
 public class ProductController {
@@ -55,7 +55,7 @@ public class ProductController {
   public ResponseEntity<ProductResponse> createProduct(
       @Valid @RequestBody ProductRequest request, @AuthenticationPrincipal Jwt jwt) {
     ProductResponse response = productService.createProduct(request, jwt);
-    return ResponseEntity.created(URI.create("/farmer/products/" + response.getId()))
+    return ResponseEntity.created(URI.create("/producers/products/" + response.getId()))
         .body(response);
   }
 
