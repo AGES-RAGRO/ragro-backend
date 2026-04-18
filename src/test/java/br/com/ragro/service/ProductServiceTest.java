@@ -186,6 +186,45 @@ class ProductServiceTest {
         .hasMessage("Produto não encontrado");
   }
 
+  // ─── getActiveProductsByProducerId ──────────────────────────────────────────
+
+  @Test
+  void getActiveProductsByProducerId_shouldReturnActiveProducts_whenProducerExists() {
+    UUID producerId = UUID.randomUUID();
+    Producer farmer = new Producer();
+    farmer.setId(producerId);
+    Product product = buildProduct(farmer);
+    when(producerRepository.existsById(producerId)).thenReturn(true);
+    when(productRepository.findAllByFarmerIdAndActiveTrue(producerId)).thenReturn(List.of(product));
+
+    List<ProductResponse> response = productService.getActiveProductsByProducerId(producerId);
+
+    assertThat(response).hasSize(1);
+    assertThat(response.getFirst().getId()).isEqualTo(product.getId());
+    assertThat(response.getFirst().isActive()).isTrue();
+  }
+
+  @Test
+  void getActiveProductsByProducerId_shouldReturnEmptyList_whenProducerHasNoActiveProducts() {
+    UUID producerId = UUID.randomUUID();
+    when(producerRepository.existsById(producerId)).thenReturn(true);
+    when(productRepository.findAllByFarmerIdAndActiveTrue(producerId)).thenReturn(List.of());
+
+    List<ProductResponse> response = productService.getActiveProductsByProducerId(producerId);
+
+    assertThat(response).isEmpty();
+  }
+
+  @Test
+  void getActiveProductsByProducerId_shouldThrowNotFoundException_whenProducerDoesNotExist() {
+    UUID producerId = UUID.randomUUID();
+    when(producerRepository.existsById(producerId)).thenReturn(false);
+
+    assertThatThrownBy(() -> productService.getActiveProductsByProducerId(producerId))
+        .isInstanceOf(NotFoundException.class)
+        .hasMessage("Produtor não encontrado");
+  }
+
   @Test
   void getCategories_shouldReturnAllCategories() {
     when(productCategoryRepository.findAll())
