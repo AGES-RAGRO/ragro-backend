@@ -71,6 +71,7 @@ class CartServiceTest {
     productA.setPrice(new BigDecimal("10.00"));
     productA.setFarmer(farmerA);
     productA.setActive(true);
+    productA.setStockQuantity(new BigDecimal("10.000"));
 
     productB = new Product();
     productB.setId(UUID.randomUUID());
@@ -78,6 +79,7 @@ class CartServiceTest {
     productB.setPrice(new BigDecimal("20.00"));
     productB.setFarmer(farmerB);
     productB.setActive(true);
+    productB.setStockQuantity(new BigDecimal("10.000"));
   }
 
   @Test
@@ -119,6 +121,7 @@ class CartServiceTest {
     existingCart.setCustomer(customer);
     
     CartItem activeItem = new CartItem();
+    activeItem.setProduct(productA);
     activeItem.setActive(true);
     existingCart.getItems().add(activeItem);
 
@@ -155,6 +158,67 @@ class CartServiceTest {
       CartResponse response = cartService.addItem(jwt(), req);
 
       assertThat(response.getFarmerId()).isEqualTo(farmerB.getId());
+  }
+
+  @Test
+  void addItem_shouldIncrementQuantity_whenItemAlreadyInCart() {
+      when(userService.getAuthenticatedUser(any())).thenReturn(user);
+      when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
+      when(productRepository.findById(productA.getId())).thenReturn(Optional.of(productA));
+
+      Cart existingCart = new Cart();
+      existingCart.setId(UUID.randomUUID());
+      existingCart.setFarmer(farmerA);
+      existingCart.setCustomer(customer);
+
+      CartItem existingItem = new CartItem();
+      existingItem.setId(UUID.randomUUID());
+      existingItem.setCart(existingCart);
+      existingItem.setProduct(productA);
+      existingItem.setQuantity(new BigDecimal("2"));
+      existingItem.setActive(true);
+      existingCart.getItems().add(existingItem);
+
+      when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId())).thenReturn(Optional.of(existingCart));
+      when(cartItemRepository.findByCartIdAndProductIdAndActiveTrue(existingCart.getId(), productA.getId()))
+          .thenReturn(Optional.of(existingItem));
+      when(cartRepository.saveAndFlush(any())).thenAnswer(i -> i.getArgument(0));
+
+      AddToCartRequest req = new AddToCartRequest();
+      req.setProductId(productA.getId());
+      req.setQuantity(new BigDecimal("3")); // 2 + 3 = 5
+
+      CartResponse response = cartService.addItem(jwt(), req);
+
+      assertThat(response.getItems().get(0).getQuantity()).isEqualByComparingTo("5");
+      verify(cartItemRepository).save(existingItem);
+  }
+
+  @Test
+  void addItem_shouldThrowException_whenStockIsInsufficient() {
+      when(userService.getAuthenticatedUser(any())).thenReturn(user);
+      when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
+      when(productRepository.findById(productA.getId())).thenReturn(Optional.of(productA));
+
+      Cart existingCart = new Cart();
+      existingCart.setId(UUID.randomUUID());
+      existingCart.setFarmer(farmerA);
+
+      CartItem existingItem = new CartItem();
+      existingItem.setProduct(productA);
+      existingItem.setQuantity(new BigDecimal("8")); // Stock is 10
+      existingItem.setActive(true);
+      existingCart.getItems().add(existingItem);
+
+      when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId())).thenReturn(Optional.of(existingCart));
+
+      AddToCartRequest req = new AddToCartRequest();
+      req.setProductId(productA.getId());
+      req.setQuantity(new BigDecimal("3")); // 8 + 3 = 11 > 10
+
+      assertThatThrownBy(() -> cartService.addItem(jwt(), req))
+          .isInstanceOf(BusinessException.class)
+          .hasMessageContaining("excede o estoque disponível");
   }
 
   private Jwt jwt() {

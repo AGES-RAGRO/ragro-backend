@@ -16,6 +16,7 @@ import br.com.ragro.repository.CartItemRepository;
 import br.com.ragro.repository.CartRepository;
 import br.com.ragro.repository.CustomerRepository;
 import br.com.ragro.repository.ProductRepository;
+import java.math.BigDecimal;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -50,21 +51,20 @@ public class CartService {
       throw new BusinessException("Produto inativo não pode ser adicionado ao carrinho");
     }
 
+    validateStock(product, request.getQuantity(), customer.getId());
+
     Cart cart = cartRepository.findByCustomerIdAndActiveTrue(customer.getId())
         .orElseGet(() -> createNewCart(customer, product));
 
-    // Validar se o produto pertence ao mesmo produtor do carrinho
     if (!cart.getFarmer().getId().equals(product.getFarmer().getId())) {
-        // Se o carrinho existe mas está vazio (não deveria acontecer se criamos com o farmer do primeiro produto)
-        // mas em cenários de reuso de registro ou erro, verificamos se há itens ativos.
-        long activeItemsCount = cart.getItems().stream().filter(CartItem::isActive).count();
-        if (activeItemsCount > 0) {
-            throw new BusinessException("Seu carrinho já possui itens de outro produtor. Finalize o pedido ou esvazie o carrinho primeiro.");
-        } else {
-            // Se estava vazio, permitimos trocar o produtor
-            cart.setFarmer(product.getFarmer());
-            cartRepository.save(cart);
-        }
+      long activeItemsCount = cart.getItems().stream().filter(CartItem::isActive).count();
+      if (activeItemsCount > 0) {
+        throw new BusinessException(
+            "Seu carrinho já possui itens de outro produtor. Finalize o pedido ou esvazie o carrinho primeiro.");
+      } else {
+        cart.setFarmer(product.getFarmer());
+        cartRepository.save(cart);
+      }
     }
 
     updateOrAddItem(cart, product, request);
@@ -108,7 +108,7 @@ public class CartService {
 
     if (existingItem.isPresent()) {
       CartItem item = existingItem.get();
-      item.setQuantity(request.getQuantity());
+      item.setQuantity(item.getQuantity().add(request.getQuantity()));
       cartItemRepository.save(item);
     } else {
       CartItem newItem = new CartItem();
@@ -118,6 +118,22 @@ public class CartService {
       newItem.setActive(true);
       cart.getItems().add(newItem);
       cartItemRepository.save(newItem);
+    }
+  }
+
+  private void validateStock(Product product, BigDecimal quantityToAdd, UUID customerId) {
+    BigDecimal currentQuantityInCart = cartRepository.findByCustomerIdAndActiveTrue(customerId)
+        .flatMap(cart -> cart.getItems().stream()
+            .filter(item -> item.isActive() && item.getProduct().getId().equals(product.getId()))
+            .findFirst()
+            .map(CartItem::getQuantity))
+        .orElse(BigDecimal.ZERO);
+
+    BigDecimal totalTargetQuantity = currentQuantityInCart.add(quantityToAdd);
+
+    if (totalTargetQuantity.compareTo(product.getStockQuantity()) > 0) {
+      throw new BusinessException("Quantidade solicitada (" + totalTargetQuantity +
+          ") excede o estoque disponível (" + product.getStockQuantity() + ")");
     }
   }
 }
