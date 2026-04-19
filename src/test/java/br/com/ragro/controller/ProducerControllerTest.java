@@ -13,6 +13,7 @@ import br.com.ragro.config.KeycloakRolesConverter;
 import br.com.ragro.config.SecurityConfig;
 import br.com.ragro.controller.request.ProducerUpdateRequest;
 import br.com.ragro.controller.response.ProducerGetResponse;
+import br.com.ragro.controller.response.ProductResponse;
 import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.TypeUser;
 import br.com.ragro.exception.ForbiddenException;
@@ -20,9 +21,11 @@ import br.com.ragro.exception.NotFoundException;
 import br.com.ragro.repository.ProducerRepository;
 import br.com.ragro.repository.UserRepository;
 import br.com.ragro.service.ProducerService;
+import br.com.ragro.service.ProductService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -43,6 +46,7 @@ class ProducerControllerTest {
   @Autowired private ObjectMapper objectMapper;
 
   @MockBean private ProducerService producerService;
+  @MockBean private ProductService productService;
   @MockBean private UserRepository userRepository;
   @MockBean private ProducerRepository producerRepository;
 
@@ -351,6 +355,124 @@ class ProducerControllerTest {
         .andExpect(jsonPath("$.error").value("Conta desativada ou usuário não encontrado"));
   }
 
+  // ─── GET /{id}/products ──────────────────────────────────────────────────────
+
+  @Test
+  void getProducerProducts_shouldReturn200WithProducts_whenCustomerRequestsActiveProducts()
+      throws Exception {
+    UUID producerId = UUID.randomUUID();
+    String sub = "keycloak-sub-customer";
+    User activeCustomer = buildCustomerUser(sub, true);
+    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(activeCustomer));
+
+    List<ProductResponse> products =
+        List.of(
+            ProductResponse.builder()
+                .id(UUID.randomUUID())
+                .farmerId(producerId)
+                .name("Organic strawberries")
+                .price(new BigDecimal("18.90"))
+                .unityType("kg")
+                .stockQuantity(new BigDecimal("35.500"))
+                .active(true)
+                .build());
+    when(productService.getActiveProductsByProducerId(producerId)).thenReturn(products);
+
+    mockMvc
+        .perform(
+            get("/producers/" + producerId + "/products")
+                .with(
+                    SecurityMockMvcRequestPostProcessors.jwt()
+                        .jwt(jwt -> jwt.claim("sub", sub).claim("email", "customer@test.com"))
+                        .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"))))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].name").value("Organic strawberries"))
+        .andExpect(jsonPath("$[0].active").value(true));
+  }
+
+  @Test
+  void getProducerProducts_shouldReturn200WithEmptyList_whenProducerHasNoActiveProducts()
+      throws Exception {
+    UUID producerId = UUID.randomUUID();
+    String sub = "keycloak-sub-customer";
+    User activeCustomer = buildCustomerUser(sub, true);
+    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(activeCustomer));
+    when(productService.getActiveProductsByProducerId(producerId)).thenReturn(List.of());
+
+    mockMvc
+        .perform(
+            get("/producers/" + producerId + "/products")
+                .with(
+                    SecurityMockMvcRequestPostProcessors.jwt()
+                        .jwt(jwt -> jwt.claim("sub", sub).claim("email", "customer@test.com"))
+                        .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"))))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$").isEmpty());
+  }
+
+  @Test
+  void getProducerProducts_shouldReturn404_whenProducerNotFound() throws Exception {
+    UUID producerId = UUID.randomUUID();
+    String sub = "keycloak-sub-customer";
+    User activeCustomer = buildCustomerUser(sub, true);
+    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(activeCustomer));
+    when(productService.getActiveProductsByProducerId(producerId))
+        .thenThrow(new NotFoundException("Produtor não encontrado"));
+
+    mockMvc
+        .perform(
+            get("/producers/" + producerId + "/products")
+                .with(
+                    SecurityMockMvcRequestPostProcessors.jwt()
+                        .jwt(jwt -> jwt.claim("sub", sub).claim("email", "customer@test.com"))
+                        .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"))))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.error").value("Produtor não encontrado"));
+  }
+
+  @Test
+  void getProducerProducts_shouldReturn401_whenNoTokenProvided() throws Exception {
+    UUID producerId = UUID.randomUUID();
+    mockMvc
+        .perform(get("/producers/" + producerId + "/products"))
+        .andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  void getProducerProducts_shouldReturn403_whenRoleIsFarmer() throws Exception {
+    UUID producerId = UUID.randomUUID();
+    String sub = "keycloak-sub-farmer";
+    User activeFarmer = buildUser(sub, true);
+    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(activeFarmer));
+
+    mockMvc
+        .perform(
+            get("/producers/" + producerId + "/products")
+                .with(
+                    SecurityMockMvcRequestPostProcessors.jwt()
+                        .jwt(jwt -> jwt.claim("sub", sub).claim("email", "farmer@test.com"))
+                        .authorities(new SimpleGrantedAuthority("ROLE_FARMER"))))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  void getProducerProducts_shouldReturn401_whenUserIsInactive() throws Exception {
+    UUID producerId = UUID.randomUUID();
+    String sub = "keycloak-sub-inactive";
+    User inactiveCustomer = buildCustomerUser(sub, false);
+    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(inactiveCustomer));
+
+    mockMvc
+        .perform(
+            get("/producers/" + producerId + "/products")
+                .with(
+                    SecurityMockMvcRequestPostProcessors.jwt()
+                        .jwt(jwt -> jwt.claim("sub", sub).claim("email", "customer@test.com"))
+                        .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"))))
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.error").value("Conta desativada ou usuário não encontrado"));
+  }
+
   // ─── helpers ────────────────────────────────────────────────────────────────
 
   private User buildUser(String authSub, boolean active) {
@@ -360,6 +482,20 @@ class ProducerControllerTest {
     user.setEmail("farmer@test.com");
     user.setPhone("51999999999");
     user.setType(TypeUser.FARMER);
+    user.setActive(active);
+    user.setAuthSub(authSub);
+    user.setCreatedAt(OffsetDateTime.now().minusDays(1));
+    user.setUpdatedAt(OffsetDateTime.now());
+    return user;
+  }
+
+  private User buildCustomerUser(String authSub, boolean active) {
+    User user = new User();
+    user.setId(UUID.randomUUID());
+    user.setName("Test Customer");
+    user.setEmail("customer@test.com");
+    user.setPhone("51988888888");
+    user.setType(TypeUser.CUSTOMER);
     user.setActive(active);
     user.setAuthSub(authSub);
     user.setCreatedAt(OffsetDateTime.now().minusDays(1));

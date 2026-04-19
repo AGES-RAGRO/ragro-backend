@@ -10,5 +10,7 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
 
   List<Product> findAllByFarmerId(UUID farmerId);
 
+  List<Product> findAllByFarmerIdAndActiveTrue(UUID farmerId);
+
   Optional<Product> findByIdAndFarmerId(UUID id, UUID farmerId);
 }
