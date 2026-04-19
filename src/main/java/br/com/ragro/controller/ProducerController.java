@@ -25,7 +25,7 @@ import org.springframework.web.multipart.MultipartFile;
 @RestController
 @RequestMapping("/producers")
 @RequiredArgsConstructor
-@Tag(name = "Producer", description = "Producer operations (requires ROLE_FARMER)")
+@Tag(name = "Producer", description = "Producer operations")
 public class ProducerController {
 
   private final ProducerService producerService;
