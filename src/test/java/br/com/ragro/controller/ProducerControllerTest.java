@@ -426,7 +426,8 @@ class ProducerControllerTest {
                     SecurityMockMvcRequestPostProcessors.jwt()
                         .jwt(jwt -> jwt.claim("sub", sub).claim("email", "customer@test.com"))
                         .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"))))
-        .andExpect(status().isNotFound());
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.error").value("Produtor não encontrado"));
   }
 
   @Test

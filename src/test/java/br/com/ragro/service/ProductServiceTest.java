@@ -3,6 +3,7 @@ package br.com.ragro.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -201,6 +202,7 @@ class ProductServiceTest {
 
     assertThat(response).hasSize(1);
     assertThat(response.getFirst().getId()).isEqualTo(product.getId());
+    assertThat(response.getFirst().getFarmerId()).isEqualTo(producerId);
     assertThat(response.getFirst().isActive()).isTrue();
   }
 
@@ -223,6 +225,7 @@ class ProductServiceTest {
     assertThatThrownBy(() -> productService.getActiveProductsByProducerId(producerId))
         .isInstanceOf(NotFoundException.class)
         .hasMessage("Produtor não encontrado");
+    verify(productRepository, never()).findAllByFarmerIdAndActiveTrue(any());
   }
 
   @Test
