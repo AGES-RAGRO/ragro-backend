@@ -6,10 +6,13 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 import br.com.ragro.controller.request.AddToCartRequest;
+import br.com.ragro.controller.request.UpdateCartItemRequest;
 import br.com.ragro.controller.response.CartResponse;
 import br.com.ragro.domain.*;
 import br.com.ragro.domain.enums.TypeUser;
 import br.com.ragro.exception.BusinessException;
+import br.com.ragro.exception.ForbiddenException;
+import br.com.ragro.exception.NotFoundException;
 import br.com.ragro.repository.CartItemRepository;
 import br.com.ragro.repository.CartRepository;
 import br.com.ragro.repository.CustomerRepository;
@@ -221,8 +224,147 @@ class CartServiceTest {
           .hasMessageContaining("excede o estoque disponível");
   }
 
+  @Test
+  void updateItemQuantity_shouldReplaceQuantityAndRecalculateTotal() {
+    Cart cart = new Cart();
+    cart.setId(UUID.randomUUID());
+    cart.setCustomer(customer);
+    cart.setFarmer(farmerA);
+    cart.setActive(true);
+
+    CartItem item = new CartItem();
+    item.setId(UUID.randomUUID());
+    item.setCart(cart);
+    item.setProduct(productA);
+    item.setQuantity(new BigDecimal("2"));
+    item.setActive(true);
+    cart.getItems().add(item);
+
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(cartItemRepository.findById(item.getId())).thenReturn(Optional.of(item));
+    when(cartRepository.saveAndFlush(cart)).thenReturn(cart);
+
+    UpdateCartItemRequest req = new UpdateCartItemRequest();
+    req.setQuantity(new BigDecimal("5"));
+
+    CartResponse response = cartService.updateItemQuantity(jwt(), item.getId(), req);
+
+    assertThat(item.getQuantity()).isEqualByComparingTo("5");
+    assertThat(response.getItems()).hasSize(1);
+    assertThat(response.getItems().get(0).getQuantity()).isEqualByComparingTo("5");
+    assertThat(response.getTotalAmount()).isEqualByComparingTo("50.00");
+    verify(cartItemRepository).save(item);
+  }
+
+  @Test
+  void updateItemQuantity_shouldThrowNotFound_whenItemDoesNotExist() {
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    UUID itemId = UUID.randomUUID();
+    when(cartItemRepository.findById(itemId)).thenReturn(Optional.empty());
+
+    UpdateCartItemRequest req = new UpdateCartItemRequest();
+    req.setQuantity(new BigDecimal("3"));
+
+    assertThatThrownBy(() -> cartService.updateItemQuantity(jwt(), itemId, req))
+        .isInstanceOf(NotFoundException.class)
+        .hasMessageContaining("Item do carrinho não encontrado");
+  }
+
+  @Test
+  void updateItemQuantity_shouldThrowForbidden_whenItemBelongsToAnotherCustomer() {
+    Customer otherCustomer = new Customer();
+    otherCustomer.setId(UUID.randomUUID());
+
+    Cart cart = new Cart();
+    cart.setId(UUID.randomUUID());
+    cart.setCustomer(otherCustomer);
+    cart.setFarmer(farmerA);
+    cart.setActive(true);
+
+    CartItem item = new CartItem();
+    item.setId(UUID.randomUUID());
+    item.setCart(cart);
+    item.setProduct(productA);
+    item.setQuantity(new BigDecimal("2"));
+    item.setActive(true);
+
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(cartItemRepository.findById(item.getId())).thenReturn(Optional.of(item));
+
+    UpdateCartItemRequest req = new UpdateCartItemRequest();
+    req.setQuantity(new BigDecimal("3"));
+
+    assertThatThrownBy(() -> cartService.updateItemQuantity(jwt(), item.getId(), req))
+        .isInstanceOf(ForbiddenException.class)
+        .hasMessageContaining("não pertence ao seu carrinho");
+  }
+
+  @Test
+  void updateItemQuantity_shouldThrowNotFound_whenItemIsInactive() {
+    Cart cart = new Cart();
+    cart.setId(UUID.randomUUID());
+    cart.setCustomer(customer);
+    cart.setFarmer(farmerA);
+    cart.setActive(true);
+
+    CartItem item = new CartItem();
+    item.setId(UUID.randomUUID());
+    item.setCart(cart);
+    item.setProduct(productA);
+    item.setQuantity(new BigDecimal("2"));
+    item.setActive(false);
+
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(cartItemRepository.findById(item.getId())).thenReturn(Optional.of(item));
+
+    UpdateCartItemRequest req = new UpdateCartItemRequest();
+    req.setQuantity(new BigDecimal("3"));
+
+    assertThatThrownBy(() -> cartService.updateItemQuantity(jwt(), item.getId(), req))
+        .isInstanceOf(NotFoundException.class);
+  }
+
+  @Test
+  void updateItemQuantity_shouldThrowBusinessException_whenStockIsInsufficient() {
+    Cart cart = new Cart();
+    cart.setId(UUID.randomUUID());
+    cart.setCustomer(customer);
+    cart.setFarmer(farmerA);
+    cart.setActive(true);
+
+    CartItem item = new CartItem();
+    item.setId(UUID.randomUUID());
+    item.setCart(cart);
+    item.setProduct(productA);
+    item.setQuantity(new BigDecimal("2"));
+    item.setActive(true);
+
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(cartItemRepository.findById(item.getId())).thenReturn(Optional.of(item));
+
+    UpdateCartItemRequest req = new UpdateCartItemRequest();
+    req.setQuantity(new BigDecimal("15")); // stock is 10
+
+    assertThatThrownBy(() -> cartService.updateItemQuantity(jwt(), item.getId(), req))
+        .isInstanceOf(BusinessException.class)
+        .hasMessageContaining("excede o estoque disponível");
+    verify(cartItemRepository, never()).save(any());
+  }
+
+  @Test
+  void updateItemQuantity_shouldThrowForbidden_whenUserIsNotCustomer() {
+    user.setType(TypeUser.FARMER);
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+
+    UpdateCartItemRequest req = new UpdateCartItemRequest();
+    req.setQuantity(new BigDecimal("3"));
+
+    assertThatThrownBy(() -> cartService.updateItemQuantity(jwt(), UUID.randomUUID(), req))
+        .isInstanceOf(ForbiddenException.class);
+  }
+
   private Jwt jwt() {
-    return new Jwt("token", Instant.now(), Instant.now().plusSeconds(300), 
+    return new Jwt("token", Instant.now(), Instant.now().plusSeconds(300),
         Map.of("alg", "none"), Map.of("sub", "sub"));
   }
 }

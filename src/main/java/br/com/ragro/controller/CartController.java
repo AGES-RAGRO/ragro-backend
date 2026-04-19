@@ -1,11 +1,13 @@
 package br.com.ragro.controller;
 
 import br.com.ragro.controller.request.AddToCartRequest;
+import br.com.ragro.controller.request.UpdateCartItemRequest;
 import br.com.ragro.controller.response.CartResponse;
 import br.com.ragro.service.CartService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -36,5 +38,16 @@ public class CartController {
       description = "Returns the active cart for the authenticated consumer.")
   public ResponseEntity<CartResponse> getCart(@AuthenticationPrincipal Jwt jwt) {
     return ResponseEntity.ok(cartService.getCart(jwt));
+  }
+
+  @PatchMapping("/items/{id}")
+  @Operation(
+      summary = "Update cart item quantity",
+      description = "Replaces the quantity of the given cart item. Validates stock availability.")
+  public ResponseEntity<CartResponse> updateItemQuantity(
+      @PathVariable UUID id,
+      @Valid @RequestBody UpdateCartItemRequest request,
+      @AuthenticationPrincipal Jwt jwt) {
+    return ResponseEntity.ok(cartService.updateItemQuantity(jwt, id, request));
   }
 }
