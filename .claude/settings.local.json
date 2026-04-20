@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(winget search:*)"
+      "Bash(winget search:*)",
+      "Bash(git checkout *)",
+      "Bash(xargs -I {} bash -c 'echo \"=== {} ===\" && head -1 {} | grep -o \"class.*Test\"')",
+      "Bash(git add *)"
     ]
   }
 }

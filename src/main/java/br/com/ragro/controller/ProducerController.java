@@ -4,10 +4,13 @@ import br.com.ragro.controller.request.ProducerUpdateRequest;
 import br.com.ragro.controller.response.MarketplaceProducerResponse;
 import br.com.ragro.controller.response.PaginatedResponse;
 import br.com.ragro.controller.response.ProducerGetResponse;
+import br.com.ragro.controller.response.ProductResponse;
 import br.com.ragro.service.ProducerService;
+import br.com.ragro.service.ProductService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -22,10 +25,11 @@ import org.springframework.web.multipart.MultipartFile;
 @RestController
 @RequestMapping("/producers")
 @RequiredArgsConstructor
-@Tag(name = "Producer", description = "Producer operations (requires ROLE_FARMER)")
+@Tag(name = "Producer", description = "Producer operations")
 public class ProducerController {
 
   private final ProducerService producerService;
+  private final ProductService productService;
 
   @GetMapping
   @PreAuthorize("hasRole('CUSTOMER')")
@@ -44,6 +48,15 @@ public class ProducerController {
       @PathVariable UUID id,
       @AuthenticationPrincipal Jwt jwt) {
     return ResponseEntity.ok(producerService.getProducerProfileById(id, jwt));
+  }
+
+  @GetMapping("/{id}/products")
+  @PreAuthorize("hasRole('CUSTOMER')")
+  @Operation(
+      summary = "List active products of a producer",
+      description = "Returns all active products of a producer. Restricted to Customers.")
+  public ResponseEntity<List<ProductResponse>> getProducerProducts(@PathVariable UUID id) {
+    return ResponseEntity.ok(productService.getActiveProductsByProducerId(id));
   }
 
   @PutMapping("/{id}")
