@@ -21,17 +21,17 @@ public class CartItem {
   @Column(name = "id", columnDefinition = "uuid")
   private UUID id;
 
-  @ManyToOne(fetch = FetchType.LAZY, optional = false)
-  @JoinColumn(name = "cart_id", nullable = false)
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "cart_id")
   private Cart cart;
 
-  @ManyToOne(fetch = FetchType.LAZY, optional = false)
-  @JoinColumn(name = "product_id", nullable = false)
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "product_id")
   private Product product;
 
-  @Column(name = "quantity", nullable = false, precision = 12, scale = 3)
   private BigDecimal quantity;
 
-  @Column(name = "active", nullable = false)
-  private boolean active = true;
+  private BigDecimal priceSnapshot;
+
+  private boolean active;
 }

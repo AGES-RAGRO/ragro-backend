@@ -1,40 +1,50 @@
-package br.com.ragro.controller;
+package br.com.ragro.service;
 
-import br.com.ragro.controller.request.AddToCartRequest;
+import br.com.ragro.controller.response.CartItemResponse;
 import br.com.ragro.controller.response.CartResponse;
-import br.com.ragro.service.CartService;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
+import br.com.ragro.repository.CartRepository;
+import br.com.ragro.model.Cart;
+import br.com.ragro.model.CartItem;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.stereotype.Service;
+import java.math.BigDecimal;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
-@RestController
-@RequestMapping("/customers/carts")
+@Service
 @RequiredArgsConstructor
-@Tag(name = "Carts", description = "Cart operations for consumers")
-public class CartController {
+public class CartService {
 
-  private final CartService cartService;
+  private final CartRepository cartRepository;
 
-  @PostMapping("/items")
-  @Operation(
-      summary = "Add or update item in cart",
-      description = "Automatically creates a cart if none exists. Blocks if adding items from multiple farmers.")
-  public ResponseEntity<CartResponse> addItem(
-      @Valid @RequestBody AddToCartRequest request,
-      @AuthenticationPrincipal Jwt jwt) {
-    return ResponseEntity.ok(cartService.addItem(jwt, request));
-  }
+  public CartResponse getCart(Jwt jwt) {
+    // Identifica o consumidor diretamente pelo 'subject' do token JWT autenticado
+    UUID consumerId = UUID.fromString(jwt.getSubject());
 
-  @GetMapping
-  @Operation(
-      summary = "Get current cart",
-      description = "Returns the active cart for the authenticated consumer.")
-  public ResponseEntity<CartResponse> getCart(@AuthenticationPrincipal Jwt jwt) {
-    return ResponseEntity.ok(cartService.getCart(jwt));
+    Cart cart = cartRepository.findByConsumerIdAndStatus(consumerId, "OPEN")
+        .orElseThrow(() -> new RuntimeException("Carrinho ativo não encontrado"));
+
+    BigDecimal totalAmount = cart.getItems().stream()
+        .map(item -> item.getPriceSnapshot().multiply(item.getQuantity()))
+        .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+    return CartResponse.builder()
+        .id(cart.getId())
+        .farmerId(cart.getFarmer().getId())
+        .farmName(cart.getFarmer().getFarmName())
+        .totalAmount(totalAmount)
+        .items(cart.getItems().stream().map(item ->
+            CartItemResponse.builder()
+                .id(item.getId())
+                .productId(item.getProduct().getId())
+                .productName(item.getProduct().getName())
+                .priceSnapshot(item.getPriceSnapshot())
+                .quantity(item.getQuantity())
+                .subtotal(item.getPriceSnapshot().multiply(item.getQuantity()))
+                .imageS3(item.getProduct().getImageS3())
+                .build()
+        ).collect(Collectors.toList()))
+        .build();
   }
 }

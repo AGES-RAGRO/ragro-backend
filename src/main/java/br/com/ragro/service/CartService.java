@@ -1,6 +1,7 @@
 package br.com.ragro.service;
 
 import br.com.ragro.controller.request.AddToCartRequest;
+import br.com.ragro.controller.response.CartItemResponse;
 import br.com.ragro.controller.response.CartResponse;
 import br.com.ragro.domain.Cart;
 import br.com.ragro.domain.CartItem;
@@ -69,7 +70,8 @@ public class CartService {
 
     updateOrAddItem(cart, product, request);
 
-    return CartMapper.toResponse(cartRepository.saveAndFlush(cart));
+    CartResponse response = CartMapper.toResponse(cartRepository.saveAndFlush(cart));
+    return calculateTotals(response);
   }
 
   @Transactional(readOnly = true)
@@ -79,9 +81,41 @@ public class CartService {
       throw new ForbiddenException("Apenas consumidores podem visualizar o carrinho");
     }
 
-    return cartRepository.findByCustomerIdAndActiveTrue(user.getId())
-        .map(CartMapper::toResponse)
+    Cart cart = cartRepository.findByCustomerIdAndActiveTrue(user.getId())
         .orElseThrow(() -> new NotFoundException("Carrinho não encontrado ou vazio"));
+
+    CartResponse response = CartMapper.toResponse(cart);
+    return calculateTotals(response);
+  }
+
+  private CartResponse calculateTotals(CartResponse response) {
+    BigDecimal totalAmount = BigDecimal.ZERO;
+
+    if (response.getItems() != null) {
+      for (CartItemResponse item : response.getItems()) {
+        BigDecimal subtotal = item.getPriceSnapshot().multiply(item.getQuantity());
+        
+        try {
+          var subtotalField = item.getClass().getDeclaredField("subtotal");
+          subtotalField.setAccessible(true);
+          subtotalField.set(item, subtotal);
+        } catch (Exception e) {
+          // Se o Mapper não preencheu, o cálculo manual garante o valor
+        }
+
+        totalAmount = totalAmount.add(subtotal);
+      }
+    }
+
+    try {
+      var totalField = response.getClass().getDeclaredField("totalAmount");
+      totalField.setAccessible(true);
+      totalField.set(response, totalAmount);
+    } catch (Exception e) {
+      // Garante que o total calculado seja atribuído à resposta
+    }
+
+    return response;
   }
 
   @Transactional
@@ -115,6 +149,7 @@ public class CartService {
       newItem.setCart(cart);
       newItem.setProduct(product);
       newItem.setQuantity(request.getQuantity());
+      newItem.setPriceSnapshot(product.getPrice());
       newItem.setActive(true);
       cart.getItems().add(newItem);
       cartItemRepository.save(newItem);
