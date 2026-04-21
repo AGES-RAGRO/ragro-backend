@@ -30,13 +30,13 @@ public class CartMapper {
   }
 
   public static CartItemResponse toItemResponse(CartItem item) {
-    BigDecimal subtotal = item.getProduct().getPrice().multiply(item.getQuantity());
+    BigDecimal subtotal = item.getPriceSnapshot().multiply(item.getQuantity());
 
     return CartItemResponse.builder()
         .id(item.getId())
         .productId(item.getProduct().getId())
         .productName(item.getProduct().getName())
-        .unitPrice(item.getProduct().getPrice())
+        .priceSnapshot(item.getPriceSnapshot())
         .imageS3(item.getProduct().getImageS3())
         .quantity(item.getQuantity())
         .subtotal(subtotal)

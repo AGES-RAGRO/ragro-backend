@@ -1,50 +1,23 @@
-package br.com.ragro.service;
+package br.com.ragro.controller;
 
-import br.com.ragro.controller.response.CartItemResponse;
 import br.com.ragro.controller.response.CartResponse;
-import br.com.ragro.repository.CartRepository;
-import br.com.ragro.model.Cart;
-import br.com.ragro.model.CartItem;
+import br.com.ragro.service.CartService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.stereotype.Service;
-import java.math.BigDecimal;
-import java.util.UUID;
-import java.util.stream.Collectors;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
-@Service
+@RestController
+@RequestMapping("/customers/carts")
 @RequiredArgsConstructor
-public class CartService {
+public class CartController {
 
-  private final CartRepository cartRepository;
+    private final CartService cartService;
 
-  public CartResponse getCart(Jwt jwt) {
-    // Identifica o consumidor diretamente pelo 'subject' do token JWT autenticado
-    UUID consumerId = UUID.fromString(jwt.getSubject());
-
-    Cart cart = cartRepository.findByConsumerIdAndStatus(consumerId, "OPEN")
-        .orElseThrow(() -> new RuntimeException("Carrinho ativo não encontrado"));
-
-    BigDecimal totalAmount = cart.getItems().stream()
-        .map(item -> item.getPriceSnapshot().multiply(item.getQuantity()))
-        .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-    return CartResponse.builder()
-        .id(cart.getId())
-        .farmerId(cart.getFarmer().getId())
-        .farmName(cart.getFarmer().getFarmName())
-        .totalAmount(totalAmount)
-        .items(cart.getItems().stream().map(item ->
-            CartItemResponse.builder()
-                .id(item.getId())
-                .productId(item.getProduct().getId())
-                .productName(item.getProduct().getName())
-                .priceSnapshot(item.getPriceSnapshot())
-                .quantity(item.getQuantity())
-                .subtotal(item.getPriceSnapshot().multiply(item.getQuantity()))
-                .imageS3(item.getProduct().getImageS3())
-                .build()
-        ).collect(Collectors.toList()))
-        .build();
-  }
+    @GetMapping
+    public CartResponse getCart(@AuthenticationPrincipal Jwt jwt) {
+        return cartService.getCart(jwt);
+    }
 }
