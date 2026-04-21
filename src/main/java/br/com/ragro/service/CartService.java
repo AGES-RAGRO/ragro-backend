@@ -1,6 +1,7 @@
 package br.com.ragro.service;
 
 import br.com.ragro.controller.request.AddToCartRequest;
+import br.com.ragro.controller.request.UpdateCartItemRequest;
 import br.com.ragro.controller.response.CartResponse;
 import br.com.ragro.domain.Cart;
 import br.com.ragro.domain.CartItem;
@@ -82,6 +83,38 @@ public class CartService {
     return cartRepository.findByCustomerIdAndActiveTrue(user.getId())
         .map(CartMapper::toResponse)
         .orElseThrow(() -> new NotFoundException("Carrinho não encontrado ou vazio"));
+  }
+
+  @Transactional
+  public CartResponse updateItemQuantity(Jwt jwt, UUID itemId, UpdateCartItemRequest request) {
+    User user = userService.getAuthenticatedUser(jwt);
+    if (user.getType() != TypeUser.CUSTOMER) {
+      throw new ForbiddenException("Apenas consumidores podem gerenciar o carrinho");
+    }
+
+    CartItem item = cartItemRepository.findById(itemId)
+        .orElseThrow(() -> new NotFoundException("Item do carrinho não encontrado"));
+
+    if (!item.getCart().getCustomer().getId().equals(user.getId())) {
+      throw new ForbiddenException("Este item não pertence ao seu carrinho");
+    }
+
+    if (!item.isActive() || !item.getCart().isActive()) {
+      throw new NotFoundException("Item do carrinho não encontrado");
+    }
+
+    Product product = item.getProduct();
+    BigDecimal newQuantity = request.getQuantity();
+
+    if (newQuantity.compareTo(product.getStockQuantity()) > 0) {
+      throw new BusinessException("Quantidade solicitada (" + newQuantity
+          + ") excede o estoque disponível (" + product.getStockQuantity() + ")");
+    }
+
+    item.setQuantity(newQuantity);
+    cartItemRepository.save(item);
+
+    return CartMapper.toResponse(cartRepository.saveAndFlush(item.getCart()));
   }
 
   @Transactional
