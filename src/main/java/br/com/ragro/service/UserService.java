@@ -4,6 +4,7 @@ import br.com.ragro.controller.request.UpdateUserRequest;
 import br.com.ragro.domain.User;
 import br.com.ragro.exception.UnauthorizedException;
 import br.com.ragro.repository.UserRepository;
+import br.com.ragro.service.api.IdentityProviderService;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -12,9 +13,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserService {
 
   private final UserRepository userRepository;
+  private final IdentityProviderService identityProviderService;
 
-  public UserService(UserRepository userRepository) {
+  public UserService(UserRepository userRepository, IdentityProviderService identityProviderService) {
     this.userRepository = userRepository;
+    this.identityProviderService = identityProviderService;
   }
 
   /**
@@ -49,6 +52,12 @@ public class UserService {
       user.setPhone(request.getPhone().trim());
     }
     return userRepository.saveAndFlush(user);
+  }
+
+  @Transactional
+  public void triggerPasswordReset(Jwt jwt) {
+    String sub = getRequiredClaim(jwt, "sub");
+    identityProviderService.sendPasswordResetEmail(sub);
   }
 
   public String getRequiredClaim(Jwt jwt, String claimName) {

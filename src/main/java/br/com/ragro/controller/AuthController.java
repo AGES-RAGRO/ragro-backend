@@ -44,9 +44,7 @@ public class AuthController {
   }
 
   @PostMapping("/register/customer")
-  @Operation(
-      summary = "Register a new customer",
-      description = "Creates a customer account in Keycloak and the database. No auth required.")
+  @Operation(summary = "Register a new customer", description = "Creates a customer account in Keycloak and the database. No auth required.")
   public ResponseEntity<CustomerRegistrationResponse> registerCustomer(
       @Valid @RequestBody CustomerRegistrationRequest request) {
     CustomerRegistrationResponse response = customerRegistrationService.register(request);
@@ -54,9 +52,7 @@ public class AuthController {
   }
 
   @GetMapping("/config")
-  @Operation(
-      summary = "Get authentication configuration",
-      description = "Returns Keycloak token URL, client ID, and realm. No auth required.")
+  @Operation(summary = "Get authentication configuration", description = "Returns Keycloak token URL, client ID, and realm. No auth required.")
   public ResponseEntity<AuthConfigResponse> getConfig() {
     String tokenUrl = keycloakPublicUrl + "/realms/" + realm + "/protocol/openid-connect/token";
     return ResponseEntity.ok(
@@ -64,9 +60,7 @@ public class AuthController {
   }
 
   @GetMapping("/session")
-  @Operation(
-      summary = "Get current user session",
-      description = "Returns the authenticated user's data from the database. Requires valid JWT.")
+  @Operation(summary = "Get current user session", description = "Returns the authenticated user's data from the database. Requires valid JWT.")
   public ResponseEntity<SessionResponse> getSession(@AuthenticationPrincipal Jwt jwt) {
     User user = userService.getAuthenticatedUser(jwt);
     return ResponseEntity.ok(
@@ -77,5 +71,13 @@ public class AuthController {
             .type(user.getType().name().toLowerCase(Locale.ROOT))
             .active(user.isActive())
             .build());
+  }
+
+  @PostMapping("/password/reset-email")
+  @Operation(summary = "Trigger password reset email", description = "Triggers an email from Keycloak allowing the authenticated user to reset their password.")
+  public ResponseEntity<Void> triggerPasswordResetEmail(
+      @AuthenticationPrincipal Jwt jwt) {
+    userService.triggerPasswordReset(jwt);
+    return ResponseEntity.noContent().build();
   }
 }
