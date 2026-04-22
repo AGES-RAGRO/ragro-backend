@@ -136,4 +136,30 @@ public class CartService {
           ") excede o estoque disponível (" + product.getStockQuantity() + ")");
     }
   }
+
+  @Transactional
+  public CartResponse removeItem(Jwt jwt, UUID itemId) {
+    User user = userService.getAuthenticatedUser(jwt);
+    if (user.getType() != TypeUser.CUSTOMER) {
+      throw new ForbiddenException("Apenas consumidores podem gerenciar o carrinho");
+    }
+
+    Cart cart = cartRepository.findByCustomerIdAndActiveTrue(user.getId())
+            .orElseThrow(() -> new NotFoundException("Carrinho não encontrado"));
+
+    CartItem item = cartItemRepository.findByCartIdAndProductIdAndActiveTrue(itemId, cart.getId())
+            .orElseThrow(() -> new NotFoundException("Item do carrinho não encontrado"));
+    item.setActive(false);
+    cartItemRepository.save(item);
+
+    boolean hasActiveItems = cart.getItems().stream()
+            .anyMatch(cartItem -> !cartItem.getId().equals(itemId) && cartItem.isActive());
+
+    if (!hasActiveItems) {
+      cart.setActive(false);
+    }
+
+    Cart savedCart = cartRepository.saveAndFlush(cart);
+    return CartMapper.toResponse(savedCart);
+  }
 }
