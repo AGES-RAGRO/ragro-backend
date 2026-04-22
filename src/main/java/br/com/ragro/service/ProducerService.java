@@ -2,7 +2,9 @@ package br.com.ragro.service;
 
 import br.com.ragro.controller.request.AvailabilityRequest;
 import br.com.ragro.controller.request.PaymentMethodRequest;
+import br.com.ragro.controller.request.ProducerFilter;
 import br.com.ragro.controller.request.ProducerUpdateRequest;
+import br.com.ragro.domain.specification.ProducerSpecification;
 import br.com.ragro.controller.response.MarketplaceProducerResponse;
 import br.com.ragro.controller.response.ProducerGetResponse;
 import br.com.ragro.controller.response.ProducerResponse;
@@ -67,9 +69,10 @@ public class ProducerService {
         .map(producerMapper::toResponse);
   }
 
-  public Page<MarketplaceProducerResponse> getActiveProducers(Pageable pageable) {
+  public Page<MarketplaceProducerResponse> getActiveProducers(
+      ProducerFilter filter, Pageable pageable) {
     return producerRepository
-        .findAllActiveSortedByRating(pageable)
+        .findAll(ProducerSpecification.withFilter(filter), pageable)
         .map(producerMapper::toMarketplaceResponse);
   }
 
