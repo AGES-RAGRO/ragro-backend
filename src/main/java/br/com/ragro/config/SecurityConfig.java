@@ -52,6 +52,8 @@ public class SecurityConfig {
                     .hasRole("ADMIN")
                     .requestMatchers(HttpMethod.GET, "/producers")
                     .hasRole("CUSTOMER")
+                    .requestMatchers(HttpMethod.GET, "/producers/*/profile")
+                    .hasRole("CUSTOMER")
                     .requestMatchers(HttpMethod.GET, "/producers/*/products")
                     .hasRole("CUSTOMER")
                     .requestMatchers("/producers/**")

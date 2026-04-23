@@ -7,6 +7,7 @@ import br.com.ragro.controller.request.ProducerUpdateRequest;
 import br.com.ragro.domain.specification.ProducerSpecification;
 import br.com.ragro.controller.response.MarketplaceProducerResponse;
 import br.com.ragro.controller.response.ProducerGetResponse;
+import br.com.ragro.controller.response.ProducerPublicProfileResponse;
 import br.com.ragro.controller.response.ProducerResponse;
 import br.com.ragro.domain.Address;
 import br.com.ragro.domain.FarmerAvailability;
@@ -55,9 +56,10 @@ public class ProducerService {
   private final ProducerMapper producerMapper;
 
   public ProducerResponse getProducerById(UUID id) {
-    var producer = producerRepository
-        .findDetailedById(id)
-        .orElseThrow(() -> new NotFoundException("Produtor não encontrado"));
+    var producer =
+        producerRepository
+            .findDetailedById(id)
+            .orElseThrow(() -> new NotFoundException("Produtor não encontrado"));
 
     return producerMapper.toResponse(producer.getUser());
   }
@@ -82,6 +84,27 @@ public class ProducerService {
   }
 
   @Transactional(readOnly = true)
+  public ProducerPublicProfileResponse getPublicProfileById(UUID id) {
+    Producer producer =
+        producerRepository
+            .findDetailedById(id)
+            .orElseThrow(() -> new NotFoundException("Produtor não encontrado"));
+
+    User user = producer.getUser();
+    if (!user.isActive()) {
+      throw new NotFoundException("Produtor não encontrado");
+    }
+
+    ProducerProfile profile = producerProfileRepository.findById(id).orElse(null);
+    Address primaryAddress = addressRepository.findByUserIdAndIsPrimaryTrue(id).orElse(null);
+    List<FarmerAvailability> availability =
+        farmerAvailabilityRepository.findByFarmerIdAndActiveTrueOrderByWeekdayAsc(id);
+
+    return producerMapper.toPublicProfileResponse(
+        user, producer, profile, primaryAddress, availability);
+  }
+
+  @Transactional(readOnly = true)
   public ProducerGetResponse getProducerProfileById(UUID id, Jwt jwt) {
     if (jwt != null) {
       User authenticated = userService.getAuthenticatedUser(jwt);
@@ -91,9 +114,10 @@ public class ProducerService {
       }
     }
 
-    Producer producer = producerRepository
-        .findDetailedById(id)
-        .orElseThrow(() -> new NotFoundException("Produtor não encontrado"));
+    Producer producer =
+        producerRepository
+            .findDetailedById(id)
+            .orElseThrow(() -> new NotFoundException("Produtor não encontrado"));
 
     User user = producer.getUser();
 
@@ -113,9 +137,10 @@ public class ProducerService {
 
     requireFarmerOrAdmin(id, jwt);
 
-    Producer producer = producerRepository
-        .findDetailedById(id)
-        .orElseThrow(() -> new NotFoundException("Produtor não encontrado"));
+    Producer producer =
+        producerRepository
+            .findDetailedById(id)
+            .orElseThrow(() -> new NotFoundException("Produtor não encontrado"));
 
     User targetUser = producer.getUser();
 
@@ -141,14 +166,15 @@ public class ProducerService {
     }
     producerRepository.save(producer);
 
-    ProducerProfile profile = producerProfileRepository
-        .findById(id)
-        .orElseGet(
-            () -> {
-              ProducerProfile p = new ProducerProfile();
-              p.setUser(targetUser);
-              return p;
-            });
+    ProducerProfile profile =
+        producerProfileRepository
+            .findById(id)
+            .orElseGet(
+                () -> {
+                  ProducerProfile p = new ProducerProfile();
+                  p.setUser(targetUser);
+                  return p;
+                });
 
     if (request.getStory() != null) {
       profile.setStory(request.getStory());
@@ -163,15 +189,16 @@ public class ProducerService {
 
     Address primaryAddress = null;
     if (request.getAddress() != null) {
-      primaryAddress = addressRepository
-          .findByUserIdAndIsPrimaryTrue(id)
-          .orElseGet(
-              () -> {
-                Address a = new Address();
-                a.setUser(targetUser);
-                a.setPrimary(true);
-                return a;
-              });
+      primaryAddress =
+          addressRepository
+              .findByUserIdAndIsPrimaryTrue(id)
+              .orElseGet(
+                  () -> {
+                    Address a = new Address();
+                    a.setUser(targetUser);
+                    a.setPrimary(true);
+                    return a;
+                  });
       AddressMapper.applyRequest(primaryAddress, request.getAddress());
       addressRepository.save(primaryAddress);
     } else {
@@ -205,43 +232,36 @@ public class ProducerService {
   }
 
   private void applyPaymentMethod(Producer producer, PaymentMethodRequest pmRequest) {
-    PaymentMethod pm = paymentMethodRepository
-        .findByFarmerIdAndTypeAndActiveTrue(producer.getId(), pmRequest.getType())
-        .orElseGet(
-            () -> {
-              PaymentMethod newPm = new PaymentMethod();
-              newPm.setFarmer(producer);
-              newPm.setType(pmRequest.getType());
-              return newPm;
-            });
+    PaymentMethod pm =
+        paymentMethodRepository
+            .findByFarmerIdAndTypeAndActiveTrue(producer.getId(), pmRequest.getType())
+            .orElseGet(
+                () -> {
+                  PaymentMethod newPm = new PaymentMethod();
+                  newPm.setFarmer(producer);
+                  newPm.setType(pmRequest.getType());
+                  return newPm;
+                });
 
-    if (pmRequest.getPixKeyType() != null)
-      pm.setPixKeyType(pmRequest.getPixKeyType());
-    if (pmRequest.getPixKey() != null)
-      pm.setPixKey(pmRequest.getPixKey());
-    if (pmRequest.getBankCode() != null)
-      pm.setBankCode(pmRequest.getBankCode());
-    if (pmRequest.getBankName() != null)
-      pm.setBankName(pmRequest.getBankName());
-    if (pmRequest.getAgency() != null)
-      pm.setAgency(pmRequest.getAgency());
-    if (pmRequest.getAccountNumber() != null)
-      pm.setAccountNumber(pmRequest.getAccountNumber());
-    if (pmRequest.getAccountType() != null)
-      pm.setAccountType(pmRequest.getAccountType());
-    if (pmRequest.getHolderName() != null)
-      pm.setHolderName(pmRequest.getHolderName());
-    if (pmRequest.getFiscalNumber() != null)
-      pm.setFiscalNumber(pmRequest.getFiscalNumber());
+    if (pmRequest.getPixKeyType() != null) pm.setPixKeyType(pmRequest.getPixKeyType());
+    if (pmRequest.getPixKey() != null) pm.setPixKey(pmRequest.getPixKey());
+    if (pmRequest.getBankCode() != null) pm.setBankCode(pmRequest.getBankCode());
+    if (pmRequest.getBankName() != null) pm.setBankName(pmRequest.getBankName());
+    if (pmRequest.getAgency() != null) pm.setAgency(pmRequest.getAgency());
+    if (pmRequest.getAccountNumber() != null) pm.setAccountNumber(pmRequest.getAccountNumber());
+    if (pmRequest.getAccountType() != null) pm.setAccountType(pmRequest.getAccountType());
+    if (pmRequest.getHolderName() != null) pm.setHolderName(pmRequest.getHolderName());
+    if (pmRequest.getFiscalNumber() != null) pm.setFiscalNumber(pmRequest.getFiscalNumber());
 
     paymentMethodRepository.save(pm);
   }
 
   public ProducerResponse activateProducer(UUID id) {
-    var producer = userRepository
-        .findById(id)
-        .filter(user -> user.getType() == TypeUser.FARMER)
-        .orElseThrow(() -> new NotFoundException("Produtor não encontrado"));
+    var producer =
+        userRepository
+            .findById(id)
+            .filter(user -> user.getType() == TypeUser.FARMER)
+            .orElseThrow(() -> new NotFoundException("Produtor não encontrado"));
 
     producer.setActive(true);
     userRepository.saveAndFlush(producer);
@@ -249,10 +269,11 @@ public class ProducerService {
   }
 
   public ProducerResponse deactivateProducer(UUID id) {
-    var producer = userRepository
-        .findById(id)
-        .filter(user -> user.getType() == TypeUser.FARMER)
-        .orElseThrow(() -> new NotFoundException("Produtor não encontrado"));
+    var producer =
+        userRepository
+            .findById(id)
+            .filter(user -> user.getType() == TypeUser.FARMER)
+            .orElseThrow(() -> new NotFoundException("Produtor não encontrado"));
 
     producer.setActive(false);
     userRepository.saveAndFlush(producer);
@@ -315,9 +336,10 @@ public class ProducerService {
 
     requireFarmerOrAdmin(id, jwt);
 
-    Producer producer = producerRepository
-        .findDetailedById(id)
-        .orElseThrow(() -> new NotFoundException("Produtor não encontrado"));
+    Producer producer =
+        producerRepository
+            .findDetailedById(id)
+            .orElseThrow(() -> new NotFoundException("Produtor não encontrado"));
 
     String oldKey = target.currentKey(producer);
     String newKey = minioStorageService.upload(file, target.folder);
