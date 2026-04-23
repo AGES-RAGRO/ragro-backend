@@ -14,7 +14,9 @@ import br.com.ragro.controller.request.AvailabilityRequest;
 import br.com.ragro.controller.request.PaymentMethodRequest;
 import br.com.ragro.controller.request.ProducerUpdateRequest;
 import br.com.ragro.controller.response.ProducerGetResponse;
+import br.com.ragro.controller.response.ProducerPublicProfileResponse;
 import br.com.ragro.controller.response.ProducerResponse;
+import br.com.ragro.domain.Address;
 import br.com.ragro.domain.FarmerAvailability;
 import br.com.ragro.domain.PaymentMethod;
 import br.com.ragro.domain.Producer;
@@ -32,6 +34,8 @@ import br.com.ragro.repository.ProducerProfileRepository;
 import br.com.ragro.repository.ProducerRepository;
 import br.com.ragro.repository.UserRepository;
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -50,22 +54,14 @@ import org.springframework.security.oauth2.jwt.Jwt;
 @ExtendWith(MockitoExtension.class)
 class ProducerServiceTest {
 
-  @Mock
-  private UserRepository userRepository;
-  @Mock
-  private ProducerRepository producerRepository;
-  @Mock
-  private ProducerProfileRepository producerProfileRepository;
-  @Mock
-  private AddressRepository addressRepository;
-  @Mock
-  private FarmerAvailabilityRepository farmerAvailabilityRepository;
-  @Mock
-  private PaymentMethodRepository paymentMethodRepository;
-  @Mock
-  private UserService userService;
-  @Mock
-  private MinioStorageService minioStorageService;
+  @Mock private UserRepository userRepository;
+  @Mock private ProducerRepository producerRepository;
+  @Mock private ProducerProfileRepository producerProfileRepository;
+  @Mock private AddressRepository addressRepository;
+  @Mock private FarmerAvailabilityRepository farmerAvailabilityRepository;
+  @Mock private PaymentMethodRepository paymentMethodRepository;
+  @Mock private UserService userService;
+  @Mock private MinioStorageService minioStorageService;
 
   private ProducerService producerService;
 
@@ -92,12 +88,13 @@ class ProducerServiceTest {
     UUID id1 = UUID.randomUUID();
     UUID id2 = UUID.randomUUID();
     Pageable pageable = PageRequest.of(0, 10);
-    Page<Producer> page = new PageImpl<>(
-        List.of(
-            buildProducerEntity(id1, buildProducer(id1)),
-            buildProducerEntity(id2, buildProducer(id2))),
-        pageable,
-        2);
+    Page<Producer> page =
+        new PageImpl<>(
+            List.of(
+                buildProducerEntity(id1, buildProducer(id1)),
+                buildProducerEntity(id2, buildProducer(id2))),
+            pageable,
+            2);
     when(producerRepository.findAllUsersSortedByRating(pageable)).thenReturn(page);
 
     Page<ProducerResponse> response = producerService.getAllProducers(pageable);
@@ -128,12 +125,13 @@ class ProducerServiceTest {
     User inactiveProducer = buildProducer(inactiveId);
     inactiveProducer.setActive(false);
     Pageable pageable = PageRequest.of(0, 10);
-    Page<Producer> page = new PageImpl<>(
-        List.of(
-            buildProducerEntity(activeId, activeProducer),
-            buildProducerEntity(inactiveId, inactiveProducer)),
-        pageable,
-        2);
+    Page<Producer> page =
+        new PageImpl<>(
+            List.of(
+                buildProducerEntity(activeId, activeProducer),
+                buildProducerEntity(inactiveId, inactiveProducer)),
+            pageable,
+            2);
     when(producerRepository.findAllUsersSortedByRating(pageable)).thenReturn(page);
 
     Page<ProducerResponse> response = producerService.getAllProducers(pageable);
@@ -191,6 +189,75 @@ class ProducerServiceTest {
     assertThatThrownBy(() -> producerService.getProducerById(adminId))
         .isInstanceOf(NotFoundException.class)
         .hasMessage("Produtor não encontrado");
+  }
+
+  @Test
+  void getPublicProfileById_shouldReturnOnlyPublicFields_whenActiveProducerExists() {
+    UUID producerId = UUID.randomUUID();
+    User user = buildProducer(producerId);
+    Producer producer = buildProducerEntity(producerId, user);
+    producer.setDescription("Agricultura regenerativa");
+    producer.setAvatarS3("avatars/joao.jpg");
+    producer.setDisplayPhotoS3("covers/farm.jpg");
+    producer.setAverageRating(new BigDecimal("4.90"));
+    producer.setTotalReviews(15);
+
+    ProducerProfile profile = new ProducerProfile();
+    profile.setUser(user);
+    profile.setStory("Dedicados à agricultura regenerativa");
+    profile.setPhotoUrl("profiles/joao.jpg");
+    profile.setMemberSince(LocalDate.of(2018, 1, 10));
+
+    Address address = buildAddress(user);
+    FarmerAvailability availability = buildAvailability(producer, (short) 1, "14:00", "18:30");
+
+    when(producerRepository.findDetailedById(producerId)).thenReturn(Optional.of(producer));
+    when(producerProfileRepository.findById(producerId)).thenReturn(Optional.of(profile));
+    when(addressRepository.findByUserIdAndIsPrimaryTrue(producerId))
+        .thenReturn(Optional.of(address));
+    when(farmerAvailabilityRepository.findByFarmerIdAndActiveTrueOrderByWeekdayAsc(producerId))
+        .thenReturn(List.of(availability));
+    when(minioStorageService.composePublicUrl("profiles/joao.jpg"))
+        .thenReturn("https://cdn.test/profiles/joao.jpg");
+    when(minioStorageService.composePublicUrl("avatars/joao.jpg"))
+        .thenReturn("https://cdn.test/avatars/joao.jpg");
+    when(minioStorageService.composePublicUrl("covers/farm.jpg"))
+        .thenReturn("https://cdn.test/covers/farm.jpg");
+
+    ProducerPublicProfileResponse response = producerService.getPublicProfileById(producerId);
+
+    assertThat(response).isNotNull();
+    assertThat(response.getId()).isEqualTo(producerId);
+    assertThat(response.getName()).isEqualTo("João Farmer");
+    assertThat(response.getDescription()).isEqualTo("Agricultura regenerativa");
+    assertThat(response.getStory()).isEqualTo("Dedicados à agricultura regenerativa");
+    assertThat(response.getPhotoUrl()).isEqualTo("https://cdn.test/profiles/joao.jpg");
+    assertThat(response.getAvatarS3()).isEqualTo("https://cdn.test/avatars/joao.jpg");
+    assertThat(response.getDisplayPhotoS3()).isEqualTo("https://cdn.test/covers/farm.jpg");
+    assertThat(response.getAverageRating()).isEqualByComparingTo("4.90");
+    assertThat(response.getTotalReviews()).isEqualTo(15);
+    assertThat(response.getMemberSince()).isEqualTo(LocalDate.of(2018, 1, 10));
+    assertThat(response.getAddress().getCity()).isEqualTo("Porto Alegre");
+    assertThat(response.getAvailability()).hasSize(1);
+    assertThat(response.getAvailability().get(0).getOpensAt()).isEqualTo("14:00");
+    assertThat(response.getAvailability().get(0).getClosesAt()).isEqualTo("18:30");
+    verify(paymentMethodRepository, never()).findByFarmerIdAndActiveTrue(any(UUID.class));
+  }
+
+  @Test
+  void getPublicProfileById_shouldThrowNotFoundException_whenProducerIsInactive() {
+    UUID producerId = UUID.randomUUID();
+    User user = buildProducer(producerId);
+    user.setActive(false);
+    Producer producer = buildProducerEntity(producerId, user);
+    when(producerRepository.findDetailedById(producerId)).thenReturn(Optional.of(producer));
+
+    assertThatThrownBy(() -> producerService.getPublicProfileById(producerId))
+        .isInstanceOf(NotFoundException.class)
+        .hasMessage("Produtor não encontrado");
+
+    verify(producerProfileRepository, never()).findById(any(UUID.class));
+    verify(addressRepository, never()).findByUserIdAndIsPrimaryTrue(any(UUID.class));
   }
 
   // ─── activateProducer ───────────────────────────────────────────────────────
@@ -478,7 +545,6 @@ class ProducerServiceTest {
     verify(paymentMethodRepository, never()).save(any(PaymentMethod.class));
   }
 
-
   @Test
   void updateProducerProfile_shouldUpsertBothPaymentMethods_whenListHasTwoItems() {
     UUID producerId = UUID.randomUUID();
@@ -592,9 +658,10 @@ class ProducerServiceTest {
     Jwt jwt = buildJwt(farmer.getAuthSub(), farmer.getEmail());
 
     ProducerUpdateRequest request = new ProducerUpdateRequest();
-    request.setAvailability(List.of(
-        buildAvailabilityRequest((short) 1, "08:00", "18:00"),
-        buildAvailabilityRequest((short) 2, "09:00", "17:00")));
+    request.setAvailability(
+        List.of(
+            buildAvailabilityRequest((short) 1, "08:00", "18:00"),
+            buildAvailabilityRequest((short) 2, "09:00", "17:00")));
 
     when(userService.getAuthenticatedUser(jwt)).thenReturn(farmer);
     when(producerRepository.findDetailedById(producerId)).thenReturn(Optional.of(producer));
@@ -622,9 +689,10 @@ class ProducerServiceTest {
     Jwt jwt = buildJwt(farmer.getAuthSub(), farmer.getEmail());
 
     ProducerUpdateRequest request = new ProducerUpdateRequest();
-    request.setAvailability(List.of(
-        buildAvailabilityRequest((short) 1, "08:00", "12:00"),
-        buildAvailabilityRequest((short) 1, "14:00", "18:00")));
+    request.setAvailability(
+        List.of(
+            buildAvailabilityRequest((short) 1, "08:00", "12:00"),
+            buildAvailabilityRequest((short) 1, "14:00", "18:00")));
 
     when(userService.getAuthenticatedUser(jwt)).thenReturn(farmer);
     when(producerRepository.findDetailedById(producerId)).thenReturn(Optional.of(producer));
@@ -651,8 +719,7 @@ class ProducerServiceTest {
     Jwt jwt = buildJwt(farmer.getAuthSub(), farmer.getEmail());
 
     ProducerUpdateRequest request = new ProducerUpdateRequest();
-    request.setAvailability(List.of(
-        buildAvailabilityRequest(null, "08:00", "18:00")));
+    request.setAvailability(List.of(buildAvailabilityRequest(null, "08:00", "18:00")));
 
     when(userService.getAuthenticatedUser(jwt)).thenReturn(farmer);
     when(producerRepository.findDetailedById(producerId)).thenReturn(Optional.of(producer));
@@ -679,8 +746,7 @@ class ProducerServiceTest {
     Jwt jwt = buildJwt(farmer.getAuthSub(), farmer.getEmail());
 
     ProducerUpdateRequest request = new ProducerUpdateRequest();
-    request.setAvailability(List.of(
-        buildAvailabilityRequest((short) 1, "18:00", "08:00")));
+    request.setAvailability(List.of(buildAvailabilityRequest((short) 1, "18:00", "08:00")));
 
     when(userService.getAuthenticatedUser(jwt)).thenReturn(farmer);
     when(producerRepository.findDetailedById(producerId)).thenReturn(Optional.of(producer));
@@ -706,8 +772,7 @@ class ProducerServiceTest {
     Jwt jwt = buildJwt(farmer.getAuthSub(), farmer.getEmail());
 
     ProducerUpdateRequest request = new ProducerUpdateRequest();
-    request.setAvailability(List.of(
-        buildAvailabilityRequest((short) 1, "not-a-time", "18:00")));
+    request.setAvailability(List.of(buildAvailabilityRequest((short) 1, "not-a-time", "18:00")));
 
     when(userService.getAuthenticatedUser(jwt)).thenReturn(farmer);
     when(producerRepository.findDetailedById(producerId)).thenReturn(Optional.of(producer));
@@ -754,7 +819,8 @@ class ProducerServiceTest {
 
   // ─── helpers ────────────────────────────────────────────────────────────────
 
-  private AvailabilityRequest buildAvailabilityRequest(Short weekday, String opensAt, String closesAt) {
+  private AvailabilityRequest buildAvailabilityRequest(
+      Short weekday, String opensAt, String closesAt) {
     AvailabilityRequest req = new AvailabilityRequest();
     req.setWeekday(weekday);
     req.setOpensAt(opensAt);
@@ -792,6 +858,32 @@ class ProducerServiceTest {
     producer.setTotalOrders(0);
     producer.setTotalSalesAmount(BigDecimal.ZERO);
     return producer;
+  }
+
+  private Address buildAddress(User user) {
+    Address address = new Address();
+    address.setId(UUID.randomUUID());
+    address.setUser(user);
+    address.setStreet("Rua das Flores");
+    address.setNumber("123");
+    address.setNeighborhood("Centro");
+    address.setCity("Porto Alegre");
+    address.setState("RS");
+    address.setZipCode("90010120");
+    address.setPrimary(true);
+    return address;
+  }
+
+  private FarmerAvailability buildAvailability(
+      Producer producer, Short weekday, String opensAt, String closesAt) {
+    FarmerAvailability availability = new FarmerAvailability();
+    availability.setId(UUID.randomUUID());
+    availability.setFarmer(producer);
+    availability.setWeekday(weekday);
+    availability.setOpensAt(LocalTime.parse(opensAt));
+    availability.setClosesAt(LocalTime.parse(closesAt));
+    availability.setActive(true);
+    return availability;
   }
 
   private Jwt buildJwt(String sub, String email) {
