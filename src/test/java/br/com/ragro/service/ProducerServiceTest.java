@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import org.mockito.ArgumentMatchers;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -12,7 +13,9 @@ import static org.mockito.Mockito.when;
 
 import br.com.ragro.controller.request.AvailabilityRequest;
 import br.com.ragro.controller.request.PaymentMethodRequest;
+import br.com.ragro.controller.request.ProducerFilter;
 import br.com.ragro.controller.request.ProducerUpdateRequest;
+import br.com.ragro.controller.response.MarketplaceProducerResponse;
 import br.com.ragro.controller.response.ProducerGetResponse;
 import br.com.ragro.controller.response.ProducerPublicProfileResponse;
 import br.com.ragro.controller.response.ProducerResponse;
@@ -49,6 +52,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.oauth2.jwt.Jwt;
 
 @ExtendWith(MockitoExtension.class)
@@ -140,6 +144,99 @@ class ProducerServiceTest {
     assertThat(response.getContent())
         .extracting(ProducerResponse::isActive)
         .containsExactlyInAnyOrder(true, false);
+  }
+
+  // ─── getActiveProducers ──────────────────────────────────────────────────────
+
+  @Test
+  void getActiveProducers_shouldReturnMappedProducers_whenNoFilterApplied() {
+    UUID id1 = UUID.randomUUID();
+    UUID id2 = UUID.randomUUID();
+    Pageable pageable = PageRequest.of(0, 10);
+    Producer p1 = buildProducerEntity(id1, buildProducer(id1));
+    Producer p2 = buildProducerEntity(id2, buildProducer(id2));
+    when(producerRepository.findAll(ArgumentMatchers.<Specification<Producer>>any(), eq(pageable)))
+        .thenReturn(new PageImpl<>(List.of(p1, p2), pageable, 2));
+
+    Page<MarketplaceProducerResponse> response =
+        producerService.getActiveProducers(new ProducerFilter(), pageable);
+
+    assertThat(response.getContent()).hasSize(2);
+    assertThat(response.getContent())
+        .extracting(MarketplaceProducerResponse::getFarmName)
+        .containsExactlyInAnyOrder("Fazenda Original", "Fazenda Original");
+    assertThat(response.getTotalElements()).isEqualTo(2);
+  }
+
+  @Test
+  void getActiveProducers_shouldReturnEmptyPage_whenNoProducersMatch() {
+    Pageable pageable = PageRequest.of(0, 10);
+    when(producerRepository.findAll(ArgumentMatchers.<Specification<Producer>>any(), eq(pageable))).thenReturn(Page.empty(pageable));
+
+    Page<MarketplaceProducerResponse> response =
+        producerService.getActiveProducers(new ProducerFilter(), pageable);
+
+    assertThat(response.getContent()).isEmpty();
+    assertThat(response.getTotalElements()).isZero();
+  }
+
+  @Test
+  void getActiveProducers_shouldReturnMappedProducers_whenNameFilterProvided() {
+    UUID id = UUID.randomUUID();
+    Pageable pageable = PageRequest.of(0, 10);
+    Producer producer = buildProducerEntity(id, buildProducer(id));
+    producer.setFarmName("Fazenda Boa Terra");
+    when(producerRepository.findAll(ArgumentMatchers.<Specification<Producer>>any(), eq(pageable)))
+        .thenReturn(new PageImpl<>(List.of(producer), pageable, 1));
+
+    ProducerFilter filter = new ProducerFilter();
+    filter.setName("boa");
+
+    Page<MarketplaceProducerResponse> response =
+        producerService.getActiveProducers(filter, pageable);
+
+    assertThat(response.getContent()).hasSize(1);
+    assertThat(response.getContent().getFirst().getFarmName()).isEqualTo("Fazenda Boa Terra");
+  }
+
+  @Test
+  void getActiveProducers_shouldReturnEmptyPage_whenMinRatingFilterExcludesAll() {
+    Pageable pageable = PageRequest.of(0, 10);
+    when(producerRepository.findAll(ArgumentMatchers.<Specification<Producer>>any(), eq(pageable))).thenReturn(Page.empty(pageable));
+
+    ProducerFilter filter = new ProducerFilter();
+    filter.setMinRating(4.5);
+
+    Page<MarketplaceProducerResponse> response =
+        producerService.getActiveProducers(filter, pageable);
+
+    assertThat(response.getContent()).isEmpty();
+  }
+
+  @Test
+  void getActiveProducers_shouldDelegateToRepository_whenSortByName() {
+    Pageable pageable = PageRequest.of(0, 10);
+    when(producerRepository.findAll(ArgumentMatchers.<Specification<Producer>>any(), eq(pageable))).thenReturn(Page.empty(pageable));
+
+    ProducerFilter filter = new ProducerFilter();
+    filter.setSortBy("name");
+
+    producerService.getActiveProducers(filter, pageable);
+
+    verify(producerRepository).findAll(ArgumentMatchers.<Specification<Producer>>any(), eq(pageable));
+  }
+
+  @Test
+  void getActiveProducers_shouldDelegateToRepository_whenSortByOrders() {
+    Pageable pageable = PageRequest.of(0, 10);
+    when(producerRepository.findAll(ArgumentMatchers.<Specification<Producer>>any(), eq(pageable))).thenReturn(Page.empty(pageable));
+
+    ProducerFilter filter = new ProducerFilter();
+    filter.setSortBy("orders");
+
+    producerService.getActiveProducers(filter, pageable);
+
+    verify(producerRepository).findAll(ArgumentMatchers.<Specification<Producer>>any(), eq(pageable));
   }
 
   @Test

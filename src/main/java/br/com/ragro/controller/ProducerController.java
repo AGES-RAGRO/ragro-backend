@@ -1,5 +1,6 @@
 package br.com.ragro.controller;
 
+import br.com.ragro.controller.request.ProducerFilter;
 import br.com.ragro.controller.request.ProducerUpdateRequest;
 import br.com.ragro.controller.response.MarketplaceProducerResponse;
 import br.com.ragro.controller.response.PaginatedResponse;
@@ -40,9 +41,12 @@ public class ProducerController {
           "Returns a paginated list of active producers, sorted by rating desc. Restricted to"
               + " Customers.")
   public ResponseEntity<PaginatedResponse<MarketplaceProducerResponse>> getActiveProducers(
-      @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
+      @RequestParam(defaultValue = "0") int page,
+      @RequestParam(defaultValue = "10") int size,
+      @ModelAttribute ProducerFilter filter) {
     return ResponseEntity.ok(
-        PaginatedResponse.of(producerService.getActiveProducers(PageRequest.of(page, size))));
+        PaginatedResponse.of(
+            producerService.getActiveProducers(filter, PageRequest.of(page, size))));
   }
 
   @GetMapping("/{id}")
