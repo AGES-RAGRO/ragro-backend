@@ -229,7 +229,6 @@ class CartServiceTest {
     UUID itemIdToRemove = UUID.randomUUID();
     UUID remainingItemId = UUID.randomUUID();
 
-  void updateItemQuantity_shouldReplaceQuantityAndRecalculateTotal() {
     Cart cart = new Cart();
     cart.setId(UUID.randomUUID());
     cart.setCustomer(customer);
@@ -298,6 +297,14 @@ class CartServiceTest {
     verify(cartRepository).delete(cart);
     verify(cartRepository).flush();
     verify(cartRepository, never()).saveAndFlush(any(Cart.class));
+  }
+
+  @Test
+  void updateItemQuantity_shouldReplaceQuantityAndRecalculateTotal() {
+    Cart cart = new Cart();
+    cart.setId(UUID.randomUUID());
+    cart.setCustomer(customer);
+    cart.setFarmer(farmerA);
     cart.setActive(true);
 
     CartItem item = new CartItem();
