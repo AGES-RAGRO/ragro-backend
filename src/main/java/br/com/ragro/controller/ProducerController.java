@@ -1,9 +1,11 @@
 package br.com.ragro.controller;
 
+import br.com.ragro.controller.request.ProducerFilter;
 import br.com.ragro.controller.request.ProducerUpdateRequest;
 import br.com.ragro.controller.response.MarketplaceProducerResponse;
 import br.com.ragro.controller.response.PaginatedResponse;
 import br.com.ragro.controller.response.ProducerGetResponse;
+import br.com.ragro.controller.response.ProducerPublicProfileResponse;
 import br.com.ragro.controller.response.ProductResponse;
 import br.com.ragro.service.ProducerService;
 import br.com.ragro.service.ProductService;
@@ -33,21 +35,42 @@ public class ProducerController {
 
   @GetMapping
   @PreAuthorize("hasRole('CUSTOMER')")
-  @Operation(summary = "List active producers for marketplace", description = "Returns a paginated list of active producers, sorted by rating desc. Restricted to Customers.")
+  @Operation(
+      summary = "List active producers for marketplace",
+      description =
+          "Returns a paginated list of active producers, sorted by rating desc. Restricted to"
+              + " Customers.")
   public ResponseEntity<PaginatedResponse<MarketplaceProducerResponse>> getActiveProducers(
       @RequestParam(defaultValue = "0") int page,
-      @RequestParam(defaultValue = "10") int size) {
+      @RequestParam(defaultValue = "10") int size,
+      @ModelAttribute ProducerFilter filter) {
     return ResponseEntity.ok(
-        PaginatedResponse.of(producerService.getActiveProducers(PageRequest.of(page, size))));
+        PaginatedResponse.of(
+            producerService.getActiveProducers(filter, PageRequest.of(page, size))));
   }
 
   @GetMapping("/{id}")
   @PreAuthorize("hasRole('FARMER')")
-  @Operation(summary = "Get producer by ID", description = "Returns consolidated producer profile. Farmer can only read their own profile; admin can read any.")
+  @Operation(
+      summary = "Get producer by ID",
+      description =
+          "Returns consolidated producer profile. Farmer can only read their own profile; admin can"
+              + " read any.")
   public ResponseEntity<ProducerGetResponse> getProducerById(
-      @PathVariable UUID id,
-      @AuthenticationPrincipal Jwt jwt) {
+      @PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
     return ResponseEntity.ok(producerService.getProducerProfileById(id, jwt));
+  }
+
+  @GetMapping("/{id}/profile")
+  @PreAuthorize("hasRole('CUSTOMER')")
+  @Operation(
+      summary = "Get public producer profile",
+      description =
+          "Returns the public producer profile fields used by the customer-facing producer profile"
+              + " screen.")
+  public ResponseEntity<ProducerPublicProfileResponse> getPublicProducerProfile(
+      @PathVariable UUID id) {
+    return ResponseEntity.ok(producerService.getPublicProfileById(id));
   }
 
   @GetMapping("/{id}/products")
@@ -61,7 +84,10 @@ public class ProducerController {
 
   @PutMapping("/{id}")
   @PreAuthorize("hasAnyRole('FARMER', 'ADMIN')")
-  @Operation(summary = "Update producer profile", description = "Updates the authenticated producer's own profile. Only the owner can update their data.")
+  @Operation(
+      summary = "Update producer profile",
+      description =
+          "Updates the authenticated producer's own profile. Only the owner can update their data.")
   public ResponseEntity<ProducerGetResponse> updateProducerProfile(
       @PathVariable UUID id,
       @AuthenticationPrincipal Jwt jwt,
@@ -71,7 +97,10 @@ public class ProducerController {
 
   @PostMapping(value = "/{id}/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
   @PreAuthorize("hasAnyRole('FARMER', 'ADMIN')")
-  @Operation(summary = "Upload producer avatar", description = "Uploads a new profile photo (avatar) for the producer and replaces the previous one.")
+  @Operation(
+      summary = "Upload producer avatar",
+      description =
+          "Uploads a new profile photo (avatar) for the producer and replaces the previous one.")
   public ResponseEntity<ProducerGetResponse> uploadAvatar(
       @PathVariable UUID id,
       @AuthenticationPrincipal Jwt jwt,
@@ -81,7 +110,10 @@ public class ProducerController {
 
   @PostMapping(value = "/{id}/cover", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
   @PreAuthorize("hasAnyRole('FARMER', 'ADMIN')")
-  @Operation(summary = "Upload producer cover photo", description = "Uploads a new cover/background photo for the producer and replaces the previous one.")
+  @Operation(
+      summary = "Upload producer cover photo",
+      description =
+          "Uploads a new cover/background photo for the producer and replaces the previous one.")
   public ResponseEntity<ProducerGetResponse> uploadCover(
       @PathVariable UUID id,
       @AuthenticationPrincipal Jwt jwt,

@@ -5,19 +5,24 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import br.com.ragro.controller.request.ProducerRegistrationRequest;
+import br.com.ragro.controller.response.ProducerPublicProfileResponse;
+import br.com.ragro.controller.response.ProducerRegistrationResponse;
 import br.com.ragro.controller.response.ProducerResponse;
 import br.com.ragro.domain.Address;
+import br.com.ragro.domain.FarmerAvailability;
+import br.com.ragro.domain.Producer;
+import br.com.ragro.domain.ProducerProfile;
 import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.TypeUser;
 import br.com.ragro.service.MinioStorageService;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
-import br.com.ragro.controller.request.ProducerRegistrationRequest;
-import br.com.ragro.controller.response.ProducerRegistrationResponse;
-import br.com.ragro.domain.Producer;
-import java.math.BigDecimal;
 
 class ProducerMapperTest {
 
@@ -195,6 +200,71 @@ class ProducerMapperTest {
     ProducerRegistrationResponse response = producerMapper.toRegistrationResponse(user, producer);
 
     assertThat(response.getType()).isEqualTo("farmer");
+  }
+
+  @Test
+  void toPublicProfileResponse_shouldMapCustomerFacingFields() {
+    User user = buildProducer();
+    user.setPhone("51999999999");
+    Producer producer = buildProducer(user);
+    producer.setFarmName("Fazenda Regenerativa");
+    producer.setDescription("Hortaliças sem agrotóxicos");
+    producer.setAvatarS3("avatars/joao.jpg");
+    producer.setDisplayPhotoS3("covers/farm.jpg");
+    producer.setAverageRating(new BigDecimal("4.90"));
+    producer.setTotalReviews(15);
+    producer.setTotalSalesAmount(new BigDecimal("9999.99"));
+    producer.setTotalOrders(120);
+
+    ProducerProfile profile = new ProducerProfile();
+    profile.setUser(user);
+    profile.setStory("Dedicados à agricultura regenerativa");
+    profile.setPhotoUrl("profiles/joao.jpg");
+    profile.setMemberSince(LocalDate.of(2018, 1, 10));
+
+    Address address = new Address();
+    address.setId(UUID.randomUUID());
+    address.setUser(user);
+    address.setStreet("Rua das Flores");
+    address.setNumber("123");
+    address.setCity("Porto Alegre");
+    address.setState("RS");
+    address.setZipCode("90010120");
+    address.setPrimary(true);
+
+    FarmerAvailability availability = new FarmerAvailability();
+    availability.setFarmer(producer);
+    availability.setWeekday((short) 1);
+    availability.setOpensAt(LocalTime.parse("14:00"));
+    availability.setClosesAt(LocalTime.parse("18:30"));
+
+    when(minioStorageService.composePublicUrl("profiles/joao.jpg"))
+        .thenReturn("https://cdn.test/profiles/joao.jpg");
+    when(minioStorageService.composePublicUrl("avatars/joao.jpg"))
+        .thenReturn("https://cdn.test/avatars/joao.jpg");
+    when(minioStorageService.composePublicUrl("covers/farm.jpg"))
+        .thenReturn("https://cdn.test/covers/farm.jpg");
+
+    ProducerPublicProfileResponse response =
+        producerMapper.toPublicProfileResponse(
+            user, producer, profile, address, List.of(availability));
+
+    assertThat(response.getId()).isEqualTo(producer.getId());
+    assertThat(response.getName()).isEqualTo(user.getName());
+    assertThat(response.getFarmName()).isEqualTo("Fazenda Regenerativa");
+    assertThat(response.getDescription()).isEqualTo("Hortaliças sem agrotóxicos");
+    assertThat(response.getStory()).isEqualTo("Dedicados à agricultura regenerativa");
+    assertThat(response.getPhotoUrl()).isEqualTo("https://cdn.test/profiles/joao.jpg");
+    assertThat(response.getAvatarS3()).isEqualTo("https://cdn.test/avatars/joao.jpg");
+    assertThat(response.getDisplayPhotoS3()).isEqualTo("https://cdn.test/covers/farm.jpg");
+    assertThat(response.getPhone()).isEqualTo("51999999999");
+    assertThat(response.getAverageRating()).isEqualByComparingTo("4.90");
+    assertThat(response.getTotalReviews()).isEqualTo(15);
+    assertThat(response.getMemberSince()).isEqualTo(LocalDate.of(2018, 1, 10));
+    assertThat(response.getAddress().getCity()).isEqualTo("Porto Alegre");
+    assertThat(response.getAvailability()).hasSize(1);
+    assertThat(response.getAvailability().get(0).getOpensAt()).isEqualTo("14:00");
+    assertThat(response.getAvailability().get(0).getClosesAt()).isEqualTo("18:30");
   }
 
   private ProducerRegistrationRequest buildRequest() {
