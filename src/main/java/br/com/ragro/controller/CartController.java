@@ -14,6 +14,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/customers/carts")
 @RequiredArgsConstructor
@@ -39,6 +41,17 @@ public class CartController {
   public ResponseEntity<CartResponse> getCart(@AuthenticationPrincipal Jwt jwt) {
     return ResponseEntity.ok(cartService.getCart(jwt));
   }
+  
+  @DeleteMapping("/items/{id}")
+  @Operation(
+          summary = "Remove item from cart",
+          description = "Removes an item from the authenticated consumer's active cart. If it is the last item, the cart is deactivated.")
+  public ResponseEntity<CartResponse> removeItem(
+          @PathVariable UUID id,
+          @AuthenticationPrincipal Jwt jwt) {
+    return ResponseEntity.ok(cartService.removeItem(jwt, id));
+  }
+
 
   @PatchMapping("/items/{id}")
   @Operation(
