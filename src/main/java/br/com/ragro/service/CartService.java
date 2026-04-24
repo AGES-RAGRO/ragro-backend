@@ -147,7 +147,7 @@ public class CartService {
     Cart cart = cartRepository.findByCustomerIdAndActiveTrue(user.getId())
             .orElseThrow(() -> new NotFoundException("Carrinho não encontrado"));
 
-    CartItem item = cartItemRepository.findByCartIdAndProductIdAndActiveTrue(itemId, cart.getId())
+    CartItem item = cartItemRepository.findByCartIdAndIdAndActiveTrue(cart.getId(), itemId)
             .orElseThrow(() -> new NotFoundException("Item do carrinho não encontrado"));
     item.setActive(false);
     cartItemRepository.save(item);
@@ -157,6 +157,10 @@ public class CartService {
 
     if (!hasActiveItems) {
       cart.setActive(false);
+      CartResponse response = CartMapper.toResponse(cart);
+      cartRepository.delete(cart);
+      cartRepository.flush();
+      return response;
     }
 
     Cart savedCart = cartRepository.saveAndFlush(cart);

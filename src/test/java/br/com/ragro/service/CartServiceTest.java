@@ -221,6 +221,81 @@ class CartServiceTest {
           .hasMessageContaining("excede o estoque disponível");
   }
 
+  @Test
+  void removeItem_shouldKeepCart_whenStillHasActiveItems() {
+    UUID itemIdToRemove = UUID.randomUUID();
+    UUID remainingItemId = UUID.randomUUID();
+
+    Cart cart = new Cart();
+    cart.setId(UUID.randomUUID());
+    cart.setCustomer(customer);
+    cart.setFarmer(farmerA);
+    cart.setItems(new ArrayList<>());
+
+    CartItem itemToRemove = new CartItem();
+    itemToRemove.setId(itemIdToRemove);
+    itemToRemove.setCart(cart);
+    itemToRemove.setProduct(productA);
+    itemToRemove.setQuantity(new BigDecimal("1"));
+    itemToRemove.setActive(true);
+
+    CartItem remainingItem = new CartItem();
+    remainingItem.setId(remainingItemId);
+    remainingItem.setCart(cart);
+    remainingItem.setProduct(productB);
+    remainingItem.setQuantity(new BigDecimal("2"));
+    remainingItem.setActive(true);
+
+    cart.getItems().add(itemToRemove);
+    cart.getItems().add(remainingItem);
+
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(cartRepository.findByCustomerIdAndActiveTrue(user.getId())).thenReturn(Optional.of(cart));
+    when(cartItemRepository.findByCartIdAndIdAndActiveTrue(cart.getId(), itemIdToRemove))
+        .thenReturn(Optional.of(itemToRemove));
+    when(cartRepository.saveAndFlush(any(Cart.class))).thenAnswer(i -> i.getArgument(0));
+
+    CartResponse response = cartService.removeItem(jwt(), itemIdToRemove);
+
+    assertThat(response.getItems()).hasSize(1);
+    assertThat(response.getItems().get(0).getId()).isEqualTo(remainingItemId);
+    verify(cartItemRepository).save(itemToRemove);
+    verify(cartRepository).saveAndFlush(cart);
+    verify(cartRepository, never()).delete(any(Cart.class));
+  }
+
+  @Test
+  void removeItem_shouldDeleteCart_whenLastActiveItemIsRemoved() {
+    UUID itemIdToRemove = UUID.randomUUID();
+
+    Cart cart = new Cart();
+    cart.setId(UUID.randomUUID());
+    cart.setCustomer(customer);
+    cart.setFarmer(farmerA);
+    cart.setItems(new ArrayList<>());
+
+    CartItem itemToRemove = new CartItem();
+    itemToRemove.setId(itemIdToRemove);
+    itemToRemove.setCart(cart);
+    itemToRemove.setProduct(productA);
+    itemToRemove.setQuantity(new BigDecimal("1"));
+    itemToRemove.setActive(true);
+    cart.getItems().add(itemToRemove);
+
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(cartRepository.findByCustomerIdAndActiveTrue(user.getId())).thenReturn(Optional.of(cart));
+    when(cartItemRepository.findByCartIdAndIdAndActiveTrue(cart.getId(), itemIdToRemove))
+        .thenReturn(Optional.of(itemToRemove));
+
+    CartResponse response = cartService.removeItem(jwt(), itemIdToRemove);
+
+    assertThat(response.getItems()).isEmpty();
+    verify(cartItemRepository).save(itemToRemove);
+    verify(cartRepository).delete(cart);
+    verify(cartRepository).flush();
+    verify(cartRepository, never()).saveAndFlush(any(Cart.class));
+  }
+
   private Jwt jwt() {
     return new Jwt("token", Instant.now(), Instant.now().plusSeconds(300), 
         Map.of("alg", "none"), Map.of("sub", "sub"));
