@@ -3,6 +3,7 @@ package br.com.ragro.controller;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -145,6 +146,29 @@ class CartControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"quantity\": 15}"))
         .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void clearCart_shouldReturn200() throws Exception {
+    String sub = "active-customer";
+    User user = buildUser(sub);
+    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(user));
+    when(cartService.clearActiveCart(any()))
+        .thenReturn(CartResponse.builder()
+            .id(UUID.randomUUID())
+            .farmerId(UUID.randomUUID())
+            .farmName("Empty Farm")
+            .items(List.of())
+            .totalAmount(BigDecimal.ZERO)
+            .build());
+
+    mockMvc
+        .perform(
+            delete("/customers/carts")
+                .with(customerJwt(sub)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.items").isEmpty())
+        .andExpect(jsonPath("$.totalAmount").value(0));
   }
 
   @Test
