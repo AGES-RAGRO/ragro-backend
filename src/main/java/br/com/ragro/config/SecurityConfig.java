@@ -38,6 +38,8 @@ public class SecurityConfig {
                     .permitAll()
                     .requestMatchers(HttpMethod.POST, "/auth/register/customer")
                     .permitAll()
+                    .requestMatchers(HttpMethod.POST, "/auth/password/forgot")
+                    .permitAll()
                     .requestMatchers(HttpMethod.GET, "/auth/config")
                     .permitAll()
                     .requestMatchers("/v3/api-docs", "/v3/api-docs/**")
