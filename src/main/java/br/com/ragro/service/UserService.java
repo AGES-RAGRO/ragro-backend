@@ -60,6 +60,15 @@ public class UserService {
     identityProviderService.sendPasswordResetEmail(sub);
   }
 
+  @Transactional(readOnly = true)
+  public void forgotPassword(String email) {
+    userRepository.findByEmail(email).ifPresent(user -> {
+      if (user.getAuthSub() != null) {
+        identityProviderService.sendPasswordResetEmail(user.getAuthSub());
+      }
+    });
+  }
+
   public String getRequiredClaim(Jwt jwt, String claimName) {
     String value = jwt.getClaimAsString(claimName);
     if (value == null || value.isBlank()) {

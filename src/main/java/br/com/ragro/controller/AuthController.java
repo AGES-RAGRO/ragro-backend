@@ -1,6 +1,7 @@
 package br.com.ragro.controller;
 
 import br.com.ragro.controller.request.CustomerRegistrationRequest;
+import br.com.ragro.controller.request.ForgotPasswordRequest;
 import br.com.ragro.controller.response.AuthConfigResponse;
 import br.com.ragro.controller.response.CustomerRegistrationResponse;
 import br.com.ragro.controller.response.SessionResponse;
@@ -73,11 +74,18 @@ public class AuthController {
             .build());
   }
 
-  @PostMapping("/password/reset-email")
-  @Operation(summary = "Trigger password reset email", description = "Triggers an email from Keycloak allowing the authenticated user to reset their password.")
-  public ResponseEntity<Void> triggerPasswordResetEmail(
-      @AuthenticationPrincipal Jwt jwt) {
+  @PostMapping("/password/reset")
+  @Operation(summary = "Trigger password reset for current user", description = "Sends a password reset email to the authenticated user. Requires valid JWT.")
+  public ResponseEntity<Void> triggerPasswordReset(@AuthenticationPrincipal Jwt jwt) {
     userService.triggerPasswordReset(jwt);
+    return ResponseEntity.noContent().build();
+  }
+  
+  @PostMapping("/password/forgot")
+  @Operation(summary = "Forgot password", description = "Triggers a password reset email for the user with the given email. Public endpoint.")
+  public ResponseEntity<Void> triggerForgotPasswordEmail(
+      @Valid @RequestBody ForgotPasswordRequest request) {
+    userService.forgotPassword(request.email());
     return ResponseEntity.noContent().build();
   }
 }
