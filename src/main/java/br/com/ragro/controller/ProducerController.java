@@ -14,6 +14,7 @@ import br.com.ragro.service.ProductService;
 import br.com.ragro.service.StockMovementService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springdoc.core.annotations.ParameterObject;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
@@ -95,7 +96,7 @@ public class ProducerController {
               + "Filters: productId, reason, type, from, to. Ordered by createdAt desc.")
   public ResponseEntity<PaginatedResponse<StockMovementResponse>> getStockMovements(
       @AuthenticationPrincipal Jwt jwt,
-      @ModelAttribute StockMovementFilter filter,
+      @ParameterObject @ModelAttribute StockMovementFilter filter,
       @RequestParam(defaultValue = "0") int page,
       @RequestParam(defaultValue = "20") int size) {
     return ResponseEntity.ok(
