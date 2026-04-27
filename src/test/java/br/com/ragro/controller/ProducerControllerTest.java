@@ -14,7 +14,10 @@ import br.com.ragro.config.SecurityConfig;
 import br.com.ragro.controller.request.ProducerUpdateRequest;
 import br.com.ragro.controller.response.ProducerGetResponse;
 import br.com.ragro.controller.response.ProductResponse;
+import br.com.ragro.controller.response.StockMovementResponse;
 import br.com.ragro.domain.User;
+import br.com.ragro.domain.enums.StockMovementReason;
+import br.com.ragro.domain.enums.StockMovementType;
 import br.com.ragro.domain.enums.TypeUser;
 import br.com.ragro.exception.ForbiddenException;
 import br.com.ragro.exception.NotFoundException;
@@ -22,6 +25,7 @@ import br.com.ragro.repository.ProducerRepository;
 import br.com.ragro.repository.UserRepository;
 import br.com.ragro.service.ProducerService;
 import br.com.ragro.service.ProductService;
+import br.com.ragro.service.StockService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -33,6 +37,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors;
@@ -47,6 +54,7 @@ class ProducerControllerTest {
 
   @MockBean private ProducerService producerService;
   @MockBean private ProductService productService;
+    @MockBean private StockService stockService;
   @MockBean private UserRepository userRepository;
   @MockBean private ProducerRepository producerRepository;
 
@@ -391,6 +399,35 @@ class ProducerControllerTest {
   }
 
   @Test
+  void getProductMovements_shouldReturn200WithPaginatedMovements() throws Exception {
+    UUID productId = UUID.randomUUID();
+    String sub = "keycloak-sub-farmer";
+    User activeFarmer = buildUser(sub, true);
+    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(activeFarmer));
+
+    Page<StockMovementResponse> page =
+        new PageImpl<>(
+            List.of(stockMovementResponse(productId, "Harvest entry")),
+            PageRequest.of(0, 10),
+            1);
+    when(stockService.getProductMovements(eq(productId), eq(0), eq(10), any())).thenReturn(page);
+
+    mockMvc
+        .perform(
+            get("/producers/stock/{productId}/movements", productId)
+                .with(
+                    SecurityMockMvcRequestPostProcessors.jwt()
+                        .jwt(jwt -> jwt.claim("sub", sub).claim("email", "farmer@test.com"))
+                        .authorities(new SimpleGrantedAuthority("ROLE_FARMER"))))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.content.length()").value(1))
+        .andExpect(jsonPath("$.content[0].productId").value(productId.toString()))
+        .andExpect(jsonPath("$.page").value(0))
+        .andExpect(jsonPath("$.size").value(10))
+        .andExpect(jsonPath("$.totalElements").value(1));
+  }
+
+  @Test
   void getProducerProducts_shouldReturn200WithEmptyList_whenProducerHasNoActiveProducts()
       throws Exception {
     UUID producerId = UUID.randomUUID();
@@ -502,4 +539,16 @@ class ProducerControllerTest {
     user.setUpdatedAt(OffsetDateTime.now());
     return user;
   }
+
+    private StockMovementResponse stockMovementResponse(UUID productId, String notes) {
+        return StockMovementResponse.builder()
+                .id(UUID.randomUUID())
+                .productId(productId)
+                .type(StockMovementType.entry)
+                .reason(StockMovementReason.manual_entry)
+                .quantity(new BigDecimal("12.500"))
+                .notes(notes)
+                .createdAt(OffsetDateTime.now())
+                .build();
+    }
 }

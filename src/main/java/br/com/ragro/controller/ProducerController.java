@@ -5,8 +5,10 @@ import br.com.ragro.controller.response.MarketplaceProducerResponse;
 import br.com.ragro.controller.response.PaginatedResponse;
 import br.com.ragro.controller.response.ProducerGetResponse;
 import br.com.ragro.controller.response.ProductResponse;
+import br.com.ragro.controller.response.StockMovementResponse;
 import br.com.ragro.service.ProducerService;
 import br.com.ragro.service.ProductService;
+import br.com.ragro.service.StockService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -30,6 +32,7 @@ public class ProducerController {
 
   private final ProducerService producerService;
   private final ProductService productService;
+  private final StockService stockService;
 
   @GetMapping
   @PreAuthorize("hasRole('CUSTOMER')")
@@ -57,6 +60,20 @@ public class ProducerController {
       description = "Returns all active products of a producer. Restricted to Customers.")
   public ResponseEntity<List<ProductResponse>> getProducerProducts(@PathVariable UUID id) {
     return ResponseEntity.ok(productService.getActiveProductsByProducerId(id));
+  }
+
+  @GetMapping("/stock/{productId}/movements")
+  @PreAuthorize("hasRole('FARMER')")
+  @Operation(
+      summary = "Get product movement history",
+      description = "Returns a paginated history of stock movements for a product owned by the authenticated farmer.")
+  public ResponseEntity<PaginatedResponse<StockMovementResponse>> getProductMovements(
+      @PathVariable UUID productId,
+      @RequestParam(defaultValue = "0") int page,
+      @RequestParam(defaultValue = "10") int size,
+      @AuthenticationPrincipal Jwt jwt) {
+    return ResponseEntity.ok(
+        PaginatedResponse.of(stockService.getProductMovements(productId, page, size, jwt)));
   }
 
   @PutMapping("/{id}")
