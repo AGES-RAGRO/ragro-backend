@@ -15,14 +15,12 @@ import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
-
 @Entity
 @Table(name = "stock_movements")
 @Getter
 @Setter
 @EqualsAndHashCode(of = "id")
 @ToString(of = "id")
-
 public class StockMovement {
 
     @Id
@@ -31,10 +29,10 @@ public class StockMovement {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id", nullable = false)
-    @NotNull 
+    @NotNull
     private Product product;
 
-        @Enumerated(EnumType.STRING)
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     @NotNull
     private StockMovementType type;
