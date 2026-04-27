@@ -2,15 +2,19 @@ package br.com.ragro.controller;
 
 import br.com.ragro.controller.request.ProducerFilter;
 import br.com.ragro.controller.request.ProducerUpdateRequest;
+import br.com.ragro.controller.request.StockMovementFilter;
 import br.com.ragro.controller.response.MarketplaceProducerResponse;
 import br.com.ragro.controller.response.PaginatedResponse;
 import br.com.ragro.controller.response.ProducerGetResponse;
 import br.com.ragro.controller.response.ProducerPublicProfileResponse;
 import br.com.ragro.controller.response.ProductResponse;
+import br.com.ragro.controller.response.StockMovementResponse;
 import br.com.ragro.service.ProducerService;
 import br.com.ragro.service.ProductService;
+import br.com.ragro.service.StockMovementService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springdoc.core.annotations.ParameterObject;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
@@ -32,6 +36,7 @@ public class ProducerController {
 
   private final ProducerService producerService;
   private final ProductService productService;
+  private final StockMovementService stockMovementService;
 
   @GetMapping
   @PreAuthorize("hasRole('CUSTOMER')")
@@ -80,6 +85,22 @@ public class ProducerController {
       description = "Returns all active products of a producer. Restricted to Customers.")
   public ResponseEntity<List<ProductResponse>> getProducerProducts(@PathVariable UUID id) {
     return ResponseEntity.ok(productService.getActiveProductsByProducerId(id));
+  }
+
+  @GetMapping("/stock/movements")
+  @PreAuthorize("hasRole('FARMER')")
+  @Operation(
+      summary = "List stock movements of the authenticated producer",
+      description =
+          "Returns a paginated list of stock movements for the authenticated producer. "
+              + "Filters: productId, reason, type, from, to. Ordered by createdAt desc.")
+  public ResponseEntity<PaginatedResponse<StockMovementResponse>> getStockMovements(
+      @AuthenticationPrincipal Jwt jwt,
+      @ParameterObject @ModelAttribute StockMovementFilter filter,
+      @RequestParam(defaultValue = "0") int page,
+      @RequestParam(defaultValue = "20") int size) {
+    return ResponseEntity.ok(
+        stockMovementService.getProducerStockMovements(jwt, filter, PageRequest.of(page, size)));
   }
 
   @PutMapping("/{id}")
