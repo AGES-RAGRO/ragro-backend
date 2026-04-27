@@ -52,6 +52,8 @@ public class SecurityConfig {
                     .permitAll()
                     .requestMatchers("/admin/**")
                     .hasRole("ADMIN")
+                    .requestMatchers(HttpMethod.GET, "/search")
+                    .hasRole("CUSTOMER")
                     .requestMatchers(HttpMethod.GET, "/producers")
                     .hasRole("CUSTOMER")
                     .requestMatchers(HttpMethod.GET, "/producers/*/profile")
