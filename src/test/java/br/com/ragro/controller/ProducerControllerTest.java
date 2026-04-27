@@ -519,6 +519,52 @@ class ProducerControllerTest {
   }
 
   @Test
+  void getProductMovements_shouldReturn403_whenRoleIsCustomer() throws Exception {
+    UUID productId = UUID.randomUUID();
+    String sub = "keycloak-sub-customer";
+    User activeCustomer = buildCustomerUser(sub, true);
+    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(activeCustomer));
+
+    mockMvc
+        .perform(
+            get("/producers/stock/{productId}/movements", productId)
+                .with(
+                    SecurityMockMvcRequestPostProcessors.jwt()
+                        .jwt(jwt -> jwt.claim("sub", sub).claim("email", "customer@test.com"))
+                        .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"))))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  void getProductMovements_shouldReturn401_whenNoTokenProvided() throws Exception {
+    UUID productId = UUID.randomUUID();
+    mockMvc
+        .perform(get("/producers/stock/{productId}/movements", productId))
+        .andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  void getProductMovements_shouldReturn404_whenProductNotFound() throws Exception {
+    UUID productId = UUID.randomUUID();
+    String sub = "keycloak-sub-farmer";
+    User activeFarmer = buildUser(sub, true);
+    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(activeFarmer));
+
+    when(stockService.getProductMovements(eq(productId), eq(0), eq(10), any()))
+        .thenThrow(new NotFoundException("Produto não encontrado"));
+
+    mockMvc
+        .perform(
+            get("/producers/stock/{productId}/movements", productId)
+                .with(
+                    SecurityMockMvcRequestPostProcessors.jwt()
+                        .jwt(jwt -> jwt.claim("sub", sub).claim("email", "farmer@test.com"))
+                        .authorities(new SimpleGrantedAuthority("ROLE_FARMER"))))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.error").value("Produto não encontrado"));
+  }
+
+  @Test
   void getProducerProducts_shouldReturn200WithEmptyList_whenProducerHasNoActiveProducts()
       throws Exception {
     UUID producerId = UUID.randomUUID();

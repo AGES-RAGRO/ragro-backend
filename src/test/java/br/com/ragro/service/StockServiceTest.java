@@ -53,14 +53,14 @@ class StockServiceTest {
     StockMovement newest = buildMovement(product, "Newest", OffsetDateTime.now());
     StockMovement oldest = buildMovement(product, "Oldest", OffsetDateTime.now().minusDays(1));
 
-    Pageable pageable = PageRequest.of(1, 5, Sort.by(Sort.Direction.DESC, "createdAt"));
+    Pageable pageable = PageRequest.of(0, 5, Sort.by(Sort.Direction.DESC, "createdAt"));
     when(productRepository.findByIdAndFarmerId(product.getId(), farmer.getId()))
         .thenReturn(Optional.of(product));
     when(stockMovementRepository.findAllByProductId(product.getId(), pageable))
         .thenReturn(new PageImpl<>(List.of(newest, oldest), pageable, 2));
 
     Page<StockMovementResponse> response =
-        stockService.getProductMovements(product.getId(), 1, 5, jwt());
+        stockService.getProductMovements(product.getId(), 0, 5, jwt());
 
     assertThat(response.getContent()).hasSize(2);
     assertThat(response.getContent().get(0).getNotes()).isEqualTo("Newest");

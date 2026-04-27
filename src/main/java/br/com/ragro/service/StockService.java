@@ -5,6 +5,7 @@ import br.com.ragro.domain.Producer;
 import br.com.ragro.domain.Product;
 import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.TypeUser;
+import br.com.ragro.exception.ForbiddenException;
 import br.com.ragro.exception.NotFoundException;
 import br.com.ragro.mapper.StockMovementMapper;
 import br.com.ragro.repository.ProductRepository;
@@ -40,7 +41,7 @@ public class StockService {
   private Producer getAuthenticatedFarmer(Jwt jwt) {
     User user = userService.getAuthenticatedUser(jwt);
     if (user.getType() != TypeUser.FARMER) {
-      throw new NotFoundException("Produto não encontrado");
+      throw new ForbiddenException("Acesso restrito a produtores");
     }
 
     Producer farmer = new Producer();
