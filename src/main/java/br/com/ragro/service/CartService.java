@@ -118,7 +118,29 @@ public class CartService {
   }
 
   @Transactional
+  public CartResponse clearActiveCart(Jwt jwt) {
+    User user = userService.getAuthenticatedUser(jwt);
+    if (user.getType() != TypeUser.CUSTOMER) {
+      throw new ForbiddenException("Apenas consumidores podem gerenciar o carrinho");
+    }
+
+    Cart cart = cartRepository.findByCustomerIdAndActiveTrue(user.getId())
+        .orElseThrow(() -> new NotFoundException("Carrinho não encontrado"));
+
+    cart.setActive(false);
+    cart.getItems().forEach(item -> item.setActive(false));
+
+    CartResponse response = CartMapper.toResponse(cart);
+
+    cartRepository.delete(cart);
+    cartRepository.flush();
+
+    return response;
+  }
+
+  @Transactional
   public void clearCart(Customer customer) {
+
     cartRepository.findByCustomerIdAndActiveTrue(customer.getId())
         .ifPresent(cart -> {
           cart.setActive(false);

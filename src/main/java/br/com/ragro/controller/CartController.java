@@ -63,4 +63,13 @@ public class CartController {
       @AuthenticationPrincipal Jwt jwt) {
     return ResponseEntity.ok(cartService.updateItemQuantity(jwt, id, request));
   }
+
+  @DeleteMapping
+  @Operation(
+      summary = "Clear entire cart",
+      description = "Removes all items and deactivates the current active cart.")
+  public ResponseEntity<CartResponse> clearCart(@AuthenticationPrincipal Jwt jwt) {
+    return ResponseEntity.ok(cartService.clearActiveCart(jwt));
+  }
 }
+
