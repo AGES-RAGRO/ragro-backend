@@ -1,26 +1,19 @@
 package br.com.ragro.domain;
 
-import br.com.ragro.domain.enums.StockMovementReason;
-import br.com.ragro.domain.enums.StockMovementType;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
-import java.math.BigDecimal;
-import java.time.OffsetDateTime;
-import java.util.UUID;
+import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+import br.com.ragro.domain.enums.StockMovementReason;
+import br.com.ragro.domain.enums.StockMovementType;
+import java.math.BigDecimal;
+import java.time.OffsetDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "stock_movements")
@@ -30,30 +23,38 @@ import org.hibernate.annotations.CreationTimestamp;
 @ToString(of = "id")
 public class StockMovement {
 
-  @Id
-  @GeneratedValue(strategy = GenerationType.UUID)
-  @Column(name = "id", columnDefinition = "uuid")
-  private UUID id;
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
 
-  @ManyToOne(fetch = FetchType.LAZY, optional = false)
-  @JoinColumn(name = "product_id", nullable = false)
-  private Product product;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "product_id", nullable = false)
+    @NotNull
+    private Product product;
 
-  @Enumerated(EnumType.STRING)
-  @Column(name = "type", nullable = false, length = 10)
-  private StockMovementType type;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    @NotNull
+    private StockMovementType type;
 
-  @Enumerated(EnumType.STRING)
-  @Column(name = "reason", nullable = false, length = 20)
-  private StockMovementReason reason;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    @NotNull
+    private StockMovementReason reason;
 
-  @Column(name = "quantity", nullable = false, precision = 12, scale = 3)
-  private BigDecimal quantity;
+    @Column(precision = 12, scale = 3, nullable = false)
+    @NotNull
+    @Positive
+    private BigDecimal quantity;
 
-  @Column(name = "notes", columnDefinition = "text")
-  private String notes;
+    @Column(columnDefinition = "text")
+    private String notes;
 
-  @CreationTimestamp
-  @Column(name = "created_at", nullable = false, updatable = false, insertable = false)
-  private OffsetDateTime createdAt;
+    @CreationTimestamp
+    @Column(nullable = false)
+    private OffsetDateTime createdAt;
+
+    @UpdateTimestamp
+    @Column(nullable = false)
+    private OffsetDateTime updatedAt;
 }

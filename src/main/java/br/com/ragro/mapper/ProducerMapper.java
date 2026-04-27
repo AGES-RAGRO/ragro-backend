@@ -5,6 +5,7 @@ import br.com.ragro.controller.response.AvailabilityResponse;
 import br.com.ragro.controller.response.MarketplaceProducerResponse;
 import br.com.ragro.controller.response.PaymentMethodResponse;
 import br.com.ragro.controller.response.ProducerGetResponse;
+import br.com.ragro.controller.response.ProducerPublicProfileResponse;
 import br.com.ragro.controller.response.ProducerRegistrationResponse;
 import br.com.ragro.controller.response.ProducerResponse;
 import br.com.ragro.domain.Address;
@@ -53,11 +54,38 @@ public class ProducerMapper {
         .totalOrders(producer.getTotalOrders())
         .totalSalesAmount(producer.getTotalSalesAmount())
         .story(profile == null ? null : profile.getStory())
-        .photoUrl(profile == null ? null : minioStorageService.composePublicUrl(profile.getPhotoUrl()))
+        .photoUrl(
+            profile == null ? null : minioStorageService.composePublicUrl(profile.getPhotoUrl()))
         .memberSince(profile == null ? null : profile.getMemberSince())
         .active(user.isActive())
         .address(primaryAddress == null ? null : AddressMapper.toResponse(primaryAddress))
         .paymentMethods(mapList(paymentMethods, this::toPaymentMethodResponse))
+        .availability(mapList(availability, this::toAvailabilityResponse))
+        .build();
+  }
+
+  public ProducerPublicProfileResponse toPublicProfileResponse(
+      User user,
+      Producer producer,
+      ProducerProfile profile,
+      Address primaryAddress,
+      List<FarmerAvailability> availability) {
+
+    return ProducerPublicProfileResponse.builder()
+        .id(producer.getId())
+        .name(user.getName())
+        .farmName(producer.getFarmName())
+        .description(producer.getDescription())
+        .story(profile == null ? null : profile.getStory())
+        .photoUrl(
+            profile == null ? null : minioStorageService.composePublicUrl(profile.getPhotoUrl()))
+        .avatarS3(minioStorageService.composePublicUrl(producer.getAvatarS3()))
+        .displayPhotoS3(minioStorageService.composePublicUrl(producer.getDisplayPhotoS3()))
+        .phone(user.getPhone())
+        .averageRating(producer.getAverageRating())
+        .totalReviews(producer.getTotalReviews())
+        .memberSince(profile == null ? null : profile.getMemberSince())
+        .address(primaryAddress == null ? null : AddressMapper.toResponse(primaryAddress))
         .availability(mapList(availability, this::toAvailabilityResponse))
         .build();
   }

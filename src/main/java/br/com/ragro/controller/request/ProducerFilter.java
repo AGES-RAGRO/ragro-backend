@@ -1,0 +1,13 @@
+package br.com.ragro.controller.request;
+
+import lombok.Getter;
+import lombok.Setter;
+
+@Getter
+@Setter
+public class ProducerFilter {
+
+  private String name;
+  private Double minRating;
+  private String sortBy = "rating";
+}

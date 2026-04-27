@@ -13,6 +13,7 @@ import br.com.ragro.config.KeycloakRolesConverter;
 import br.com.ragro.config.SecurityConfig;
 import br.com.ragro.controller.request.ProducerUpdateRequest;
 import br.com.ragro.controller.response.ProducerGetResponse;
+import br.com.ragro.controller.response.ProducerPublicProfileResponse;
 import br.com.ragro.controller.response.ProductResponse;
 import br.com.ragro.controller.response.StockMovementResponse;
 import br.com.ragro.domain.User;
@@ -28,6 +29,7 @@ import br.com.ragro.service.ProductService;
 import br.com.ragro.service.StockService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -116,8 +118,8 @@ class ProducerControllerTest {
         .andExpect(status().isNotFound());
   }
 
-    @Test
-    void shouldReturn401_whenUserIsInactive() throws Exception {
+  @Test
+  void shouldReturn401_whenUserIsInactive() throws Exception {
     UUID producerId = UUID.randomUUID();
     String sub = "keycloak-sub-inactive";
     User inactiveUser = buildUser(sub, false);
@@ -134,8 +136,8 @@ class ProducerControllerTest {
         .andExpect(jsonPath("$.error").value("Conta desativada ou usuário não encontrado"));
   }
 
-    @Test
-    void shouldReturn401_whenUserNotFoundInDatabase() throws Exception {
+  @Test
+  void shouldReturn401_whenUserNotFoundInDatabase() throws Exception {
     UUID producerId = UUID.randomUUID();
     String sub = "keycloak-sub-unknown";
     when(userRepository.findByAuthSub(sub)).thenReturn(Optional.empty());
@@ -173,7 +175,6 @@ class ProducerControllerTest {
                         .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"))))
         .andExpect(status().isForbidden());
   }
-
 
   // ─── Ownership check on GET /{id} ─────────────────────────────────────────
 
@@ -279,8 +280,8 @@ class ProducerControllerTest {
         .andExpect(jsonPath("$.farmName").value("Fazenda Nova"));
   }
 
-    @Test
-    void putProducer_shouldReturn403_whenFarmerTriesToUpdateAnotherProfile() throws Exception {
+  @Test
+  void putProducer_shouldReturn403_whenFarmerTriesToUpdateAnotherProfile() throws Exception {
     UUID otherProducerId = UUID.randomUUID();
     String sub = "keycloak-sub-farmer";
     User activeUser = buildUser(sub, true);
@@ -340,8 +341,8 @@ class ProducerControllerTest {
         .andExpect(status().isForbidden());
   }
 
-    @Test
-    void putProducer_shouldReturn401_whenUserIsInactive() throws Exception {
+  @Test
+  void putProducer_shouldReturn401_whenUserIsInactive() throws Exception {
     UUID producerId = UUID.randomUUID();
     String sub = "keycloak-sub-inactive";
     User inactiveUser = buildUser(sub, false);
@@ -361,6 +362,96 @@ class ProducerControllerTest {
                 .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isUnauthorized())
         .andExpect(jsonPath("$.error").value("Conta desativada ou usuário não encontrado"));
+  }
+
+  // ─── GET /{id}/profile ──────────────────────────────────────────────────────
+
+  @Test
+  void getPublicProducerProfile_shouldReturn200_whenCustomerRequestsActiveProducer()
+      throws Exception {
+    UUID producerId = UUID.randomUUID();
+    String sub = "keycloak-sub-customer";
+    User activeCustomer = buildCustomerUser(sub, true);
+    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(activeCustomer));
+
+    ProducerPublicProfileResponse response =
+        ProducerPublicProfileResponse.builder()
+            .id(producerId)
+            .name("João Nascimento")
+            .farmName("Mato Grosso, Brasil")
+            .description("Agricultura regenerativa")
+            .story("Dedicados à agricultura regenerativa")
+            .photoUrl("https://cdn.test/profile.jpg")
+            .avatarS3("https://cdn.test/avatar.jpg")
+            .displayPhotoS3("https://cdn.test/cover.jpg")
+            .phone("51999999999")
+            .averageRating(new BigDecimal("4.90"))
+            .totalReviews(15)
+            .memberSince(LocalDate.of(2018, 1, 10))
+            .build();
+
+    when(producerService.getPublicProfileById(producerId)).thenReturn(response);
+
+    mockMvc
+        .perform(
+            get("/producers/" + producerId + "/profile")
+                .with(
+                    SecurityMockMvcRequestPostProcessors.jwt()
+                        .jwt(jwt -> jwt.claim("sub", sub).claim("email", "customer@test.com"))
+                        .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"))))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.name").value("João Nascimento"))
+        .andExpect(jsonPath("$.farmName").value("Mato Grosso, Brasil"))
+        .andExpect(jsonPath("$.averageRating").value(4.9))
+        .andExpect(jsonPath("$.totalReviews").value(15))
+        .andExpect(jsonPath("$.fiscalNumber").doesNotExist())
+        .andExpect(jsonPath("$.totalSalesAmount").doesNotExist())
+        .andExpect(jsonPath("$.paymentMethods").doesNotExist());
+  }
+
+  @Test
+  void getPublicProducerProfile_shouldReturn404_whenProducerNotFound() throws Exception {
+    UUID producerId = UUID.randomUUID();
+    String sub = "keycloak-sub-customer";
+    User activeCustomer = buildCustomerUser(sub, true);
+    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(activeCustomer));
+    when(producerService.getPublicProfileById(producerId))
+        .thenThrow(new NotFoundException("Produtor não encontrado"));
+
+    mockMvc
+        .perform(
+            get("/producers/" + producerId + "/profile")
+                .with(
+                    SecurityMockMvcRequestPostProcessors.jwt()
+                        .jwt(jwt -> jwt.claim("sub", sub).claim("email", "customer@test.com"))
+                        .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"))))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.error").value("Produtor não encontrado"));
+  }
+
+  @Test
+  void getPublicProducerProfile_shouldReturn401_whenNoTokenProvided() throws Exception {
+    UUID producerId = UUID.randomUUID();
+    mockMvc
+        .perform(get("/producers/" + producerId + "/profile"))
+        .andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  void getPublicProducerProfile_shouldReturn403_whenRoleIsFarmer() throws Exception {
+    UUID producerId = UUID.randomUUID();
+    String sub = "keycloak-sub-farmer";
+    User activeFarmer = buildUser(sub, true);
+    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(activeFarmer));
+
+    mockMvc
+        .perform(
+            get("/producers/" + producerId + "/profile")
+                .with(
+                    SecurityMockMvcRequestPostProcessors.jwt()
+                        .jwt(jwt -> jwt.claim("sub", sub).claim("email", "farmer@test.com"))
+                        .authorities(new SimpleGrantedAuthority("ROLE_FARMER"))))
+        .andExpect(status().isForbidden());
   }
 
   // ─── GET /{id}/products ──────────────────────────────────────────────────────
@@ -544,8 +635,8 @@ class ProducerControllerTest {
         return StockMovementResponse.builder()
                 .id(UUID.randomUUID())
                 .productId(productId)
-                .type(StockMovementType.entry)
-                .reason(StockMovementReason.manual_entry)
+                .type(StockMovementType.ENTRY)
+                .reason(StockMovementReason.MANUAL_ENTRY)
                 .quantity(new BigDecimal("12.500"))
                 .notes(notes)
                 .createdAt(OffsetDateTime.now())

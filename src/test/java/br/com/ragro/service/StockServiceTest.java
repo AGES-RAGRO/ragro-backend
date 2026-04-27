@@ -111,8 +111,8 @@ class StockServiceTest {
     StockMovement movement = new StockMovement();
     movement.setId(UUID.randomUUID());
     movement.setProduct(product);
-    movement.setType(StockMovementType.entry);
-    movement.setReason(StockMovementReason.manual_entry);
+    movement.setType(StockMovementType.ENTRY);
+    movement.setReason(StockMovementReason.MANUAL_ENTRY);
     movement.setQuantity(new BigDecimal("12.500"));
     movement.setNotes(notes);
     movement.setCreatedAt(createdAt);
