@@ -1,16 +1,26 @@
 package br.com.ragro.service;
 
+import br.com.ragro.controller.request.StockExitRequest;
 import br.com.ragro.controller.request.StockMovementFilter;
 import br.com.ragro.controller.response.PaginatedResponse;
 import br.com.ragro.controller.response.StockMovementResponse;
+import br.com.ragro.domain.Producer;
+import br.com.ragro.domain.Product;
 import br.com.ragro.domain.StockMovement;
 import br.com.ragro.domain.User;
+import br.com.ragro.domain.enums.StockMovementReason;
+import br.com.ragro.domain.enums.StockMovementType;
 import br.com.ragro.domain.enums.TypeUser;
 import br.com.ragro.domain.specification.StockMovementSpecification;
+import br.com.ragro.exception.BusinessException;
 import br.com.ragro.exception.ForbiddenException;
 import br.com.ragro.exception.NotFoundException;
+import br.com.ragro.exception.UnauthorizedException;
+import br.com.ragro.mapper.StockMovementMapper;
 import br.com.ragro.repository.ProducerRepository;
+import br.com.ragro.repository.ProductRepository;
 import br.com.ragro.repository.StockMovementRepository;
+import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -23,8 +33,12 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class StockMovementService {
 
+  private static final Set<StockMovementReason> EXIT_REASONS =
+      Set.of(StockMovementReason.SALE, StockMovementReason.LOSS, StockMovementReason.DISPOSAL);
+
   private final StockMovementRepository stockMovementRepository;
   private final ProducerRepository producerRepository;
+  private final ProductRepository productRepository;
   private final UserService userService;
 
   @Transactional(readOnly = true)
@@ -51,6 +65,33 @@ public class StockMovementService {
     return PaginatedResponse.of(page);
   }
 
+  @Transactional
+  public StockMovementResponse registerExit(StockExitRequest request, Jwt jwt) {
+    Producer farmer = getAuthenticatedFarmer(jwt);
+    Product product = getProductOwnedByFarmer(request.getProductId(), farmer.getId());
+
+    if (!EXIT_REASONS.contains(request.getReason())) {
+      throw new BusinessException("Motivo inválido para saída de estoque");
+    }
+
+    if (product.getStockQuantity().compareTo(request.getQuantity()) < 0) {
+      throw new BusinessException("Saldo insuficiente para registrar saída de estoque");
+    }
+
+    product.setStockQuantity(product.getStockQuantity().subtract(request.getQuantity()));
+    productRepository.saveAndFlush(product);
+
+    StockMovement movement = new StockMovement();
+    movement.setProduct(product);
+    movement.setType(StockMovementType.EXIT);
+    movement.setReason(request.getReason());
+    movement.setQuantity(request.getQuantity());
+    movement.setNotes(request.getNotes());
+    stockMovementRepository.saveAndFlush(movement);
+
+    return StockMovementMapper.toResponse(movement);
+  }
+
   private StockMovementResponse toResponse(StockMovement movement) {
     return StockMovementResponse.builder()
         .id(movement.getId())
@@ -62,5 +103,21 @@ public class StockMovementService {
         .notes(movement.getNotes())
         .createdAt(movement.getCreatedAt())
         .build();
+  }
+
+  private Producer getAuthenticatedFarmer(Jwt jwt) {
+    User user = userService.getAuthenticatedUser(jwt);
+    if (user.getType() != TypeUser.FARMER) {
+      throw new UnauthorizedException("Access restricted to farmers");
+    }
+    return producerRepository
+        .findById(user.getId())
+        .orElseThrow(() -> new NotFoundException("Dados do produtor não encontrados"));
+  }
+
+  private Product getProductOwnedByFarmer(UUID productId, UUID farmerId) {
+    return productRepository
+        .findByIdAndFarmerId(productId, farmerId)
+        .orElseThrow(() -> new NotFoundException("Produto não encontrado"));
   }
 }

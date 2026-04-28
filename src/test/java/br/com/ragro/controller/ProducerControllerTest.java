@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -15,8 +16,12 @@ import br.com.ragro.controller.request.ProducerUpdateRequest;
 import br.com.ragro.controller.response.ProducerGetResponse;
 import br.com.ragro.controller.response.ProducerPublicProfileResponse;
 import br.com.ragro.controller.response.ProductResponse;
+import br.com.ragro.controller.response.StockMovementResponse;
 import br.com.ragro.domain.User;
+import br.com.ragro.domain.enums.StockMovementReason;
+import br.com.ragro.domain.enums.StockMovementType;
 import br.com.ragro.domain.enums.TypeUser;
+import br.com.ragro.exception.BusinessException;
 import br.com.ragro.exception.ForbiddenException;
 import br.com.ragro.exception.NotFoundException;
 import br.com.ragro.repository.ProducerRepository;
@@ -24,7 +29,6 @@ import br.com.ragro.repository.UserRepository;
 import br.com.ragro.service.ProducerService;
 import br.com.ragro.service.ProductService;
 import br.com.ragro.service.StockMovementService;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -51,9 +55,9 @@ class ProducerControllerTest {
 
   @MockBean private ProducerService producerService;
   @MockBean private ProductService productService;
+  @MockBean private StockMovementService stockMovementService;
   @MockBean private UserRepository userRepository;
   @MockBean private ProducerRepository producerRepository;
-  @MockBean private StockMovementService stockMovementService;
 
   // ─── GET /{id} ──────────────────────────────────────────────────────────────
 
@@ -567,6 +571,151 @@ class ProducerControllerTest {
         .andExpect(jsonPath("$.error").value("Conta desativada ou usuário não encontrado"));
   }
 
+  // ─── POST /stock/exit ───────────────────────────────────────────────────────
+
+  @Test
+  void registerStockExit_shouldReturn201_withMovementAndCurrentStock() throws Exception {
+    String sub = "keycloak-sub-farmer";
+    User activeUser = buildUser(sub, true);
+    UUID productId = UUID.randomUUID();
+    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(activeUser));
+    when(stockMovementService.registerExit(any(), any()))
+        .thenReturn(buildMovementResponse(productId, StockMovementReason.SALE, "3.000", "7.000"));
+
+    mockMvc
+        .perform(
+            post("/producers/stock/exit")
+                .with(farmerJwt(sub))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(stockExitJson(productId, "3.000", "SALE")))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.type").value("EXIT"))
+        .andExpect(jsonPath("$.reason").value("SALE"))
+        .andExpect(jsonPath("$.quantity").value(3.0))
+        .andExpect(jsonPath("$.currentStockQuantity").value(7.0))
+        .andExpect(jsonPath("$.productId").value(productId.toString()));
+  }
+
+  @Test
+  void registerStockExit_shouldReturn201_withLossReason() throws Exception {
+    String sub = "keycloak-sub-farmer";
+    User activeUser = buildUser(sub, true);
+    UUID productId = UUID.randomUUID();
+    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(activeUser));
+    when(stockMovementService.registerExit(any(), any()))
+        .thenReturn(buildMovementResponse(productId, StockMovementReason.LOSS, "1.000", "4.000"));
+
+    mockMvc
+        .perform(
+            post("/producers/stock/exit")
+                .with(farmerJwt(sub))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(stockExitJson(productId, "1.000", "LOSS")))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.reason").value("LOSS"))
+        .andExpect(jsonPath("$.currentStockQuantity").value(4.0));
+  }
+
+  @Test
+  void registerStockExit_shouldReturn400_whenRequestBodyIsEmpty() throws Exception {
+    String sub = "keycloak-sub-farmer";
+    User activeUser = buildUser(sub, true);
+    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(activeUser));
+
+    mockMvc
+        .perform(
+            post("/producers/stock/exit")
+                .with(farmerJwt(sub))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void registerStockExit_shouldReturn400_whenStockIsInsufficient() throws Exception {
+    String sub = "keycloak-sub-farmer";
+    User activeUser = buildUser(sub, true);
+    UUID productId = UUID.randomUUID();
+    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(activeUser));
+    when(stockMovementService.registerExit(any(), any()))
+        .thenThrow(new BusinessException("Saldo insuficiente para registrar saída de estoque"));
+
+    mockMvc
+        .perform(
+            post("/producers/stock/exit")
+                .with(farmerJwt(sub))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(stockExitJson(productId, "99.000", "SALE")))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.error").value("Saldo insuficiente para registrar saída de estoque"));
+  }
+
+  @Test
+  void registerStockExit_shouldReturn404_whenProductNotFound() throws Exception {
+    String sub = "keycloak-sub-farmer";
+    User activeUser = buildUser(sub, true);
+    UUID productId = UUID.randomUUID();
+    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(activeUser));
+    when(stockMovementService.registerExit(any(), any()))
+        .thenThrow(new NotFoundException("Produto não encontrado"));
+
+    mockMvc
+        .perform(
+            post("/producers/stock/exit")
+                .with(farmerJwt(sub))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(stockExitJson(productId, "1.000", "SALE")))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.error").value("Produto não encontrado"));
+  }
+
+  @Test
+  void registerStockExit_shouldReturn403_whenRoleIsNotFarmer() throws Exception {
+    String sub = "keycloak-sub-customer";
+    User activeCustomer = buildCustomerUser(sub, true);
+    UUID productId = UUID.randomUUID();
+    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(activeCustomer));
+
+    mockMvc
+        .perform(
+            post("/producers/stock/exit")
+                .with(
+                    SecurityMockMvcRequestPostProcessors.jwt()
+                        .jwt(jwt -> jwt.claim("sub", sub).claim("email", "customer@test.com"))
+                        .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER")))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(stockExitJson(productId, "1.000", "SALE")))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  void registerStockExit_shouldReturn401_whenNoTokenProvided() throws Exception {
+    UUID productId = UUID.randomUUID();
+    mockMvc
+        .perform(
+            post("/producers/stock/exit")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(stockExitJson(productId, "1.000", "SALE")))
+        .andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  void registerStockExit_shouldReturn401_whenUserIsInactive() throws Exception {
+    String sub = "keycloak-sub-inactive";
+    User inactiveUser = buildUser(sub, false);
+    UUID productId = UUID.randomUUID();
+    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(inactiveUser));
+
+    mockMvc
+        .perform(
+            post("/producers/stock/exit")
+                .with(farmerJwt(sub))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(stockExitJson(productId, "1.000", "SALE")))
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.error").value("Conta desativada ou usuário não encontrado"));
+  }
+
   // ─── helpers ────────────────────────────────────────────────────────────────
 
   private User buildUser(String authSub, boolean active) {
@@ -595,5 +744,34 @@ class ProducerControllerTest {
     user.setCreatedAt(OffsetDateTime.now().minusDays(1));
     user.setUpdatedAt(OffsetDateTime.now());
     return user;
+  }
+
+  private SecurityMockMvcRequestPostProcessors.JwtRequestPostProcessor farmerJwt(String sub) {
+    return SecurityMockMvcRequestPostProcessors.jwt()
+        .jwt(jwt -> jwt.claim("sub", sub).claim("email", "farmer@test.com"))
+        .authorities(new SimpleGrantedAuthority("ROLE_FARMER"));
+  }
+
+  private StockMovementResponse buildMovementResponse(
+      UUID productId, StockMovementReason reason, String quantity, String currentStock) {
+    return StockMovementResponse.builder()
+        .id(UUID.randomUUID())
+        .productId(productId)
+        .type(StockMovementType.EXIT)
+        .reason(reason)
+        .quantity(new BigDecimal(quantity))
+        .createdAt(OffsetDateTime.now())
+        .currentStockQuantity(new BigDecimal(currentStock))
+        .build();
+  }
+
+  private String stockExitJson(UUID productId, String quantity, String reason) {
+    return """
+        {
+          "productId": "%s",
+          "quantity": %s,
+          "reason": "%s"
+        }
+        """.formatted(productId, quantity, reason);
   }
 }
