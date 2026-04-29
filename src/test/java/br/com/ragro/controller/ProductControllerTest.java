@@ -54,7 +54,7 @@ class ProductControllerTest {
         .thenReturn(List.of(productResponse(productId, farmerId, true)));
 
     mockMvc
-        .perform(get("/producers/products").with(farmerJwt(sub)))
+      .perform(get("/producers/products").with(farmerJwt(sub)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.length()").value(1))
         .andExpect(jsonPath("$[0].id").value(productId.toString()))

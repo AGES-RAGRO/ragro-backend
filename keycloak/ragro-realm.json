@@ -10,6 +10,15 @@
   "waitIncrementSeconds": 60,
   "maxFailureWaitSeconds": 900,
   "sslRequired": "none",
+  "smtpServer": {
+    "host": "mailpit",
+    "port": "1025",
+    "from": "noreply@ragro.com.br",
+    "fromDisplayName": "Ragro App",
+    "ssl": "false",
+    "starttls": "false",
+    "auth": "false"
+  },
   "passwordPolicy": "length(8) and lowerCase(1) and upperCase(1) and digits(1)",
   "requiredActions": [
     {
@@ -30,7 +39,7 @@
       "alias": "UPDATE_PASSWORD",
       "name": "Update Password",
       "providerId": "UPDATE_PASSWORD",
-      "enabled": false,
+      "enabled": true,
       "defaultAction": false
     },
     {
