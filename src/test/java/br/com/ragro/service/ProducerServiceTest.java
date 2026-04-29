@@ -181,19 +181,19 @@ class ProducerServiceTest {
   }
 
   @Test
-  void getActiveProducers_shouldReturnMappedProducers_whenNameFilterProvided() {
+  void getActiveProducers_shouldReturnMappedProducers_whenQueryFilterProvided() {
     UUID id = UUID.randomUUID();
     Pageable pageable = PageRequest.of(0, 10);
     Producer producer = buildProducerEntity(id, buildProducer(id));
     producer.setFarmName("Fazenda Boa Terra");
     when(producerRepository.findAll(ArgumentMatchers.<Specification<Producer>>any(), eq(pageable)))
-        .thenReturn(new PageImpl<>(List.of(producer), pageable, 1));
+            .thenReturn(new PageImpl<>(List.of(producer), pageable, 1));
 
     ProducerFilter filter = new ProducerFilter();
-    filter.setName("boa");
+    filter.setQuery("boa"); // era filter.setName("boa")
 
     Page<MarketplaceProducerResponse> response =
-        producerService.getActiveProducers(filter, pageable);
+            producerService.getActiveProducers(filter, pageable);
 
     assertThat(response.getContent()).hasSize(1);
     assertThat(response.getContent().getFirst().getFarmName()).isEqualTo("Fazenda Boa Terra");
