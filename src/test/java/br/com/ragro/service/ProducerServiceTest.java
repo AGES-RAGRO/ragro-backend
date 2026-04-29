@@ -190,7 +190,7 @@ class ProducerServiceTest {
             .thenReturn(new PageImpl<>(List.of(producer), pageable, 1));
 
     ProducerFilter filter = new ProducerFilter();
-    filter.setQuery("boa"); // era filter.setName("boa")
+    filter.setQuery("boa");
 
     Page<MarketplaceProducerResponse> response =
             producerService.getActiveProducers(filter, pageable);
