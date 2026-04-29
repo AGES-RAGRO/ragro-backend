@@ -8,6 +8,7 @@ import br.com.ragro.repository.ProducerRepository;
 import br.com.ragro.repository.ProductRepository;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,7 +30,7 @@ public class SearchService {
     String category =
         request.getCategory() == null || request.getCategory().isBlank()
             ? null
-            : request.getCategory().trim();
+            : request.getCategory().trim().toLowerCase(Locale.ROOT);
 
     List<SearchResultResponse> results = new ArrayList<>();
 

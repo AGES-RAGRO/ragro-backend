@@ -33,7 +33,7 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
         )
         AND (
           :category IS NULL
-          OR LOWER(categoryEntity.name) = LOWER(:category)
+          OR LOWER(categoryEntity.name) = :category
         )
       ORDER BY product.name ASC
       """)

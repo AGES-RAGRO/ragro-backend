@@ -38,9 +38,9 @@ class SearchServiceTest {
     Product product = buildProduct("Tomate Cereja", "Horta");
     Producer producer = buildProducer("Sítio Boa Colheita", "Mariana Alves");
 
-    when(productRepository.searchActiveMarketplaceProducts("tomate", "Horta"))
+    when(productRepository.searchActiveMarketplaceProducts("tomate", "horta"))
         .thenReturn(List.of(product));
-    when(producerRepository.searchMarketplace("tomate", "Horta")).thenReturn(List.of(producer));
+    when(producerRepository.searchMarketplace("tomate", "horta")).thenReturn(List.of(producer));
 
     List<SearchResultResponse> response = searchService.search(request);
 

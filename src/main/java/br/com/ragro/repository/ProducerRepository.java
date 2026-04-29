@@ -49,7 +49,7 @@ public interface ProducerRepository extends JpaRepository<Producer, UUID>,
               JOIN product.categories categoryEntity
               WHERE product.farmer = producer
                 AND product.active = true
-                AND LOWER(categoryEntity.name) = LOWER(:category)
+                AND LOWER(categoryEntity.name) = :category
             )
           )
         ORDER BY producer.averageRating DESC
