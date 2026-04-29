@@ -1,5 +1,7 @@
 package br.com.ragro.controller.response;
 
+import br.com.ragro.domain.enums.StockMovementReason;
+import br.com.ragro.domain.enums.StockMovementType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -24,11 +26,14 @@ public class StockMovementResponse {
     @Schema(description = "Product identifier")
     private UUID productId;
 
+    @Schema(description = "Product name")
+    private String productName;
+
     @Schema(description = "Movement type", example = "ENTRY")
-    private String type;
+    private StockMovementType type;
 
     @Schema(description = "Movement reason", example = "MANUAL_ENTRY")
-    private String reason;
+    private StockMovementReason reason;
 
     @Schema(description = "Quantity moved", example = "25.500")
     private BigDecimal quantity;
@@ -40,5 +45,5 @@ public class StockMovementResponse {
     private OffsetDateTime createdAt;
 
     @Schema(description = "Updated product stock quantity after this movement", example = "150.500")
-    private BigDecimal updatedProductStock;
+    private BigDecimal currentStockQuantity;
 }

@@ -2,20 +2,27 @@ package br.com.ragro.controller;
 
 import br.com.ragro.controller.request.ProducerFilter;
 import br.com.ragro.controller.request.ProducerUpdateRequest;
+import br.com.ragro.controller.request.StockExitRequest;
+import br.com.ragro.controller.request.StockMovementFilter;
 import br.com.ragro.controller.response.MarketplaceProducerResponse;
 import br.com.ragro.controller.response.PaginatedResponse;
 import br.com.ragro.controller.response.ProducerGetResponse;
 import br.com.ragro.controller.response.ProducerPublicProfileResponse;
 import br.com.ragro.controller.response.ProductResponse;
+import br.com.ragro.controller.response.StockMovementResponse;
 import br.com.ragro.service.ProducerService;
 import br.com.ragro.service.ProductService;
+import br.com.ragro.service.StockMovementService;
+import br.com.ragro.service.StockService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springdoc.core.annotations.ParameterObject;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -32,6 +39,8 @@ public class ProducerController {
 
   private final ProducerService producerService;
   private final ProductService productService;
+  private final StockMovementService stockMovementService;
+  private final StockService stockService;
 
   @GetMapping
   @PreAuthorize("hasRole('CUSTOMER')")
@@ -82,6 +91,28 @@ public class ProducerController {
     return ResponseEntity.ok(productService.getActiveProductsByProducerId(id));
   }
 
+
+  @PostMapping("/stock/entry")
+  @PreAuthorize("hasRole('FARMER')")
+  @Operation(
+      summary = "Registrar entrada de estoque",
+      description = "Registra uma entrada de estoque para um produto do produtor autenticado.")
+  public ResponseEntity<StockMovementResponse> registerStockEntry(
+      @Valid @RequestBody br.com.ragro.controller.request.StockEntryRequest request,
+      @AuthenticationPrincipal Jwt jwt) {
+    return ResponseEntity.status(HttpStatus.CREATED)
+        .body(stockService.recordEntry(request, jwt));
+  }
+
+  @GetMapping("/{id}/stock")
+  @PreAuthorize("hasAnyRole('FARMER', 'ADMIN')")
+  @Operation(
+      summary = "Consultar estoque do produtor",
+      description = "Retorna o estoque atual de todos os produtos do produtor.")
+  public ResponseEntity<List<ProductResponse>> getProducerStock(@PathVariable UUID id) {
+    return ResponseEntity.ok(productService.getStockByProducerId(id));
+  }
+
   @PutMapping("/{id}")
   @PreAuthorize("hasAnyRole('FARMER', 'ADMIN')")
   @Operation(
@@ -93,6 +124,19 @@ public class ProducerController {
       @AuthenticationPrincipal Jwt jwt,
       @Valid @RequestBody ProducerUpdateRequest request) {
     return ResponseEntity.ok(producerService.updateProducerProfile(id, jwt, request));
+  }
+
+  @PostMapping("/stock/exit")
+  @PreAuthorize("hasRole('FARMER')")
+  @Operation(
+      summary = "Register stock exit",
+      description =
+          "Registers a stock exit (sale, loss, disposal) for a product owned by the authenticated"
+              + " farmer. Blocks the operation if stock would go negative.")
+  public ResponseEntity<StockMovementResponse> registerStockExit(
+      @Valid @RequestBody StockExitRequest request, @AuthenticationPrincipal Jwt jwt) {
+    return ResponseEntity.status(HttpStatus.CREATED)
+        .body(stockMovementService.registerExit(request, jwt));
   }
 
   @PostMapping(value = "/{id}/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

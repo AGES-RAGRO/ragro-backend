@@ -6,8 +6,7 @@ import lombok.Setter;
 @Getter
 @Setter
 public class ProducerFilter {
-
-  private String name;
+  private String query;
   private Double minRating;
   private String sortBy = "rating";
 }

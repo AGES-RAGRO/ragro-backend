@@ -1,3 +1,12 @@
+  @Transactional(readOnly = true)
+  public List<ProductResponse> getStockByProducerId(UUID producerId) {
+    if (!producerRepository.existsById(producerId)) {
+      throw new NotFoundException("Produtor não encontrado");
+    }
+    return productRepository.findAllByFarmerId(producerId).stream()
+        .map(ProductMapper::toResponse)
+        .toList();
+  }
 package br.com.ragro.service;
 
 import br.com.ragro.controller.request.ProductRequest;

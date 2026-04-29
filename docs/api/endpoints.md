@@ -158,6 +158,7 @@ The following endpoints are defined in the product backlog and will be implement
 
 | Method | Route | Description | Epic |
 |--------|-------|-------------|------|
+| GET | /search | Search marketplace products and producers | 2 |
 | GET | /producers | List active producers (marketplace) | 2 |
 | GET | /producers/:id | Retrieve complete producer profile (farmer owner only) | 3 |
 | GET | /producers/:id/profile | Retrieve public producer profile for customers | 3 |

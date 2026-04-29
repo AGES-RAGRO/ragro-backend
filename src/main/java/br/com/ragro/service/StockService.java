@@ -57,7 +57,7 @@ public class StockService {
     stockMovementRepository.saveAndFlush(movement);
 
     
-    return StockMovementMapper.toResponse(movement, product.getStockQuantity());
+    return StockMovementMapper.toResponse(movement);
   }
 }
 
