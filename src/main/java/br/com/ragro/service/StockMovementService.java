@@ -22,6 +22,7 @@ import br.com.ragro.repository.ProductRepository;
 import br.com.ragro.repository.StockMovementRepository;
 import java.util.Set;
 import java.util.UUID;
+import java.math.BigDecimal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -90,6 +91,24 @@ public class StockMovementService {
     stockMovementRepository.saveAndFlush(movement);
 
     return StockMovementMapper.toResponse(movement);
+  }
+
+  @Transactional
+  public void registerSale(Product product, BigDecimal quantity, String orderIdNotes) {
+    if (product.getStockQuantity().compareTo(quantity) < 0) {
+      throw new BusinessException("Saldo insuficiente no estoque para o produto " + product.getName());
+    }
+
+    product.setStockQuantity(product.getStockQuantity().subtract(quantity));
+    productRepository.saveAndFlush(product);
+
+    StockMovement movement = new StockMovement();
+    movement.setProduct(product);
+    movement.setType(StockMovementType.EXIT);
+    movement.setReason(StockMovementReason.SALE);
+    movement.setQuantity(quantity);
+    movement.setNotes(orderIdNotes);
+    stockMovementRepository.saveAndFlush(movement);
   }
 
   private StockMovementResponse toResponse(StockMovement movement) {
