@@ -71,6 +71,26 @@ class SearchServiceTest {
     verify(producerRepository).searchMarketplace("alface", null);
   }
 
+  @Test
+  void shouldReturnProducerResult_whenQueryMatchesProducerProductName() {
+    SearchRequest request = new SearchRequest();
+    request.setQuery("queijo");
+
+    Producer producer = buildProducer("Fazenda Esperanca", "Mariana Alves");
+
+    when(productRepository.searchActiveMarketplaceProducts("queijo", null)).thenReturn(List.of());
+    when(producerRepository.searchMarketplace("queijo", null)).thenReturn(List.of(producer));
+
+    List<SearchResultResponse> response = searchService.search(request);
+
+    assertThat(response).hasSize(1);
+    assertThat(response.getFirst().getType()).isEqualTo("producer");
+    assertThat(response.getFirst().getName()).isEqualTo("Fazenda Esperanca");
+    assertThat(response.getFirst().getSubtitle()).isEqualTo("Mariana Alves");
+    verify(productRepository).searchActiveMarketplaceProducts("queijo", null);
+    verify(producerRepository).searchMarketplace("queijo", null);
+  }
+
   private Product buildProduct(String name, String categoryName) {
     Producer producer = buildProducer("Sítio Boa Colheita", "Mariana Alves");
 

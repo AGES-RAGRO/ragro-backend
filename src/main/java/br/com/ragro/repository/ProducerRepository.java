@@ -40,6 +40,16 @@ public interface ProducerRepository extends JpaRepository<Producer, UUID>,
           AND (
             LOWER(producer.farmName) LIKE LOWER(CONCAT('%', :query, '%'))
             OR LOWER(user.name) LIKE LOWER(CONCAT('%', :query, '%'))
+            OR EXISTS (
+              SELECT 1
+              FROM Product product
+              WHERE product.farmer = producer
+                AND product.active = true
+                AND (
+                  LOWER(product.name) LIKE LOWER(CONCAT('%', :query, '%'))
+                  OR LOWER(COALESCE(product.description, '')) LIKE LOWER(CONCAT('%', :query, '%'))
+                )
+            )
           )
           AND (
             :category IS NULL
