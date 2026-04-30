@@ -91,6 +91,18 @@ public class ProducerController {
     return ResponseEntity.ok(productService.getActiveProductsByProducerId(id));
   }
 
+  @GetMapping("/{producerId}/products/{productId}")
+  @PreAuthorize("hasRole('CUSTOMER')")
+  @Operation(
+      summary = "Get product details from a producer",
+      description =
+          "Returns details of a specific active product from a producer. Restricted to Customers.")
+  public ResponseEntity<ProductResponse> getProducerProductById(
+      @PathVariable UUID producerId, @PathVariable UUID productId) {
+    return ResponseEntity.ok(
+        productService.getActiveProductByProducerIdAndProductId(producerId, productId));
+  }
+
   @GetMapping("/stock/{productId}/movements")
   @PreAuthorize("hasRole('FARMER')")
   @Operation(
