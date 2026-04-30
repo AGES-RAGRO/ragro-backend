@@ -58,6 +58,8 @@ public class SecurityConfig {
                     .hasRole("CUSTOMER")
                     .requestMatchers(HttpMethod.GET, "/producers/*/products")
                     .hasRole("CUSTOMER")
+                    .requestMatchers(HttpMethod.GET, "/producers/*/products/*")
+                    .hasRole("CUSTOMER")
                     .requestMatchers(HttpMethod.GET, "/producers/stock/*/movements")
                     .hasRole("FARMER")
                     .requestMatchers("/producers/**")

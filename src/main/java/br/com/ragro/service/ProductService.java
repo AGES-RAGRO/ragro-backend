@@ -90,6 +90,19 @@ public class ProductService {
   }
 
   @Transactional(readOnly = true)
+  public ProductResponse getActiveProductByProducerIdAndProductId(UUID producerId, UUID productId) {
+    if (!producerRepository.existsById(producerId)) {
+      throw new NotFoundException("Produtor não encontrado");
+    }
+    Product product =
+        productRepository
+            .findByIdAndFarmerId(productId, producerId)
+            .filter(Product::isActive)
+            .orElseThrow(() -> new NotFoundException("Produto não encontrado"));
+    return ProductMapper.toResponse(product);
+  }
+
+  @Transactional(readOnly = true)
   public List<ProductCategoryResponse> getCategories() {
     return productCategoryRepository.findAll().stream()
         .map(
