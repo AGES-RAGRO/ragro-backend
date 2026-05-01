@@ -33,7 +33,6 @@ import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.MvcResult;
 
 @WebMvcTest(ReviewController.class)
 @Import({SecurityConfig.class, KeycloakRolesConverter.class, CorsConfig.class})
@@ -269,7 +268,7 @@ class ReviewControllerTest {
     when(producerService.getProducerReviews(eq(producerId), any(Pageable.class)))
         .thenReturn(response);
 
-    MvcResult mvcResult = mockMvc
+    mockMvc
         .perform(
             get("/reviews/producers/" + producerId)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -282,8 +281,7 @@ class ReviewControllerTest {
         .andExpect(jsonPath("$.reviews[0].customerName").value("João Cliente"))
         .andExpect(jsonPath("$.reviews[0].rating").value(4))
         .andExpect(jsonPath("$.reviews[0].comment").value("Produto de qualidade"))
-        .andExpect(jsonPath("$.reviews[0].createdAt").exists())
-        .andReturn();
+        .andExpect(jsonPath("$.reviews[0].createdAt").exists());
   }
 
   @Test
