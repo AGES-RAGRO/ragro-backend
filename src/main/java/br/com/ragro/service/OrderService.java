@@ -13,6 +13,7 @@ import br.com.ragro.repository.AddressRepository;
 import br.com.ragro.repository.CartRepository;
 import br.com.ragro.repository.CustomerRepository;
 import br.com.ragro.repository.OrderRepository;
+import br.com.ragro.repository.OrderStatusHistoryRepository;
 import br.com.ragro.repository.PaymentMethodRepository;
 import java.util.List;
 import java.util.UUID;
@@ -33,6 +34,7 @@ public class OrderService {
   private final PaymentMethodRepository paymentMethodRepository;
   private final StockMovementService stockMovementService;
   private final OrderRepository orderRepository;
+  private final OrderStatusHistoryRepository orderStatusHistoryRepository;
 
   @Transactional
   public OrderResponse createOrderFromCart(Jwt jwt) {
@@ -148,5 +150,30 @@ public class OrderService {
         .latitude(address.getLatitude())
         .longitude(address.getLongitude())
         .build();
+  }
+
+  @Transactional
+  public OrderResponse updateOrderStatus(UUID orderId, OrderStatus newStatus, Jwt jwt) {
+    User user = userService.getAuthenticatedUser(jwt);
+    if (user.getType() != TypeUser.FARMER) {
+      throw new ForbiddenException("Apenas produtores podem atualizar o status do pedido");
+    }
+
+    Order order = orderRepository.findById(orderId)
+        .orElseThrow(() -> new NotFoundException("Pedido não encontrado"));
+
+    if (!order.getFarmer().getId().equals(user.getId())) {
+      throw new ForbiddenException("Você não tem permissão para atualizar este pedido");
+    }
+
+    order.setStatus(newStatus);
+    Order updatedOrder = orderRepository.saveAndFlush(order);
+
+    OrderStatusHistory history = new OrderStatusHistory();
+    history.setOrder(updatedOrder);
+    history.setStatus(newStatus);
+    orderStatusHistoryRepository.save(history);
+
+    return OrderMapper.toResponse(updatedOrder);
   }
 }

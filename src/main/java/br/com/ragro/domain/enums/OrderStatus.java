@@ -3,7 +3,7 @@ package br.com.ragro.domain.enums;
 public enum OrderStatus {
   PENDING,
   CONFIRMED,
-  DELIVERING,
+  IN_DELIVERY,
   DELIVERED,
   CANCELLED
 }
