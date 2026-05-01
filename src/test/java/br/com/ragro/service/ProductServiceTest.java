@@ -243,6 +243,11 @@ class ProductServiceTest {
         .containsExactlyInAnyOrder("Fruits", "Vegetables");
   }
 
+  @Test
+  void getReviewsByProducerId_shouldReturnReviews() {
+   
+  }
+
   private Producer buildAuthenticatedFarmer() {
     UUID farmerId = UUID.randomUUID();
     User user = new User();
