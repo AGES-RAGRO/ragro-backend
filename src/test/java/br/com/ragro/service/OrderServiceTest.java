@@ -198,6 +198,93 @@ class OrderServiceTest {
     verify(orderRepository, times(1)).saveAndFlush(any(Order.class));
   }
 
+  // ========== Tests for cancelOrder ==========
+
+  @Test
+  void shouldCancelOrder_whenStatusIsPending() {
+    Order order = new Order();
+    order.setId(UUID.randomUUID());
+    order.setCustomer(customer);
+    order.setFarmer(farmer);
+    order.setStatus(OrderStatus.PENDING);
+    order.setDeliveryAddressSnapshot(AddressSnapshot.builder()
+        .street("Test Street").city("Test City").build());
+    order.setPaymentMethod(paymentMethod);
+
+    OrderItem orderItem = new OrderItem();
+    orderItem.setId(UUID.randomUUID());
+    orderItem.setProduct(product);
+    orderItem.setProductNameSnapshot("Product Test");
+    orderItem.setUnitPriceSnapshot(new BigDecimal("10.00"));
+    orderItem.setQuantity(new BigDecimal("2.00"));
+    orderItem.setSubtotal(new BigDecimal("20.00"));
+    order.getItems().add(orderItem);
+
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+    when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    OrderResponse response = orderService.cancelOrder(order.getId(), jwt());
+
+    assertThat(response).isNotNull();
+    assertThat(response.getStatus()).isEqualTo(OrderStatus.CANCELLED);
+    verify(orderRepository).saveAndFlush(any(Order.class));
+  }
+
+  @Test
+  void shouldThrowForbidden_whenNonCustomerTriesToCancel() {
+    user.setType(TypeUser.FARMER);
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+
+    assertThatThrownBy(() -> orderService.cancelOrder(UUID.randomUUID(), jwt()))
+        .isInstanceOf(ForbiddenException.class)
+        .hasMessageContaining("Apenas consumidores podem cancelar pedidos");
+  }
+
+  @Test
+  void shouldThrowNotFound_whenOrderDoesNotExist() {
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    UUID fakeId = UUID.randomUUID();
+    when(orderRepository.findById(fakeId)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> orderService.cancelOrder(fakeId, jwt()))
+        .isInstanceOf(NotFoundException.class)
+        .hasMessageContaining("Pedido não encontrado");
+  }
+
+  @Test
+  void shouldThrowForbidden_whenOrderBelongsToAnotherCustomer() {
+    Customer otherCustomer = new Customer();
+    otherCustomer.setId(UUID.randomUUID());
+
+    Order order = new Order();
+    order.setId(UUID.randomUUID());
+    order.setCustomer(otherCustomer);
+    order.setStatus(OrderStatus.PENDING);
+
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+
+    assertThatThrownBy(() -> orderService.cancelOrder(order.getId(), jwt()))
+        .isInstanceOf(ForbiddenException.class)
+        .hasMessageContaining("Você não tem permissão para cancelar este pedido");
+  }
+
+  @Test
+  void shouldThrowBusinessException_whenOrderIsNotPending() {
+    Order order = new Order();
+    order.setId(UUID.randomUUID());
+    order.setCustomer(customer);
+    order.setStatus(OrderStatus.CONFIRMED);
+
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+
+    assertThatThrownBy(() -> orderService.cancelOrder(order.getId(), jwt()))
+        .isInstanceOf(BusinessException.class)
+        .hasMessageContaining("Somente pedidos com status PENDING podem ser cancelados");
+  }
+
   private Jwt jwt() {
     return new Jwt("token", Instant.now(), Instant.now().plusSeconds(300),
         Map.of("alg", "none"), Map.of("sub", "sub"));

@@ -15,6 +15,7 @@ import br.com.ragro.repository.CustomerRepository;
 import br.com.ragro.repository.OrderRepository;
 import br.com.ragro.repository.PaymentMethodRepository;
 import java.util.List;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
@@ -88,6 +89,36 @@ public class OrderService {
     Order savedOrder = orderRepository.saveAndFlush(order);
 
     cartService.clearCart(customer);
+
+    return OrderMapper.toResponse(savedOrder);
+  }
+
+  @Transactional
+  public OrderResponse cancelOrder(UUID orderId, Jwt jwt) {
+    User user = userService.getAuthenticatedUser(jwt);
+    if (user.getType() != TypeUser.CUSTOMER) {
+      throw new ForbiddenException("Apenas consumidores podem cancelar pedidos");
+    }
+
+    Order order = orderRepository.findById(orderId)
+        .orElseThrow(() -> new NotFoundException("Pedido não encontrado"));
+
+    if (!order.getCustomer().getId().equals(user.getId())) {
+      throw new ForbiddenException("Você não tem permissão para cancelar este pedido");
+    }
+
+    if (order.getStatus() != OrderStatus.PENDING) {
+      throw new BusinessException("Somente pedidos com status PENDING podem ser cancelados");
+    }
+
+    order.setStatus(OrderStatus.CANCELLED);
+
+    OrderStatusHistory history = new OrderStatusHistory();
+    history.setOrder(order);
+    history.setStatus(OrderStatus.CANCELLED);
+    order.getStatusHistory().add(history);
+
+    Order savedOrder = orderRepository.saveAndFlush(order);
 
     return OrderMapper.toResponse(savedOrder);
   }
