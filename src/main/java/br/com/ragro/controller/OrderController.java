@@ -4,10 +4,13 @@ import br.com.ragro.controller.response.OrderResponse;
 import br.com.ragro.service.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -29,5 +32,17 @@ public class OrderController {
   )
   public OrderResponse createOrder(@AuthenticationPrincipal Jwt jwt) {
     return orderService.createOrderFromCart(jwt);
+  }
+
+  @PatchMapping("/{id}/cancel")
+  @ResponseStatus(HttpStatus.OK)
+  @Operation(
+      summary = "Cancel an order",
+      description = "Cancels an order that is still in PENDING status. Only the customer who created the order can cancel it."
+  )
+  public OrderResponse cancelOrder(
+      @PathVariable UUID id,
+      @AuthenticationPrincipal Jwt jwt) {
+    return orderService.cancelOrder(id, jwt);
   }
 }
