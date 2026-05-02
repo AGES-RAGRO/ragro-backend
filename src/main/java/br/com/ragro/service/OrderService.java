@@ -1,6 +1,7 @@
 package br.com.ragro.service;
 
 import br.com.ragro.controller.response.OrderResponse;
+import br.com.ragro.controller.response.CustomerOrderResponse;
 import br.com.ragro.domain.*;
 import br.com.ragro.domain.enums.OrderStatus;
 import br.com.ragro.domain.enums.PaymentStatus;
@@ -13,6 +14,7 @@ import br.com.ragro.repository.AddressRepository;
 import br.com.ragro.repository.CartRepository;
 import br.com.ragro.repository.CustomerRepository;
 import br.com.ragro.repository.OrderRepository;
+import br.com.ragro.repository.OrderStatusHistoryRepository;
 import br.com.ragro.repository.PaymentMethodRepository;
 import java.util.List;
 import java.util.UUID;
@@ -33,6 +35,7 @@ public class OrderService {
   private final PaymentMethodRepository paymentMethodRepository;
   private final StockMovementService stockMovementService;
   private final OrderRepository orderRepository;
+  private final OrderStatusHistoryRepository orderStatusHistoryRepository;
 
   @Transactional
   public OrderResponse createOrderFromCart(Jwt jwt) {
@@ -123,6 +126,22 @@ public class OrderService {
     return OrderMapper.toResponse(savedOrder);
   }
 
+  @Transactional(readOnly = true)
+  public CustomerOrderResponse getMyOrderById(UUID orderId, Jwt jwt) {
+    User user = userService.getAuthenticatedUser(jwt);
+    if (user.getType() != TypeUser.CUSTOMER) {
+      throw new ForbiddenException("Apenas consumidores podem visualizar seus pedidos");
+    }
+
+    customerRepository.findById(user.getId())
+        .orElseThrow(() -> new NotFoundException("Dados do consumidor não encontrados"));
+
+    Order order = orderRepository.findByIdAndCustomerId(orderId, user.getId())
+        .orElseThrow(() -> new NotFoundException("Pedido não encontrado para este consumidor"));
+
+    return OrderMapper.toCustomerOrderResponse(order);
+  }
+
   private Address getDeliveryAddress(Customer customer) {
     return addressRepository.findByUserIdAndIsPrimaryTrue(customer.getId())
         .orElseThrow(() -> new BusinessException("Nenhum endereço principal cadastrado para o cliente"));
@@ -148,5 +167,30 @@ public class OrderService {
         .latitude(address.getLatitude())
         .longitude(address.getLongitude())
         .build();
+  }
+
+  @Transactional
+  public OrderResponse updateOrderStatus(UUID orderId, OrderStatus newStatus, Jwt jwt) {
+    User user = userService.getAuthenticatedUser(jwt);
+    if (user.getType() != TypeUser.FARMER) {
+      throw new ForbiddenException("Apenas produtores podem atualizar o status do pedido");
+    }
+
+    Order order = orderRepository.findById(orderId)
+        .orElseThrow(() -> new NotFoundException("Pedido não encontrado"));
+
+    if (!order.getFarmer().getId().equals(user.getId())) {
+      throw new ForbiddenException("Você não tem permissão para atualizar este pedido");
+    }
+
+    order.setStatus(newStatus);
+    Order updatedOrder = orderRepository.saveAndFlush(order);
+
+    OrderStatusHistory history = new OrderStatusHistory();
+    history.setOrder(updatedOrder);
+    history.setStatus(newStatus);
+    orderStatusHistoryRepository.save(history);
+
+    return OrderMapper.toResponse(updatedOrder);
   }
 }
