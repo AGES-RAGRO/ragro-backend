@@ -305,9 +305,9 @@ class OrderServiceTest {
     when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
     when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
-    OrderResponse response = orderService.updateOrderStatus(orderId, OrderStatus.IN_DELIVERY, jwt());
+    OrderResponse response = orderService.updateOrderStatus(orderId, OrderStatus.DELIVERING, jwt());
 
-    assertThat(response.getStatus()).isEqualTo(OrderStatus.IN_DELIVERY);
+    assertThat(response.getStatus()).isEqualTo(OrderStatus.DELIVERING);
     verify(orderStatusHistoryRepository).save(any(OrderStatusHistory.class));
   }
 
