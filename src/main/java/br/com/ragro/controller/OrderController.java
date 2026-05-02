@@ -1,6 +1,7 @@
 package br.com.ragro.controller;
 
 import br.com.ragro.controller.request.UpdateOrderStatusRequest;
+import br.com.ragro.controller.response.CustomerOrderResponse;
 import br.com.ragro.controller.response.OrderResponse;
 import br.com.ragro.service.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -43,7 +44,7 @@ public class OrderController {
   @Operation(
       summary = "Get my order by id",
       description = "Returns one order by id for the authenticated customer.")
-  public OrderResponse getMyOrderById(
+  public CustomerOrderResponse getMyOrderById(
       @PathVariable UUID id,
       @AuthenticationPrincipal Jwt jwt) {
     return orderService.getMyOrderById(id, jwt);

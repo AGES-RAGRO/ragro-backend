@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
+import br.com.ragro.controller.response.CustomerOrderResponse;
 import br.com.ragro.controller.response.OrderResponse;
 import br.com.ragro.domain.*;
 import br.com.ragro.domain.enums.OrderStatus;
@@ -364,6 +365,12 @@ class OrderServiceTest {
     order.setStatus(OrderStatus.PENDING);
     order.setDeliveryAddressSnapshot(AddressSnapshot.builder().city("Test City").build());
     order.setPaymentMethod(paymentMethod);
+    farmer.setDisplayPhotoS3("https://cdn.example.com/display.jpg");
+
+    User farmerUser = new User();
+    farmerUser.setId(farmer.getId());
+    farmerUser.setName("Producer Test");
+    farmer.setUser(farmerUser);
 
     OrderItem orderItem = new OrderItem();
     orderItem.setId(UUID.randomUUID());
@@ -378,11 +385,13 @@ class OrderServiceTest {
     when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
     when(orderRepository.findByIdAndCustomerId(orderId, user.getId())).thenReturn(Optional.of(order));
 
-    OrderResponse response = orderService.getMyOrderById(orderId, jwt());
+    CustomerOrderResponse response = orderService.getMyOrderById(orderId, jwt());
 
     assertThat(response).isNotNull();
-    assertThat(response.getId()).isEqualTo(orderId);
-    assertThat(response.getCustomerId()).isEqualTo(user.getId());
+    assertThat(response.getPrice()).isEqualByComparingTo("20.00");
+    assertThat(response.getProducerName()).isEqualTo("Producer Test");
+    assertThat(response.getProducerPicture()).isEqualTo("https://cdn.example.com/display.jpg");
+    assertThat(response.getStatus()).isEqualTo(OrderStatus.PENDING);
   }
 
   @Test

@@ -1,6 +1,7 @@
 package br.com.ragro.service;
 
 import br.com.ragro.controller.response.OrderResponse;
+import br.com.ragro.controller.response.CustomerOrderResponse;
 import br.com.ragro.domain.*;
 import br.com.ragro.domain.enums.OrderStatus;
 import br.com.ragro.domain.enums.PaymentStatus;
@@ -126,7 +127,7 @@ public class OrderService {
   }
 
   @Transactional(readOnly = true)
-  public OrderResponse getMyOrderById(UUID orderId, Jwt jwt) {
+  public CustomerOrderResponse getMyOrderById(UUID orderId, Jwt jwt) {
     User user = userService.getAuthenticatedUser(jwt);
     if (user.getType() != TypeUser.CUSTOMER) {
       throw new ForbiddenException("Apenas consumidores podem visualizar seus pedidos");
@@ -138,7 +139,7 @@ public class OrderService {
     Order order = orderRepository.findByIdAndCustomerId(orderId, user.getId())
         .orElseThrow(() -> new NotFoundException("Pedido não encontrado para este consumidor"));
 
-    return OrderMapper.toResponse(order);
+    return OrderMapper.toCustomerOrderResponse(order);
   }
 
   private Address getDeliveryAddress(Customer customer) {
