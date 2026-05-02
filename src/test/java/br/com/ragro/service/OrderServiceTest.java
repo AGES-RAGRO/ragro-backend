@@ -204,7 +204,6 @@ class OrderServiceTest {
 
     assertThat(response).isNotNull();
     assertThat(response.getStatus()).isEqualTo(OrderStatus.PENDING);
-    verify(stockMovementService, times(1)).registerSale(eq(product), eq(new BigDecimal("2.00")), anyString());
     verify(cartService, times(1)).clearCart(customer);
     verify(orderRepository, times(1)).saveAndFlush(any(Order.class));
   }
@@ -410,6 +409,87 @@ class OrderServiceTest {
     assertThatThrownBy(() -> orderService.getMyOrderById(orderId, jwt()))
         .isInstanceOf(NotFoundException.class)
         .hasMessageContaining("Pedido não encontrado para este consumidor");
+  }
+
+  @Test
+  void shouldConfirmOrderAndRegisterStockOutput_whenFarmerOwnsPendingOrder() {
+    user.setType(TypeUser.FARMER);
+    UUID orderId = UUID.randomUUID();
+    farmer.setId(user.getId());
+
+    Order order = new Order();
+    order.setId(orderId);
+    order.setFarmer(farmer);
+    order.setCustomer(customer);
+    order.setStatus(OrderStatus.PENDING);
+    order.setDeliveryAddressSnapshot(AddressSnapshot.builder().city("Test City").build());
+    order.setPaymentMethod(paymentMethod);
+
+    OrderItem orderItem = new OrderItem();
+    orderItem.setProduct(product);
+    orderItem.setQuantity(new BigDecimal("2.00"));
+    orderItem.setSubtotal(new BigDecimal("20.00"));
+    order.getItems().add(orderItem);
+
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+    when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    OrderResponse response = orderService.confirmOrder(orderId, jwt());
+
+    assertThat(response.getStatus()).isEqualTo(OrderStatus.CONFIRMED);
+    verify(stockMovementService).registerSale(eq(product), eq(new BigDecimal("2.00")), anyString());
+    verify(orderStatusHistoryRepository).save(any(OrderStatusHistory.class));
+  }
+
+  @Test
+  void shouldThrowForbidden_whenNonFarmerConfirmsOrder() {
+    user.setType(TypeUser.CUSTOMER);
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+
+    assertThatThrownBy(() -> orderService.confirmOrder(UUID.randomUUID(), jwt()))
+        .isInstanceOf(ForbiddenException.class)
+        .hasMessageContaining("Apenas produtores podem confirmar pedidos");
+  }
+
+  @Test
+  void shouldThrowForbidden_whenFarmerConfirmsOrderFromAnotherProducer() {
+    user.setType(TypeUser.FARMER);
+    UUID orderId = UUID.randomUUID();
+
+    Producer anotherFarmer = new Producer();
+    anotherFarmer.setId(UUID.randomUUID());
+
+    Order order = new Order();
+    order.setId(orderId);
+    order.setFarmer(anotherFarmer);
+    order.setStatus(OrderStatus.PENDING);
+
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+
+    assertThatThrownBy(() -> orderService.confirmOrder(orderId, jwt()))
+        .isInstanceOf(ForbiddenException.class)
+        .hasMessageContaining("Você não tem permissão para confirmar este pedido");
+  }
+
+  @Test
+  void shouldThrowBusinessException_whenConfirmingOrderThatIsNotPending() {
+    user.setType(TypeUser.FARMER);
+    UUID orderId = UUID.randomUUID();
+    farmer.setId(user.getId());
+
+    Order order = new Order();
+    order.setId(orderId);
+    order.setFarmer(farmer);
+    order.setStatus(OrderStatus.CANCELLED);
+
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+
+    assertThatThrownBy(() -> orderService.confirmOrder(orderId, jwt()))
+        .isInstanceOf(BusinessException.class)
+        .hasMessageContaining("Somente pedidos com status PENDING podem ser confirmados");
   }
 
   private Jwt jwt() {

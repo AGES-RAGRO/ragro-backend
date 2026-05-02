@@ -81,6 +81,17 @@ public class OrderController {
     return orderService.updateOrderStatus(id, request.getStatus(), jwt);
   }
 
+  @PatchMapping("/{id}/confirm")
+  @ResponseStatus(HttpStatus.OK)
+  @Operation(
+      summary = "Confirm order",
+      description = "Allows a producer to confirm an owned order and register stock output.")
+  public OrderResponse confirmOrder(
+      @PathVariable UUID id,
+      @AuthenticationPrincipal Jwt jwt) {
+    return orderService.confirmOrder(id, jwt);
+  }
+
   @PatchMapping("/{id}/cancel")
   @ResponseStatus(HttpStatus.OK)
   @Operation(

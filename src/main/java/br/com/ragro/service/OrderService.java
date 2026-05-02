@@ -80,7 +80,6 @@ public class OrderService {
 
     cart.getItems().stream().filter(CartItem::isActive).forEach(cartItem -> {
       Product product = cartItem.getProduct();
-      stockMovementService.registerSale(product, cartItem.getQuantity(), "Pedido criado a partir do carrinho");
 
       OrderItem orderItem = new OrderItem();
       orderItem.setOrder(order);
@@ -195,6 +194,39 @@ public class OrderService {
     OrderStatusHistory history = new OrderStatusHistory();
     history.setOrder(updatedOrder);
     history.setStatus(newStatus);
+    orderStatusHistoryRepository.save(history);
+
+    return OrderMapper.toResponse(updatedOrder);
+  }
+
+  @Transactional
+  public OrderResponse confirmOrder(UUID orderId, Jwt jwt) {
+    User user = userService.getAuthenticatedUser(jwt);
+    if (user.getType() != TypeUser.FARMER) {
+      throw new ForbiddenException("Apenas produtores podem confirmar pedidos");
+    }
+
+    Order order = orderRepository.findById(orderId)
+        .orElseThrow(() -> new NotFoundException("Pedido não encontrado"));
+
+    if (!order.getFarmer().getId().equals(user.getId())) {
+      throw new ForbiddenException("Você não tem permissão para confirmar este pedido");
+    }
+
+    if (order.getStatus() != OrderStatus.PENDING) {
+      throw new BusinessException("Somente pedidos com status PENDING podem ser confirmados");
+    }
+
+    order.getItems()
+        .forEach(item -> stockMovementService.registerSale(
+            item.getProduct(), item.getQuantity(), "Pedido confirmado"));
+
+    order.setStatus(OrderStatus.CONFIRMED);
+    Order updatedOrder = orderRepository.saveAndFlush(order);
+
+    OrderStatusHistory history = new OrderStatusHistory();
+    history.setOrder(updatedOrder);
+    history.setStatus(OrderStatus.CONFIRMED);
     orderStatusHistoryRepository.save(history);
 
     return OrderMapper.toResponse(updatedOrder);
