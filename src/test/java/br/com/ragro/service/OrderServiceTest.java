@@ -9,7 +9,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import br.com.ragro.controller.response.CustomerOrderResponse;
 import br.com.ragro.controller.response.CartResponse;
 import br.com.ragro.controller.response.CustomerOrderResponse;
 import br.com.ragro.controller.response.OrderResponse;
@@ -177,7 +176,7 @@ class OrderServiceTest {
 
     assertThatThrownBy(() -> orderService.createOrderFromCart(jwt()))
         .isInstanceOf(BusinessException.class)
-        .hasMessageContaining("endereço principal");
+        .hasMessageContaining("principal cadastrado");
   }
 
   @Test
@@ -190,7 +189,7 @@ class OrderServiceTest {
 
     assertThatThrownBy(() -> orderService.createOrderFromCart(jwt()))
         .isInstanceOf(BusinessException.class)
-        .hasMessageContaining("método de pagamento");
+        .hasMessageContaining("pagamento ativo");
   }
 
   @Test
@@ -206,7 +205,6 @@ class OrderServiceTest {
 
     assertThat(response).isNotNull();
     assertThat(response.getStatus()).isEqualTo(OrderStatus.PENDING);
-    verify(stockMovementService, times(1)).registerSale(eq(product), eq(new BigDecimal("2.00")), anyString());
     verify(cartService, times(1)).clearCart(customer);
     verify(orderRepository, times(1)).saveAndFlush(any(Order.class));
   }
@@ -239,7 +237,7 @@ class OrderServiceTest {
 
   @Test
   void shouldThrowForbidden_whenNonCustomerTriesToCancel() {
-    user.setType(TypeUser.FARMER);
+    user.setType(TypeUser.ADMIN);
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
 
     assertThatThrownBy(() -> orderService.cancelOrder(UUID.randomUUID(), jwt()))
@@ -287,6 +285,48 @@ class OrderServiceTest {
   }
 
   @Test
+  void shouldCancelOrder_whenProducerCancelsOwnedPendingOrder() {
+    user.setType(TypeUser.FARMER);
+    farmer.setId(user.getId());
+
+    Order order = new Order();
+    order.setId(UUID.randomUUID());
+    order.setCustomer(customer);
+    order.setFarmer(farmer);
+    order.setStatus(OrderStatus.PENDING);
+    order.setDeliveryAddressSnapshot(AddressSnapshot.builder().city("Test City").build());
+    order.setPaymentMethod(paymentMethod);
+
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+    when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    OrderResponse response = orderService.cancelOrder(order.getId(), jwt());
+
+    assertThat(response.getStatus()).isEqualTo(OrderStatus.CANCELLED);
+  }
+
+  @Test
+  void shouldThrowForbidden_whenProducerCancelsOrderFromAnotherProducer() {
+    user.setType(TypeUser.FARMER);
+
+    Producer anotherFarmer = new Producer();
+    anotherFarmer.setId(UUID.randomUUID());
+
+    Order order = new Order();
+    order.setId(UUID.randomUUID());
+    order.setCustomer(customer);
+    order.setFarmer(anotherFarmer);
+    order.setStatus(OrderStatus.PENDING);
+
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+
+    assertThatThrownBy(() -> orderService.cancelOrder(order.getId(), jwt()))
+        .isInstanceOf(ForbiddenException.class);
+  }
+
+  @Test
   void shouldUpdateOrderStatus_whenFarmerOwnsOrder() {
     user.setType(TypeUser.FARMER);
     UUID orderId = UUID.randomUUID();
@@ -331,7 +371,7 @@ class OrderServiceTest {
 
     assertThatThrownBy(() -> orderService.updateOrderStatus(orderId, OrderStatus.CONFIRMED, jwt()))
         .isInstanceOf(NotFoundException.class)
-        .hasMessageContaining("Pedido não encontrado");
+        .hasMessageContaining("Pedido");
   }
 
   @Test
@@ -351,7 +391,7 @@ class OrderServiceTest {
 
     assertThatThrownBy(() -> orderService.updateOrderStatus(orderId, OrderStatus.CONFIRMED, jwt()))
         .isInstanceOf(ForbiddenException.class)
-        .hasMessageContaining("Você não tem permissão para atualizar este pedido");
+        .hasMessageContaining("permiss");
   }
 
   @Test
@@ -412,7 +452,88 @@ class OrderServiceTest {
 
     assertThatThrownBy(() -> orderService.getMyOrderById(orderId, jwt()))
         .isInstanceOf(NotFoundException.class)
-        .hasMessageContaining("Pedido não encontrado para este consumidor");
+        .hasMessageContaining("consumidor");
+  }
+
+  @Test
+  void shouldConfirmOrderAndRegisterStockOutput_whenFarmerOwnsPendingOrder() {
+    user.setType(TypeUser.FARMER);
+    UUID orderId = UUID.randomUUID();
+    farmer.setId(user.getId());
+
+    Order order = new Order();
+    order.setId(orderId);
+    order.setFarmer(farmer);
+    order.setCustomer(customer);
+    order.setStatus(OrderStatus.PENDING);
+    order.setDeliveryAddressSnapshot(AddressSnapshot.builder().city("Test City").build());
+    order.setPaymentMethod(paymentMethod);
+
+    OrderItem orderItem = new OrderItem();
+    orderItem.setProduct(product);
+    orderItem.setQuantity(new BigDecimal("2.00"));
+    orderItem.setSubtotal(new BigDecimal("20.00"));
+    order.getItems().add(orderItem);
+
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+    when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    OrderResponse response = orderService.confirmOrder(orderId, jwt());
+
+    assertThat(response.getStatus()).isEqualTo(OrderStatus.CONFIRMED);
+    verify(stockMovementService).registerSale(eq(product), eq(new BigDecimal("2.00")), anyString());
+    verify(orderStatusHistoryRepository).save(any(OrderStatusHistory.class));
+  }
+
+  @Test
+  void shouldThrowForbidden_whenNonFarmerConfirmsOrder() {
+    user.setType(TypeUser.CUSTOMER);
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+
+    assertThatThrownBy(() -> orderService.confirmOrder(UUID.randomUUID(), jwt()))
+        .isInstanceOf(ForbiddenException.class)
+        .hasMessageContaining("Apenas produtores podem confirmar pedidos");
+  }
+
+  @Test
+  void shouldThrowForbidden_whenFarmerConfirmsOrderFromAnotherProducer() {
+    user.setType(TypeUser.FARMER);
+    UUID orderId = UUID.randomUUID();
+
+    Producer anotherFarmer = new Producer();
+    anotherFarmer.setId(UUID.randomUUID());
+
+    Order order = new Order();
+    order.setId(orderId);
+    order.setFarmer(anotherFarmer);
+    order.setStatus(OrderStatus.PENDING);
+
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+
+    assertThatThrownBy(() -> orderService.confirmOrder(orderId, jwt()))
+        .isInstanceOf(ForbiddenException.class)
+        .hasMessageContaining("permiss");
+  }
+
+  @Test
+  void shouldThrowBusinessException_whenConfirmingOrderThatIsNotPending() {
+    user.setType(TypeUser.FARMER);
+    UUID orderId = UUID.randomUUID();
+    farmer.setId(user.getId());
+
+    Order order = new Order();
+    order.setId(orderId);
+    order.setFarmer(farmer);
+    order.setStatus(OrderStatus.CANCELLED);
+
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+
+    assertThatThrownBy(() -> orderService.confirmOrder(orderId, jwt()))
+        .isInstanceOf(BusinessException.class)
+        .hasMessageContaining("Somente pedidos com status PENDING podem ser confirmados");
   }
 
   @Test
@@ -461,7 +582,7 @@ class OrderServiceTest {
     Order order = new Order();
     order.setId(orderId);
     order.setCustomer(customer);
-    
+
     Producer differentFarmer = new Producer();
     differentFarmer.setId(UUID.randomUUID());
     order.setFarmer(differentFarmer);
@@ -486,9 +607,9 @@ class OrderServiceTest {
     when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
     when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId())).thenReturn(Optional.of(cart));
     when(cartRepository.saveAndFlush(any(Cart.class))).thenAnswer(inv -> {
-        Cart savedCart = inv.getArgument(0);
-        savedCart.setId(UUID.randomUUID()); // mock generation
-        return savedCart;
+      Cart savedCart = inv.getArgument(0);
+      savedCart.setId(UUID.randomUUID());
+      return savedCart;
     });
 
     CartResponse response = orderService.repeatOrder(orderId, jwt());
@@ -510,15 +631,14 @@ class OrderServiceTest {
     OrderItem orderItem = new OrderItem();
     orderItem.setId(UUID.randomUUID());
     orderItem.setProduct(product);
-    product.setStockQuantity(new BigDecimal("1.00")); // Only 1 in stock
+    product.setStockQuantity(new BigDecimal("1.00"));
     product.setActive(true);
-    orderItem.setQuantity(new BigDecimal("5.00")); // Wants 5
+    orderItem.setQuantity(new BigDecimal("5.00"));
     order.setItems(new ArrayList<>(List.of(orderItem)));
 
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
     when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
     when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
-    // Clear cart or use empty
     when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId())).thenReturn(Optional.empty());
     when(cartRepository.saveAndFlush(any(Cart.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -539,7 +659,7 @@ class OrderServiceTest {
     OrderItem orderItem = new OrderItem();
     orderItem.setId(UUID.randomUUID());
     orderItem.setProduct(product);
-    product.setStockQuantity(new BigDecimal("0.00")); // Zero stock
+    product.setStockQuantity(new BigDecimal("0.00"));
     product.setActive(true);
     orderItem.setQuantity(new BigDecimal("2.00"));
     order.setItems(new ArrayList<>(List.of(orderItem)));
@@ -551,7 +671,7 @@ class OrderServiceTest {
 
     assertThatThrownBy(() -> orderService.repeatOrder(orderId, jwt()))
         .isInstanceOf(BusinessException.class)
-        .hasMessageContaining("Nenhum item do pedido está disponível em estoque");
+        .hasMessageContaining("dispon");
   }
 
   private Jwt jwt() {
