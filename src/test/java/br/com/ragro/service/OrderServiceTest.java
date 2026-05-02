@@ -41,6 +41,7 @@ class OrderServiceTest {
   @Mock private PaymentMethodRepository paymentMethodRepository;
   @Mock private StockMovementService stockMovementService;
   @Mock private OrderRepository orderRepository;
+  @Mock private OrderStatusHistoryRepository orderStatusHistoryRepository;
 
   @InjectMocks private OrderService orderService;
 
@@ -283,6 +284,127 @@ class OrderServiceTest {
     assertThatThrownBy(() -> orderService.cancelOrder(order.getId(), jwt()))
         .isInstanceOf(BusinessException.class)
         .hasMessageContaining("Somente pedidos com status PENDING podem ser cancelados");
+  }
+
+  @Test
+  void shouldUpdateOrderStatus_whenFarmerOwnsOrder() {
+    user.setType(TypeUser.FARMER);
+    UUID orderId = UUID.randomUUID();
+    farmer.setId(user.getId());
+
+    Order order = new Order();
+    order.setId(orderId);
+    order.setFarmer(farmer);
+    order.setCustomer(customer);
+    order.setStatus(OrderStatus.PENDING);
+    order.setDeliveryAddressSnapshot(AddressSnapshot.builder().city("Test City").build());
+    order.setPaymentMethod(paymentMethod);
+
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+    when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    OrderResponse response = orderService.updateOrderStatus(orderId, OrderStatus.IN_DELIVERY, jwt());
+
+    assertThat(response.getStatus()).isEqualTo(OrderStatus.IN_DELIVERY);
+    verify(orderStatusHistoryRepository).save(any(OrderStatusHistory.class));
+  }
+
+  @Test
+  void shouldThrowForbidden_whenNonFarmerUpdatesOrderStatus() {
+    user.setType(TypeUser.CUSTOMER);
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+
+    assertThatThrownBy(
+            () -> orderService.updateOrderStatus(UUID.randomUUID(), OrderStatus.CONFIRMED, jwt()))
+        .isInstanceOf(ForbiddenException.class)
+        .hasMessageContaining("Apenas produtores podem atualizar o status do pedido");
+  }
+
+  @Test
+  void shouldThrowNotFound_whenUpdatingOrderStatusAndOrderDoesNotExist() {
+    user.setType(TypeUser.FARMER);
+    UUID orderId = UUID.randomUUID();
+
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(orderRepository.findById(orderId)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> orderService.updateOrderStatus(orderId, OrderStatus.CONFIRMED, jwt()))
+        .isInstanceOf(NotFoundException.class)
+        .hasMessageContaining("Pedido não encontrado");
+  }
+
+  @Test
+  void shouldThrowForbidden_whenUpdatingOrderStatusAndOrderBelongsToAnotherFarmer() {
+    user.setType(TypeUser.FARMER);
+    UUID orderId = UUID.randomUUID();
+
+    Producer anotherFarmer = new Producer();
+    anotherFarmer.setId(UUID.randomUUID());
+
+    Order order = new Order();
+    order.setId(orderId);
+    order.setFarmer(anotherFarmer);
+
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+
+    assertThatThrownBy(() -> orderService.updateOrderStatus(orderId, OrderStatus.CONFIRMED, jwt()))
+        .isInstanceOf(ForbiddenException.class)
+        .hasMessageContaining("Você não tem permissão para atualizar este pedido");
+  }
+
+  @Test
+  void shouldReturnOrder_whenCustomerRequestsOwnOrderById() {
+    UUID orderId = UUID.randomUUID();
+    Order order = new Order();
+    order.setId(orderId);
+    order.setCustomer(customer);
+    order.setFarmer(farmer);
+    order.setStatus(OrderStatus.PENDING);
+    order.setDeliveryAddressSnapshot(AddressSnapshot.builder().city("Test City").build());
+    order.setPaymentMethod(paymentMethod);
+
+    OrderItem orderItem = new OrderItem();
+    orderItem.setId(UUID.randomUUID());
+    orderItem.setProduct(product);
+    orderItem.setProductNameSnapshot("Product Test");
+    orderItem.setUnitPriceSnapshot(new BigDecimal("10.00"));
+    orderItem.setQuantity(new BigDecimal("2.00"));
+    orderItem.setSubtotal(new BigDecimal("20.00"));
+    order.getItems().add(orderItem);
+
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
+    when(orderRepository.findByIdAndCustomerId(orderId, user.getId())).thenReturn(Optional.of(order));
+
+    OrderResponse response = orderService.getMyOrderById(orderId, jwt());
+
+    assertThat(response).isNotNull();
+    assertThat(response.getId()).isEqualTo(orderId);
+    assertThat(response.getCustomerId()).isEqualTo(user.getId());
+  }
+
+  @Test
+  void shouldThrowForbidden_whenNonCustomerRequestsOrderById() {
+    user.setType(TypeUser.FARMER);
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+
+    assertThatThrownBy(() -> orderService.getMyOrderById(UUID.randomUUID(), jwt()))
+        .isInstanceOf(ForbiddenException.class)
+        .hasMessageContaining("Apenas consumidores podem visualizar seus pedidos");
+  }
+
+  @Test
+  void shouldThrowNotFound_whenOrderByIdDoesNotBelongToCustomer() {
+    UUID orderId = UUID.randomUUID();
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
+    when(orderRepository.findByIdAndCustomerId(orderId, user.getId())).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> orderService.getMyOrderById(orderId, jwt()))
+        .isInstanceOf(NotFoundException.class)
+        .hasMessageContaining("Pedido não encontrado para este consumidor");
   }
 
   private Jwt jwt() {
