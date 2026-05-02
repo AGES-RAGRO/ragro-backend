@@ -1,8 +1,8 @@
 package br.com.ragro.mapper;
 
+import br.com.ragro.controller.response.CustomerOrderResponse;
 import br.com.ragro.controller.response.OrderItemResponse;
 import br.com.ragro.controller.response.OrderResponse;
-import br.com.ragro.controller.response.CustomerOrderResponse;
 import br.com.ragro.domain.Order;
 import br.com.ragro.domain.OrderItem;
 import java.math.BigDecimal;
@@ -69,6 +69,7 @@ public class OrderMapper {
     }
 
     return CustomerOrderResponse.builder()
+        .id(order.getId())
         .price(totalAmount)
         .producerName(order.getFarmer().getUser().getName())
         .producerPicture(producerPicture)

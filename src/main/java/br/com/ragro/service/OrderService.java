@@ -1,8 +1,19 @@
 package br.com.ragro.service;
 
-import br.com.ragro.controller.response.OrderResponse;
 import br.com.ragro.controller.response.CustomerOrderResponse;
-import br.com.ragro.domain.*;
+import br.com.ragro.controller.response.OrderResponse;
+import br.com.ragro.domain.Address;
+import br.com.ragro.domain.AddressSnapshot;
+import br.com.ragro.domain.Cart;
+import br.com.ragro.domain.CartItem;
+import br.com.ragro.domain.Customer;
+import br.com.ragro.domain.Order;
+import br.com.ragro.domain.OrderItem;
+import br.com.ragro.domain.OrderStatusHistory;
+import br.com.ragro.domain.PaymentMethod;
+import br.com.ragro.domain.Producer;
+import br.com.ragro.domain.Product;
+import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.OrderStatus;
 import br.com.ragro.domain.enums.PaymentStatus;
 import br.com.ragro.domain.enums.TypeUser;
@@ -69,7 +80,6 @@ public class OrderService {
 
     cart.getItems().stream().filter(CartItem::isActive).forEach(cartItem -> {
       Product product = cartItem.getProduct();
-      
       stockMovementService.registerSale(product, cartItem.getQuantity(), "Pedido criado a partir do carrinho");
 
       OrderItem orderItem = new OrderItem();
@@ -80,7 +90,6 @@ public class OrderService {
       orderItem.setUnityTypeSnapshot(product.getUnityType());
       orderItem.setQuantity(cartItem.getQuantity());
       orderItem.setSubtotal(product.getPrice().multiply(cartItem.getQuantity()));
-
       order.getItems().add(orderItem);
     });
 
@@ -90,9 +99,7 @@ public class OrderService {
     order.getStatusHistory().add(history);
 
     Order savedOrder = orderRepository.saveAndFlush(order);
-
     cartService.clearCart(customer);
-
     return OrderMapper.toResponse(savedOrder);
   }
 
@@ -122,8 +129,34 @@ public class OrderService {
     order.getStatusHistory().add(history);
 
     Order savedOrder = orderRepository.saveAndFlush(order);
-
     return OrderMapper.toResponse(savedOrder);
+  }
+
+  @Transactional(readOnly = true)
+  public List<CustomerOrderResponse> getMyOrders(Jwt jwt) {
+    User user = userService.getAuthenticatedUser(jwt);
+    if (user.getType() != TypeUser.CUSTOMER) {
+      throw new ForbiddenException("Apenas consumidores podem visualizar seus pedidos");
+    }
+
+    customerRepository.findById(user.getId())
+        .orElseThrow(() -> new NotFoundException("Dados do consumidor não encontrados"));
+
+    return orderRepository.findByCustomerIdOrderByCreatedAtDesc(user.getId()).stream()
+        .map(OrderMapper::toCustomerOrderResponse)
+        .toList();
+  }
+
+  @Transactional(readOnly = true)
+  public List<OrderResponse> getProducerOrders(Jwt jwt) {
+    User user = userService.getAuthenticatedUser(jwt);
+    if (user.getType() != TypeUser.FARMER) {
+      throw new ForbiddenException("Apenas produtores podem visualizar pedidos recebidos");
+    }
+
+    return orderRepository.findByFarmerIdOrderByCreatedAtDesc(user.getId()).stream()
+        .map(OrderMapper::toResponse)
+        .toList();
   }
 
   @Transactional(readOnly = true)
@@ -140,6 +173,31 @@ public class OrderService {
         .orElseThrow(() -> new NotFoundException("Pedido não encontrado para este consumidor"));
 
     return OrderMapper.toCustomerOrderResponse(order);
+  }
+
+  @Transactional
+  public OrderResponse updateOrderStatus(UUID orderId, OrderStatus newStatus, Jwt jwt) {
+    User user = userService.getAuthenticatedUser(jwt);
+    if (user.getType() != TypeUser.FARMER) {
+      throw new ForbiddenException("Apenas produtores podem atualizar o status do pedido");
+    }
+
+    Order order = orderRepository.findById(orderId)
+        .orElseThrow(() -> new NotFoundException("Pedido não encontrado"));
+
+    if (!order.getFarmer().getId().equals(user.getId())) {
+      throw new ForbiddenException("Você não tem permissão para atualizar este pedido");
+    }
+
+    order.setStatus(newStatus);
+    Order updatedOrder = orderRepository.saveAndFlush(order);
+
+    OrderStatusHistory history = new OrderStatusHistory();
+    history.setOrder(updatedOrder);
+    history.setStatus(newStatus);
+    orderStatusHistoryRepository.save(history);
+
+    return OrderMapper.toResponse(updatedOrder);
   }
 
   private Address getDeliveryAddress(Customer customer) {
@@ -167,30 +225,5 @@ public class OrderService {
         .latitude(address.getLatitude())
         .longitude(address.getLongitude())
         .build();
-  }
-
-  @Transactional
-  public OrderResponse updateOrderStatus(UUID orderId, OrderStatus newStatus, Jwt jwt) {
-    User user = userService.getAuthenticatedUser(jwt);
-    if (user.getType() != TypeUser.FARMER) {
-      throw new ForbiddenException("Apenas produtores podem atualizar o status do pedido");
-    }
-
-    Order order = orderRepository.findById(orderId)
-        .orElseThrow(() -> new NotFoundException("Pedido não encontrado"));
-
-    if (!order.getFarmer().getId().equals(user.getId())) {
-      throw new ForbiddenException("Você não tem permissão para atualizar este pedido");
-    }
-
-    order.setStatus(newStatus);
-    Order updatedOrder = orderRepository.saveAndFlush(order);
-
-    OrderStatusHistory history = new OrderStatusHistory();
-    history.setOrder(updatedOrder);
-    history.setStatus(newStatus);
-    orderStatusHistoryRepository.save(history);
-
-    return OrderMapper.toResponse(updatedOrder);
   }
 }

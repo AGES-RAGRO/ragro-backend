@@ -7,6 +7,7 @@ import br.com.ragro.service.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -37,6 +38,24 @@ public class OrderController {
   )
   public OrderResponse createOrder(@AuthenticationPrincipal Jwt jwt) {
     return orderService.createOrderFromCart(jwt);
+  }
+
+  @GetMapping("/consumer")
+  @ResponseStatus(HttpStatus.OK)
+  @Operation(
+      summary = "List my orders as consumer",
+      description = "Returns all orders for the authenticated consumer.")
+  public List<CustomerOrderResponse> getMyOrders(@AuthenticationPrincipal Jwt jwt) {
+    return orderService.getMyOrders(jwt);
+  }
+
+  @GetMapping("/producer")
+  @ResponseStatus(HttpStatus.OK)
+  @Operation(
+      summary = "List orders as producer",
+      description = "Returns received orders for the authenticated producer.")
+  public List<OrderResponse> getProducerOrders(@AuthenticationPrincipal Jwt jwt) {
+    return orderService.getProducerOrders(jwt);
   }
 
   @GetMapping("/customer/{id}")
