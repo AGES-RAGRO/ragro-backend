@@ -235,7 +235,7 @@ class OrderServiceTest {
 
   @Test
   void shouldThrowForbidden_whenNonCustomerTriesToCancel() {
-    user.setType(TypeUser.FARMER);
+    user.setType(TypeUser.ADMIN);
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
 
     assertThatThrownBy(() -> orderService.cancelOrder(UUID.randomUUID(), jwt()))
@@ -280,6 +280,48 @@ class OrderServiceTest {
 
     assertThatThrownBy(() -> orderService.cancelOrder(order.getId(), jwt()))
         .isInstanceOf(BusinessException.class);
+  }
+
+  @Test
+  void shouldCancelOrder_whenProducerCancelsOwnedPendingOrder() {
+    user.setType(TypeUser.FARMER);
+    farmer.setId(user.getId());
+
+    Order order = new Order();
+    order.setId(UUID.randomUUID());
+    order.setCustomer(customer);
+    order.setFarmer(farmer);
+    order.setStatus(OrderStatus.PENDING);
+    order.setDeliveryAddressSnapshot(AddressSnapshot.builder().city("Test City").build());
+    order.setPaymentMethod(paymentMethod);
+
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+    when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    OrderResponse response = orderService.cancelOrder(order.getId(), jwt());
+
+    assertThat(response.getStatus()).isEqualTo(OrderStatus.CANCELLED);
+  }
+
+  @Test
+  void shouldThrowForbidden_whenProducerCancelsOrderFromAnotherProducer() {
+    user.setType(TypeUser.FARMER);
+
+    Producer anotherFarmer = new Producer();
+    anotherFarmer.setId(UUID.randomUUID());
+
+    Order order = new Order();
+    order.setId(UUID.randomUUID());
+    order.setCustomer(customer);
+    order.setFarmer(anotherFarmer);
+    order.setStatus(OrderStatus.PENDING);
+
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+
+    assertThatThrownBy(() -> orderService.cancelOrder(order.getId(), jwt()))
+        .isInstanceOf(ForbiddenException.class);
   }
 
   @Test

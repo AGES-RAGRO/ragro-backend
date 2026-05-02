@@ -105,14 +105,18 @@ public class OrderService {
   @Transactional
   public OrderResponse cancelOrder(UUID orderId, Jwt jwt) {
     User user = userService.getAuthenticatedUser(jwt);
-    if (user.getType() != TypeUser.CUSTOMER) {
-      throw new ForbiddenException("Apenas consumidores podem cancelar pedidos");
+    if (user.getType() != TypeUser.CUSTOMER && user.getType() != TypeUser.FARMER) {
+      throw new ForbiddenException("Apenas consumidores ou produtores podem cancelar pedidos");
     }
 
     Order order = orderRepository.findById(orderId)
         .orElseThrow(() -> new NotFoundException("Pedido não encontrado"));
 
-    if (!order.getCustomer().getId().equals(user.getId())) {
+    if (user.getType() == TypeUser.CUSTOMER && !order.getCustomer().getId().equals(user.getId())) {
+      throw new ForbiddenException("Você não tem permissão para cancelar este pedido");
+    }
+
+    if (user.getType() == TypeUser.FARMER && !order.getFarmer().getId().equals(user.getId())) {
       throw new ForbiddenException("Você não tem permissão para cancelar este pedido");
     }
 
@@ -217,8 +221,8 @@ public class OrderService {
       throw new BusinessException("Somente pedidos com status PENDING podem ser confirmados");
     }
 
-    order.getItems()
-        .forEach(item -> stockMovementService.registerSale(
+    order.getItems().forEach(
+        item -> stockMovementService.registerSale(
             item.getProduct(), item.getQuantity(), "Pedido confirmado"));
 
     order.setStatus(OrderStatus.CONFIRMED);
