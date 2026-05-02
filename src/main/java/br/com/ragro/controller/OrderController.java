@@ -58,6 +58,17 @@ public class OrderController {
     return orderService.getProducerOrders(jwt);
   }
 
+  @GetMapping("/customer/{id}")
+  @ResponseStatus(HttpStatus.OK)
+  @Operation(
+      summary = "Get my order by id",
+      description = "Returns one order by id for the authenticated customer.")
+  public CustomerOrderResponse getMyOrderById(
+      @PathVariable UUID id,
+      @AuthenticationPrincipal Jwt jwt) {
+    return orderService.getMyOrderById(id, jwt);
+  }
+
   @PatchMapping("/{id}/status")
   @ResponseStatus(HttpStatus.OK)
   @Operation(
