@@ -4,6 +4,6 @@ public enum StockMovementReason {
     SALE,
     LOSS,
     DISPOSAL,
-    MANUAL_ENTRY
-
+    MANUAL_ENTRY,
+    CANCELED_SALE
 }
