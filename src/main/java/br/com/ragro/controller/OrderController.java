@@ -1,6 +1,7 @@
 package br.com.ragro.controller;
 
 import br.com.ragro.controller.request.UpdateOrderStatusRequest;
+import br.com.ragro.controller.response.CartResponse;
 import br.com.ragro.controller.response.CustomerOrderResponse;
 import br.com.ragro.controller.response.OrderResponse;
 import br.com.ragro.service.OrderService;
@@ -102,5 +103,17 @@ public class OrderController {
       @PathVariable UUID id,
       @AuthenticationPrincipal Jwt jwt) {
     return orderService.cancelOrder(id, jwt);
+  }
+
+  @PostMapping("/{id}/repeat")
+  @ResponseStatus(HttpStatus.CREATED)
+  @Operation(
+      summary = "Repeat an order",
+      description = "Creates or updates a cart with the items from a previous order. Clears the current cart if it belongs to a different producer."
+  )
+  public CartResponse repeatOrder(
+      @PathVariable UUID id,
+      @AuthenticationPrincipal Jwt jwt) {
+    return orderService.repeatOrder(id, jwt);
   }
 }

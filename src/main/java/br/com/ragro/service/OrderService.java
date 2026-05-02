@@ -1,5 +1,6 @@
 package br.com.ragro.service;
 
+import br.com.ragro.controller.response.CartResponse;
 import br.com.ragro.controller.response.CustomerOrderResponse;
 import br.com.ragro.controller.response.OrderResponse;
 import br.com.ragro.domain.Address;
@@ -20,6 +21,7 @@ import br.com.ragro.domain.enums.TypeUser;
 import br.com.ragro.exception.BusinessException;
 import br.com.ragro.exception.ForbiddenException;
 import br.com.ragro.exception.NotFoundException;
+import br.com.ragro.mapper.CartMapper;
 import br.com.ragro.mapper.OrderMapper;
 import br.com.ragro.repository.AddressRepository;
 import br.com.ragro.repository.CartRepository;
@@ -27,7 +29,9 @@ import br.com.ragro.repository.CustomerRepository;
 import br.com.ragro.repository.OrderRepository;
 import br.com.ragro.repository.OrderStatusHistoryRepository;
 import br.com.ragro.repository.PaymentMethodRepository;
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -125,6 +129,14 @@ public class OrderService {
     }
 
     order.setStatus(OrderStatus.CANCELLED);
+
+    order.getItems().forEach(item -> {
+      stockMovementService.registerCancelledSale(
+          item.getProduct(), 
+          item.getQuantity(), 
+          "Pedido cancelado"
+      );
+    });
 
     OrderStatusHistory history = new OrderStatusHistory();
     history.setOrder(order);
@@ -261,5 +273,81 @@ public class OrderService {
         .latitude(address.getLatitude())
         .longitude(address.getLongitude())
         .build();
+  }
+
+  @Transactional
+  public CartResponse repeatOrder(UUID orderId, Jwt jwt) {
+    User user = userService.getAuthenticatedUser(jwt);
+    if (user.getType() != TypeUser.CUSTOMER) {
+      throw new ForbiddenException("Apenas consumidores podem repetir pedidos");
+    }
+
+    Customer customer = customerRepository.findById(user.getId())
+        .orElseThrow(() -> new NotFoundException("Dados do consumidor não encontrados"));
+
+    Order order = orderRepository.findById(orderId)
+        .orElseThrow(() -> new NotFoundException("Pedido não encontrado"));
+
+    if (!order.getCustomer().getId().equals(user.getId())) {
+      throw new ForbiddenException("Você não tem permissão para repetir este pedido");
+    }
+
+    Cart cart = cartRepository.findByCustomerIdAndActiveTrue(customer.getId())
+        .orElse(null);
+
+    if (cart != null && !cart.getFarmer().getId().equals(order.getFarmer().getId())) {
+      cartService.clearCart(customer);
+      cartRepository.flush();
+      cart = null;
+    }
+
+    if (cart == null) {
+      cart = new Cart();
+      cart.setCustomer(customer);
+      cart.setFarmer(order.getFarmer());
+      cart.setActive(true);
+    }
+
+    for (OrderItem orderItem : order.getItems()) {
+      Product product = orderItem.getProduct();
+      if (product.isActive() && product.getStockQuantity().compareTo(BigDecimal.ZERO) > 0) {
+        BigDecimal quantityToAdd = orderItem.getQuantity();
+        BigDecimal currentQuantityInCart = BigDecimal.ZERO;
+
+        Optional<CartItem> existingItemOpt = cart.getItems().stream()
+            .filter(item -> item.isActive() && item.getProduct().getId().equals(product.getId()))
+            .findFirst();
+
+        if (existingItemOpt.isPresent()) {
+          currentQuantityInCart = existingItemOpt.get().getQuantity();
+        }
+
+        BigDecimal targetTotalQuantity = currentQuantityInCart.add(quantityToAdd);
+        if (targetTotalQuantity.compareTo(product.getStockQuantity()) > 0) {
+          quantityToAdd = product.getStockQuantity().subtract(currentQuantityInCart);
+        }
+
+        if (quantityToAdd.compareTo(BigDecimal.ZERO) > 0) {
+          if (existingItemOpt.isPresent()) {
+            CartItem existingItem = existingItemOpt.get();
+            existingItem.setQuantity(existingItem.getQuantity().add(quantityToAdd));
+          } else {
+            CartItem newItem = new CartItem();
+            newItem.setCart(cart);
+            newItem.setProduct(product);
+            newItem.setQuantity(quantityToAdd);
+            newItem.setActive(true);
+            cart.getItems().add(newItem);
+          }
+        }
+      }
+    }
+
+    if (cart.getItems().isEmpty() || cart.getItems().stream().noneMatch(CartItem::isActive)) {
+      throw new BusinessException("Nenhum item do pedido está disponível em estoque no momento");
+    }
+
+    Cart savedCart = cartRepository.saveAndFlush(cart);
+    return CartMapper.toResponse(savedCart);
   }
 }

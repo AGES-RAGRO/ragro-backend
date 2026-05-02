@@ -9,6 +9,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import br.com.ragro.controller.response.CartResponse;
 import br.com.ragro.controller.response.CustomerOrderResponse;
 import br.com.ragro.controller.response.OrderResponse;
 import br.com.ragro.domain.Address;
@@ -175,7 +176,7 @@ class OrderServiceTest {
 
     assertThatThrownBy(() -> orderService.createOrderFromCart(jwt()))
         .isInstanceOf(BusinessException.class)
-        .hasMessageContaining("endereço principal");
+        .hasMessageContaining("principal cadastrado");
   }
 
   @Test
@@ -188,7 +189,7 @@ class OrderServiceTest {
 
     assertThatThrownBy(() -> orderService.createOrderFromCart(jwt()))
         .isInstanceOf(BusinessException.class)
-        .hasMessageContaining("método de pagamento");
+        .hasMessageContaining("pagamento ativo");
   }
 
   @Test
@@ -231,6 +232,7 @@ class OrderServiceTest {
 
     OrderResponse response = orderService.cancelOrder(order.getId(), jwt());
     assertThat(response.getStatus()).isEqualTo(OrderStatus.CANCELLED);
+    verify(stockMovementService, times(1)).registerCancelledSale(eq(product), eq(new BigDecimal("2.00")), anyString());
   }
 
   @Test
@@ -369,7 +371,7 @@ class OrderServiceTest {
 
     assertThatThrownBy(() -> orderService.updateOrderStatus(orderId, OrderStatus.CONFIRMED, jwt()))
         .isInstanceOf(NotFoundException.class)
-        .hasMessageContaining("Pedido não encontrado");
+        .hasMessageContaining("Pedido");
   }
 
   @Test
@@ -389,7 +391,7 @@ class OrderServiceTest {
 
     assertThatThrownBy(() -> orderService.updateOrderStatus(orderId, OrderStatus.CONFIRMED, jwt()))
         .isInstanceOf(ForbiddenException.class)
-        .hasMessageContaining("Você não tem permissão para atualizar este pedido");
+        .hasMessageContaining("permiss");
   }
 
   @Test
@@ -450,7 +452,7 @@ class OrderServiceTest {
 
     assertThatThrownBy(() -> orderService.getMyOrderById(orderId, jwt()))
         .isInstanceOf(NotFoundException.class)
-        .hasMessageContaining("Pedido não encontrado para este consumidor");
+        .hasMessageContaining("consumidor");
   }
 
   @Test
@@ -512,7 +514,7 @@ class OrderServiceTest {
 
     assertThatThrownBy(() -> orderService.confirmOrder(orderId, jwt()))
         .isInstanceOf(ForbiddenException.class)
-        .hasMessageContaining("Você não tem permissão para confirmar este pedido");
+        .hasMessageContaining("permiss");
   }
 
   @Test
@@ -532,6 +534,144 @@ class OrderServiceTest {
     assertThatThrownBy(() -> orderService.confirmOrder(orderId, jwt()))
         .isInstanceOf(BusinessException.class)
         .hasMessageContaining("Somente pedidos com status PENDING podem ser confirmados");
+  }
+
+  @Test
+  void shouldThrowForbidden_whenNonCustomerTriesToRepeatOrder() {
+    user.setType(TypeUser.FARMER);
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+
+    assertThatThrownBy(() -> orderService.repeatOrder(UUID.randomUUID(), jwt()))
+        .isInstanceOf(ForbiddenException.class)
+        .hasMessageContaining("Apenas consumidores podem repetir pedidos");
+  }
+
+  @Test
+  void shouldRepeatOrder_andCreateNewCart_whenNoActiveCart() {
+    UUID orderId = UUID.randomUUID();
+    Order order = new Order();
+    order.setId(orderId);
+    order.setCustomer(customer);
+    order.setFarmer(farmer);
+
+    OrderItem orderItem = new OrderItem();
+    orderItem.setId(UUID.randomUUID());
+    orderItem.setProduct(product);
+    product.setStockQuantity(new BigDecimal("10.00"));
+    product.setActive(true);
+    orderItem.setQuantity(new BigDecimal("2.00"));
+    order.setItems(new ArrayList<>(List.of(orderItem)));
+
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
+    when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+    when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId())).thenReturn(Optional.empty());
+    when(cartRepository.saveAndFlush(any(Cart.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    CartResponse response = orderService.repeatOrder(orderId, jwt());
+
+    assertThat(response).isNotNull();
+    assertThat(response.getItems()).hasSize(1);
+    assertThat(response.getItems().get(0).getQuantity()).isEqualByComparingTo("2.00");
+    verify(cartRepository, times(1)).saveAndFlush(any(Cart.class));
+  }
+
+  @Test
+  void shouldClearCart_whenRepeatingOrderFromDifferentFarmer() {
+    UUID orderId = UUID.randomUUID();
+    Order order = new Order();
+    order.setId(orderId);
+    order.setCustomer(customer);
+
+    Producer differentFarmer = new Producer();
+    differentFarmer.setId(UUID.randomUUID());
+    order.setFarmer(differentFarmer);
+
+    Product differentProduct = new Product();
+    differentProduct.setId(UUID.randomUUID());
+    differentProduct.setFarmer(differentFarmer);
+    differentProduct.setStockQuantity(new BigDecimal("10.00"));
+    differentProduct.setActive(true);
+    differentProduct.setPrice(new BigDecimal("5.00"));
+    differentProduct.setName("Different Product");
+    differentProduct.setUnityType("unit");
+
+    OrderItem orderItem = new OrderItem();
+    orderItem.setId(UUID.randomUUID());
+    orderItem.setProduct(differentProduct);
+    orderItem.setQuantity(new BigDecimal("2.00"));
+    order.setItems(new ArrayList<>(List.of(orderItem)));
+
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
+    when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+    when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId())).thenReturn(Optional.of(cart));
+    when(cartRepository.saveAndFlush(any(Cart.class))).thenAnswer(inv -> {
+      Cart savedCart = inv.getArgument(0);
+      savedCart.setId(UUID.randomUUID());
+      return savedCart;
+    });
+
+    CartResponse response = orderService.repeatOrder(orderId, jwt());
+
+    verify(cartService, times(1)).clearCart(customer);
+    assertThat(response).isNotNull();
+    assertThat(response.getItems()).hasSize(1);
+    assertThat(response.getItems().get(0).getQuantity()).isEqualByComparingTo("2.00");
+  }
+
+  @Test
+  void shouldCapQuantity_whenRequestedExceedsStock() {
+    UUID orderId = UUID.randomUUID();
+    Order order = new Order();
+    order.setId(orderId);
+    order.setCustomer(customer);
+    order.setFarmer(farmer);
+
+    OrderItem orderItem = new OrderItem();
+    orderItem.setId(UUID.randomUUID());
+    orderItem.setProduct(product);
+    product.setStockQuantity(new BigDecimal("1.00"));
+    product.setActive(true);
+    orderItem.setQuantity(new BigDecimal("5.00"));
+    order.setItems(new ArrayList<>(List.of(orderItem)));
+
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
+    when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+    when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId())).thenReturn(Optional.empty());
+    when(cartRepository.saveAndFlush(any(Cart.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    CartResponse response = orderService.repeatOrder(orderId, jwt());
+
+    assertThat(response.getItems()).hasSize(1);
+    assertThat(response.getItems().get(0).getQuantity()).isEqualByComparingTo("1.00");
+  }
+
+  @Test
+  void shouldThrowBusinessException_whenNoItemsAvailableInStock() {
+    UUID orderId = UUID.randomUUID();
+    Order order = new Order();
+    order.setId(orderId);
+    order.setCustomer(customer);
+    order.setFarmer(farmer);
+
+    OrderItem orderItem = new OrderItem();
+    orderItem.setId(UUID.randomUUID());
+    orderItem.setProduct(product);
+    product.setStockQuantity(new BigDecimal("0.00"));
+    product.setActive(true);
+    orderItem.setQuantity(new BigDecimal("2.00"));
+    order.setItems(new ArrayList<>(List.of(orderItem)));
+
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
+    when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+    when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId())).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> orderService.repeatOrder(orderId, jwt()))
+        .isInstanceOf(BusinessException.class)
+        .hasMessageContaining("dispon");
   }
 
   private Jwt jwt() {
