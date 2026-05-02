@@ -69,6 +69,7 @@ public class OrderMapper {
     }
 
     return CustomerOrderResponse.builder()
+        .id(order.getId())
         .price(totalAmount)
         .producerName(order.getFarmer().getUser().getName())
         .producerPicture(producerPicture)
