@@ -262,7 +262,8 @@ class CartServiceTest {
 
     assertThat(response.getItems()).hasSize(1);
     assertThat(response.getItems().get(0).getId()).isEqualTo(remainingItemId);
-    verify(cartItemRepository).save(itemToRemove);
+    verify(cartItemRepository).delete(itemToRemove);
+    verify(cartItemRepository, never()).save(itemToRemove);
     verify(cartRepository).saveAndFlush(cart);
     verify(cartRepository, never()).delete(any(Cart.class));
   }
@@ -293,7 +294,8 @@ class CartServiceTest {
     CartResponse response = cartService.removeItem(jwt(), itemIdToRemove);
 
     assertThat(response.getItems()).isEmpty();
-    verify(cartItemRepository).save(itemToRemove);
+    verify(cartItemRepository).delete(itemToRemove);
+    verify(cartItemRepository, never()).save(itemToRemove);
     verify(cartRepository).delete(cart);
     verify(cartRepository).flush();
     verify(cartRepository, never()).saveAndFlush(any(Cart.class));
