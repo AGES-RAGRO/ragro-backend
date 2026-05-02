@@ -133,22 +133,6 @@ public class OrderService {
   }
 
   @Transactional(readOnly = true)
-  public CustomerOrderResponse getMyOrderById(UUID orderId, Jwt jwt) {
-    User user = userService.getAuthenticatedUser(jwt);
-    if (user.getType() != TypeUser.CUSTOMER) {
-      throw new ForbiddenException("Apenas consumidores podem visualizar seus pedidos");
-    }
-
-    customerRepository.findById(user.getId())
-        .orElseThrow(() -> new NotFoundException("Dados do consumidor não encontrados"));
-
-    Order order = orderRepository.findByIdAndCustomerId(orderId, user.getId())
-        .orElseThrow(() -> new NotFoundException("Pedido não encontrado para este consumidor"));
-
-    return OrderMapper.toCustomerOrderResponse(order);
-  }
-
-  @Transactional(readOnly = true)
   public List<CustomerOrderResponse> getMyOrders(Jwt jwt) {
     User user = userService.getAuthenticatedUser(jwt);
     if (user.getType() != TypeUser.CUSTOMER) {
