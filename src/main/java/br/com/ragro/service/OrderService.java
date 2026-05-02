@@ -123,6 +123,33 @@ public class OrderService {
     return OrderMapper.toResponse(savedOrder);
   }
 
+  @Transactional(readOnly = true)
+  public List<CustomerOrderResponse> getMyOrders(Jwt jwt) {
+    User user = userService.getAuthenticatedUser(jwt);
+    if (user.getType() != TypeUser.CUSTOMER) {
+      throw new ForbiddenException("Apenas consumidores podem visualizar seus pedidos");
+    }
+
+    customerRepository.findById(user.getId())
+        .orElseThrow(() -> new NotFoundException("Dados do consumidor não encontrados"));
+
+    return orderRepository.findByCustomerIdOrderByCreatedAtDesc(user.getId()).stream()
+        .map(OrderMapper::toCustomerOrderResponse)
+        .toList();
+  }
+
+  @Transactional(readOnly = true)
+  public List<OrderResponse> getProducerOrders(Jwt jwt) {
+    User user = userService.getAuthenticatedUser(jwt);
+    if (user.getType() != TypeUser.FARMER) {
+      throw new ForbiddenException("Apenas produtores podem visualizar pedidos recebidos");
+    }
+
+    return orderRepository.findByFarmerIdOrderByCreatedAtDesc(user.getId()).stream()
+        .map(OrderMapper::toResponse)
+        .toList();
+  }
+
   private Address getDeliveryAddress(Customer customer) {
     return addressRepository.findByUserIdAndIsPrimaryTrue(customer.getId())
         .orElseThrow(() -> new BusinessException("Nenhum endereço principal cadastrado para o cliente"));
