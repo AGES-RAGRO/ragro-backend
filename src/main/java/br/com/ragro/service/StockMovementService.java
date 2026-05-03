@@ -111,6 +111,20 @@ public class StockMovementService {
     stockMovementRepository.saveAndFlush(movement);
   }
 
+  @Transactional
+  public void registerCancelledSale(Product product, BigDecimal quantity, String notes) {
+    product.setStockQuantity(product.getStockQuantity().add(quantity));
+    productRepository.saveAndFlush(product);
+
+    StockMovement movement = new StockMovement();
+    movement.setProduct(product);
+    movement.setType(StockMovementType.ENTRY);
+    movement.setReason(StockMovementReason.CANCELED_SALE);
+    movement.setQuantity(quantity);
+    movement.setNotes(notes);
+    stockMovementRepository.saveAndFlush(movement);
+  }
+
   private StockMovementResponse toResponse(StockMovement movement) {
     return StockMovementResponse.builder()
         .id(movement.getId())

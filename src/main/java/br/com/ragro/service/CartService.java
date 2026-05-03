@@ -204,11 +204,10 @@ public class CartService {
 
     CartItem item = cartItemRepository.findByCartIdAndIdAndActiveTrue(cart.getId(), itemId)
             .orElseThrow(() -> new NotFoundException("Item do carrinho não encontrado"));
-    item.setActive(false);
-    cartItemRepository.save(item);
+    cart.getItems().remove(item);
+    cartItemRepository.delete(item);
 
-    boolean hasActiveItems = cart.getItems().stream()
-            .anyMatch(cartItem -> !cartItem.getId().equals(itemId) && cartItem.isActive());
+    boolean hasActiveItems = cart.getItems().stream().anyMatch(CartItem::isActive);
 
     if (!hasActiveItems) {
       cart.setActive(false);

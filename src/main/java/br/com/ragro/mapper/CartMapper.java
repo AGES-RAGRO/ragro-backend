@@ -37,6 +37,7 @@ public class CartMapper {
         .productId(item.getProduct().getId())
         .productName(item.getProduct().getName())
         .unitPrice(item.getProduct().getPrice())
+        .unityType(item.getProduct().getUnityType())
         .imageS3(item.getProduct().getImageS3())
         .quantity(item.getQuantity())
         .subtotal(subtotal)
