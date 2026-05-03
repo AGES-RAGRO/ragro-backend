@@ -36,7 +36,7 @@ public class Review {
     private Producer farmer;
 
     @Column(name = "rating", nullable = false)
-    private Integer rating;
+    private Short rating;
 
     @Column(name = "comment", columnDefinition = "text")
     private String comment;

@@ -12,7 +12,7 @@ public class ReviewMapper {
         
         return new ReviewResponse(
             review.getId(),
-            review.getRating(),
+            review.getRating() != null ? review.getRating().intValue() : null,
             review.getComment(),
             review.getOrder().getId(),
             review.getFarmer().getId(),

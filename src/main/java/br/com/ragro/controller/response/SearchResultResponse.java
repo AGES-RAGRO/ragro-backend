@@ -35,6 +35,12 @@ public class SearchResultResponse {
   @Schema(description = "Main result image URL or S3 key")
   private String imageUrl;
 
+  @Schema(description = "Producer identifier related to the search result")
+  private UUID producerId;
+
+  @Schema(description = "Farmer identifier related to the search result")
+  private UUID farmerId;
+
   @Schema(description = "Product price when the result is a product", example = "12.90")
   private BigDecimal price;
 
