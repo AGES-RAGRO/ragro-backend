@@ -49,10 +49,14 @@ class SearchServiceTest {
     assertThat(response.get(0).getName()).isEqualTo("Tomate Cereja");
     assertThat(response.get(0).getSubtitle()).isEqualTo("Sítio Boa Colheita");
     assertThat(response.get(0).getCategory()).isEqualTo("Horta");
+    assertThat(response.get(0).getProducerId()).isEqualTo(product.getFarmer().getId());
+    assertThat(response.get(0).getFarmerId()).isEqualTo(product.getFarmer().getId());
     assertThat(response.get(1).getType()).isEqualTo("producer");
     assertThat(response.get(1).getName()).isEqualTo("Sítio Boa Colheita");
     assertThat(response.get(1).getSubtitle()).isEqualTo("Mariana Alves");
     assertThat(response.get(1).getReviewCount()).isEqualTo(24);
+    assertThat(response.get(1).getProducerId()).isEqualTo(producer.getId());
+    assertThat(response.get(1).getFarmerId()).isEqualTo(producer.getId());
   }
 
   @Test
