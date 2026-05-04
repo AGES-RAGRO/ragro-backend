@@ -26,16 +26,19 @@ public class CustomerService {
   private final UserRepository userRepository;
   private final AddressRepository addressRepository;
   private final CustomerRepository customerRepository;
+  private final GeocodingService geocodingService;
 
   public CustomerService(
       UserService userService,
       UserRepository userRepository,
       AddressRepository addressRepository,
-      CustomerRepository customerRepository) {
+      CustomerRepository customerRepository,
+      GeocodingService geocodingService) {
     this.userService = userService;
     this.userRepository = userRepository;
     this.addressRepository = addressRepository;
     this.customerRepository = customerRepository;
+    this.geocodingService = geocodingService;
   }
 
   @Transactional(readOnly = true)
@@ -73,6 +76,7 @@ public class CustomerService {
                 });
     AddressMapper.applyRequest(primary, request.getAddress());
     addressRepository.save(primary);
+    geocodingService.geocodeAndPersist(primary, addressRepository);
 
     User refreshed =
         userRepository

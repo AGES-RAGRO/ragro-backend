@@ -28,16 +28,19 @@ public class CustomerRegistrationService {
   private final CustomerRepository customerRepository;
   private final AddressRepository addressRepository;
   private final IdentityProviderService identityProviderService;
+  private final GeocodingService geocodingService;
 
   public CustomerRegistrationService(
       UserRepository userRepository,
       CustomerRepository customerRepository,
       AddressRepository addressRepository,
-      IdentityProviderService identityProviderService) {
+      IdentityProviderService identityProviderService,
+      GeocodingService geocodingService) {
     this.userRepository = userRepository;
     this.customerRepository = customerRepository;
     this.addressRepository = addressRepository;
     this.identityProviderService = identityProviderService;
+    this.geocodingService = geocodingService;
   }
 
   @Transactional
@@ -68,6 +71,7 @@ public class CustomerRegistrationService {
 
       Address address = AddressMapper.toEntity(normalizedAddress, savedUser, true);
       savedAddress = addressRepository.save(address);
+      geocodingService.geocodeAndPersist(savedAddress, addressRepository);
     } catch (Exception original) {
       try {
         identityProviderService.deleteUser(externalUserId);

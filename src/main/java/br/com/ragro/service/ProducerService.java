@@ -54,6 +54,7 @@ public class ProducerService {
   private final UserService userService;
   private final MinioStorageService minioStorageService;
   private final ProducerMapper producerMapper;
+  private final GeocodingService geocodingService;
 
   public ProducerResponse getProducerById(UUID id) {
     var producer =
@@ -201,6 +202,7 @@ public class ProducerService {
                   });
       AddressMapper.applyRequest(primaryAddress, request.getAddress());
       addressRepository.save(primaryAddress);
+      geocodingService.geocodeAndPersist(primaryAddress, addressRepository);
     } else {
       primaryAddress = addressRepository.findByUserIdAndIsPrimaryTrue(id).orElse(null);
     }
