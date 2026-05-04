@@ -29,7 +29,11 @@ public class AddressRequest {
   @Schema(description = "Complementary address info (apt, suite, etc.)", example = "Apto 42")
   private String complement;
 
-  @Schema(description = "Neighborhood", example = "Centro")
+  @NotBlank(message = "Neighborhood is required")
+  @Schema(
+      description = "Neighborhood",
+      example = "Centro",
+      requiredMode = Schema.RequiredMode.REQUIRED)
   private String neighborhood;
 
   @NotBlank(message = "City is required")
