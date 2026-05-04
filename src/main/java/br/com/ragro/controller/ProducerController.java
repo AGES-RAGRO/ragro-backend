@@ -2,27 +2,20 @@ package br.com.ragro.controller;
 
 import br.com.ragro.controller.request.ProducerFilter;
 import br.com.ragro.controller.request.ProducerUpdateRequest;
-import br.com.ragro.controller.request.StockExitRequest;
-import br.com.ragro.controller.request.StockMovementFilter;
 import br.com.ragro.controller.response.MarketplaceProducerResponse;
 import br.com.ragro.controller.response.PaginatedResponse;
 import br.com.ragro.controller.response.ProducerGetResponse;
 import br.com.ragro.controller.response.ProducerPublicProfileResponse;
 import br.com.ragro.controller.response.ProductResponse;
-import br.com.ragro.controller.response.StockMovementResponse;
 import br.com.ragro.service.ProducerService;
 import br.com.ragro.service.ProductService;
-import br.com.ragro.service.StockMovementService;
-import br.com.ragro.service.StockService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springdoc.core.annotations.ParameterObject;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -39,8 +32,6 @@ public class ProducerController {
 
   private final ProducerService producerService;
   private final ProductService productService;
-  private final StockMovementService stockMovementService;
-  private final StockService stockService;
 
   @GetMapping
   @PreAuthorize("hasRole('CUSTOMER')")
@@ -103,36 +94,6 @@ public class ProducerController {
         productService.getActiveProductByProducerIdAndProductId(producerId, productId));
   }
 
-  @GetMapping("/stock/{productId}/movements")
-  @PreAuthorize("hasRole('FARMER')")
-  @Operation(
-      summary = "Get product movement history",
-      description = "Returns a paginated history of stock movements for a product owned by the authenticated farmer.")
-  public ResponseEntity<PaginatedResponse<StockMovementResponse>> getProductMovements(
-      @PathVariable UUID productId,
-      @RequestParam(defaultValue = "0") int page,
-      @RequestParam(defaultValue = "10") int size,
-      @AuthenticationPrincipal Jwt jwt) {
-    return ResponseEntity.ok(
-        PaginatedResponse.of(stockService.getProductMovements(productId, page, size, jwt)));
-  }
-
-  @GetMapping("/stock/movements")
-  @PreAuthorize("hasRole('FARMER')")
-  @Operation(
-      summary = "List stock movements of the authenticated producer",
-      description =
-          "Returns a paginated list of stock movements for the authenticated producer. "
-              + "Filters: productId, reason, type, from, to. Ordered by createdAt desc.")
-  public ResponseEntity<PaginatedResponse<StockMovementResponse>> getStockMovements(
-      @AuthenticationPrincipal Jwt jwt,
-      @ParameterObject @ModelAttribute StockMovementFilter filter,
-      @RequestParam(defaultValue = "0") int page,
-      @RequestParam(defaultValue = "20") int size) {
-    return ResponseEntity.ok(
-        stockMovementService.getProducerStockMovements(jwt, filter, PageRequest.of(page, size)));
-  }
-
   @PutMapping("/{id}")
   @PreAuthorize("hasAnyRole('FARMER', 'ADMIN')")
   @Operation(
@@ -144,19 +105,6 @@ public class ProducerController {
       @AuthenticationPrincipal Jwt jwt,
       @Valid @RequestBody ProducerUpdateRequest request) {
     return ResponseEntity.ok(producerService.updateProducerProfile(id, jwt, request));
-  }
-
-  @PostMapping("/stock/exit")
-  @PreAuthorize("hasRole('FARMER')")
-  @Operation(
-      summary = "Register stock exit",
-      description =
-          "Registers a stock exit (sale, loss, disposal) for a product owned by the authenticated"
-              + " farmer. Blocks the operation if stock would go negative.")
-  public ResponseEntity<StockMovementResponse> registerStockExit(
-      @Valid @RequestBody StockExitRequest request, @AuthenticationPrincipal Jwt jwt) {
-    return ResponseEntity.status(HttpStatus.CREATED)
-        .body(stockMovementService.registerExit(request, jwt));
   }
 
   @PostMapping(value = "/{id}/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
