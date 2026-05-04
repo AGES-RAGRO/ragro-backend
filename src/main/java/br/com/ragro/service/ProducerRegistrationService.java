@@ -39,6 +39,7 @@ public class ProducerRegistrationService {
     private final FarmerAvailabilityRepository availabilityRepository;
     private final PaymentMethodRepository paymentMethodRepository;
     private final ProducerMapper producerMapper;
+    private final GeocodingService geocodingService;
 
     public ProducerRegistrationService(
             UserRepository userRepository,
@@ -47,7 +48,8 @@ public class ProducerRegistrationService {
             AddressRepository addressRepository,
             FarmerAvailabilityRepository availabilityRepository,
             PaymentMethodRepository paymentMethodRepository,
-            ProducerMapper producerMapper) {
+            ProducerMapper producerMapper,
+            GeocodingService geocodingService) {
         this.userRepository = userRepository;
         this.producerRepository = producerRepository;
         this.identityProviderService = identityProviderService;
@@ -55,6 +57,7 @@ public class ProducerRegistrationService {
         this.availabilityRepository = availabilityRepository;
         this.paymentMethodRepository = paymentMethodRepository;
         this.producerMapper = producerMapper;
+        this.geocodingService = geocodingService;
     }
 
     @Transactional
@@ -80,7 +83,8 @@ public class ProducerRegistrationService {
             User savedUser = userRepository.saveAndFlush(user);
 
             Address address = AddressMapper.toEntity(request.getAddress(), savedUser, true);
-            addressRepository.save(address);
+            Address savedAddress = addressRepository.save(address);
+            geocodingService.geocodeAndPersist(savedAddress, addressRepository);
 
             Producer savedProducer = producerRepository.saveAndFlush(
                     producerMapper.toEntity(savedUser, request, normalizedFiscalNumber)
