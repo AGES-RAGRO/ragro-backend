@@ -1,6 +1,13 @@
 {
   "realm": "ragro",
   "enabled": true,
+  "loginTheme": "ragro",
+  "internationalizationEnabled": true,
+  "supportedLocales": [
+    "pt-BR",
+    "en"
+  ],
+  "defaultLocale": "pt-BR",
   "registrationAllowed": false,
   "loginWithEmailAllowed": true,
   "registrationEmailAsUsername": true,
