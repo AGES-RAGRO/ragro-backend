@@ -4,8 +4,7 @@
   "loginTheme": "ragro",
   "internationalizationEnabled": true,
   "supportedLocales": [
-    "pt-BR",
-    "en"
+    "pt-BR"
   ],
   "defaultLocale": "pt-BR",
   "registrationAllowed": false,
@@ -58,9 +57,15 @@
     }
   ],
   "groups": [
-    { "name": "ADMIN" },
-    { "name": "CUSTOMER" },
-    { "name": "FARMER" }
+    {
+      "name": "ADMIN"
+    },
+    {
+      "name": "CUSTOMER"
+    },
+    {
+      "name": "FARMER"
+    }
   ],
   "clients": [
     {
@@ -72,8 +77,12 @@
       "implicitFlowEnabled": false,
       "serviceAccountsEnabled": false,
       "fullScopeAllowed": true,
-      "redirectUris": ["*"],
-      "webOrigins": ["*"],
+      "redirectUris": [
+        "*"
+      ],
+      "webOrigins": [
+        "*"
+      ],
       "attributes": {
         "access.token.lifespan": "3600"
       },
@@ -111,7 +120,9 @@
           "temporary": false
         }
       ],
-      "groups": ["ADMIN"]
+      "groups": [
+        "ADMIN"
+      ]
     },
     {
       "id": "10000000-0000-0000-0000-000000000002",
@@ -128,7 +139,9 @@
           "temporary": false
         }
       ],
-      "groups": ["CUSTOMER"]
+      "groups": [
+        "CUSTOMER"
+      ]
     },
     {
       "id": "10000000-0000-0000-0000-000000000003",
@@ -145,7 +158,9 @@
           "temporary": false
         }
       ],
-      "groups": ["FARMER"]
+      "groups": [
+        "FARMER"
+      ]
     }
   ]
 }
