@@ -1,6 +1,7 @@
 package br.com.ragro.domain;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -27,24 +28,30 @@ public class Address {
   @JoinColumn(name = "user_id", nullable = false)
   private User user;
 
+  @NotBlank
   @Column(name = "street", nullable = false, length = 200)
   private String street;
 
+  @NotBlank
   @Column(name = "number", nullable = false, length = 10)
   private String number;
 
   @Column(name = "complement", length = 100)
   private String complement;
 
-  @Column(name = "neighborhood", length = 100)
+  @NotBlank
+  @Column(name = "neighborhood", nullable = false, length = 100)
   private String neighborhood;
 
+  @NotBlank
   @Column(name = "city", nullable = false, length = 100)
   private String city;
 
+  @NotBlank
   @Column(name = "state", nullable = false, length = 2)
   private String state;
 
+  @NotBlank
   @Column(name = "zip_code", nullable = false, length = 8)
   private String zipCode;
 
