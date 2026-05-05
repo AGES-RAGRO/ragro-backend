@@ -1,0 +1,195 @@
+@import url('https://fonts.googleapis.com/css2?family=Figtree:wght@300;400;600;700&display=swap');
+
+/* Reset and Body Background - Dark Green Gradient Style */
+html,
+body {
+    height: 100%;
+    background: linear-gradient(135deg, #1A432C 0%, #133221 100%) !important;
+    background-attachment: fixed !important;
+    font-family: 'Figtree', sans-serif !important;
+    margin: 0;
+}
+
+body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Background for new Keycloak versions */
+.pf-c-login,
+.login-pf-page,
+#viewport,
+.pf-c-page {
+    background: transparent !important;
+    background-image: none !important;
+}
+
+.pf-c-login::before {
+    display: none !important;
+}
+
+/* Hide default header text and logo wrappers */
+#kc-header,
+#kc-header-wrapper,
+.pf-c-login__header,
+.pf-c-login__header-text {
+    display: none !important;
+}
+
+/* Card Styling - White Card on Green Background */
+.login-pf-page .card-pf,
+.pf-c-login__main {
+    background-color: #FFFFFF !important;
+    border-radius: 28px !important;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3) !important;
+    border: none !important;
+    padding: 120px 48px 48px 48px !important;
+    max-width: 440px !important;
+    width: 100% !important;
+    position: relative !important;
+    margin: 20px !important;
+}
+
+/* Logo Styling inside the card */
+.pf-c-login__main::before,
+.card-pf::before {
+    content: "" !important;
+    position: absolute !important;
+    top: 30px !important;
+    left: 0 !important;
+    right: 0 !important;
+    height: 85px !important;
+    background-image: url('../img/logo_ragro.svg') !important;
+    background-repeat: no-repeat !important;
+    background-position: center !important;
+    background-size: contain !important;
+    display: block !important;
+    z-index: 10 !important;
+}
+
+/* Form Controls - Pill Shape */
+.form-control,
+.pf-c-form-control {
+    background-color: #F8FAFC !important;
+    border: 1px solid rgba(46, 87, 41, 0.1) !important;
+    border-radius: 50px !important;
+    padding: 14px 24px !important;
+    height: auto !important;
+    font-size: 16px !important;
+    color: #1E1E1E !important;
+    transition: all 0.2s ease !important;
+}
+
+.form-control:focus,
+.pf-c-form-control:focus {
+    border-color: #008148 !important;
+    box-shadow: 0 0 0 4px rgba(0, 129, 72, 0.08) !important;
+    background-color: #FFFFFF !important;
+    outline: none !important;
+}
+
+/* Labels */
+label,
+.pf-c-form__label-text {
+    font-weight: 600 !important;
+    color: #475569 !important;
+    margin-bottom: 8px !important;
+    display: inline-block !important;
+    font-size: 14px !important;
+}
+
+/* Buttons - Pill Shape */
+.btn-primary,
+.pf-c-button.pf-m-primary {
+    background: linear-gradient(135deg, #1A432C 0%, #133221 100%) !important;
+    border: none !important;
+    border-radius: 50px !important;
+    padding: 16px !important;
+    font-weight: 700 !important;
+    font-size: 16px !important;
+    text-transform: none !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    color: #FFF5E6 !important;
+    width: 100% !important;
+    margin-top: 10px !important;
+    cursor: pointer !important;
+}
+
+.btn-primary:hover,
+.pf-c-button.pf-m-primary:hover {
+    background: #008148 !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Links */
+#kc-registration a,
+.pf-c-button.pf-m-link,
+.login-pf-settings a {
+    color: #008148 !important;
+    font-weight: 600 !important;
+    text-decoration: none !important;
+}
+
+#kc-registration a:hover,
+.pf-c-button.pf-m-link:hover {
+    text-decoration: underline !important;
+}
+
+/* Alerts and Messages - Hidden for cleaner UI */
+.alert,
+.pf-c-alert {
+    display: none !important;
+}
+
+#kc-content-wrapper {
+    margin-top: 0 !important;
+}
+
+#kc-info {
+    border: none !important;
+    background-color: transparent !important;
+    padding-top: 10px !important;
+}
+
+/* Password Visibility Toggle */
+.pf-c-input-group__button,
+.pf-c-button.pf-m-control {
+    background-color: #475569 !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 15px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 50px !important;
+    cursor: pointer !important;
+    
+    -webkit-mask-image: url('../img/eye-off.svg');
+    mask-image: url('../img/eye-off.svg');
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+    -webkit-mask-size: 24px;
+    mask-size: 24px;
+}
+
+.pf-c-button.pf-m-control[aria-label*="Hide"],
+.pf-c-button.pf-m-control[aria-label*="Ocultar"],
+.pf-c-button.pf-m-control[aria-label*="Esconder"] {
+    -webkit-mask-image: url('../img/eye.svg') !important;
+    mask-image: url('../img/eye.svg') !important;
+}
+
+.pf-c-button.pf-m-control:hover {
+    background-color: #008148 !important;
+}
+
+/* Hide original icons */
+.pf-c-button.pf-m-control svg,
+.pf-c-button.pf-m-control i,
+.pf-c-button.pf-m-control .pf-c-button__icon {
+    display: none !important;
+}
