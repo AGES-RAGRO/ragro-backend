@@ -30,11 +30,13 @@ import br.com.ragro.exception.BusinessException;
 import br.com.ragro.exception.ForbiddenException;
 import br.com.ragro.exception.NotFoundException;
 import br.com.ragro.mapper.ProducerMapper;
+import br.com.ragro.mapper.ReviewMapper;
 import br.com.ragro.repository.AddressRepository;
 import br.com.ragro.repository.FarmerAvailabilityRepository;
 import br.com.ragro.repository.PaymentMethodRepository;
 import br.com.ragro.repository.ProducerProfileRepository;
 import br.com.ragro.repository.ProducerRepository;
+import br.com.ragro.repository.ReviewRepository;
 import br.com.ragro.repository.UserRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -66,6 +68,8 @@ class ProducerServiceTest {
   @Mock private PaymentMethodRepository paymentMethodRepository;
   @Mock private UserService userService;
   @Mock private MinioStorageService minioStorageService;
+  @Mock private ReviewRepository reviewRepository;
+  @Mock private ReviewMapper reviewMapper;
 
   private ProducerService producerService;
 
@@ -82,7 +86,9 @@ class ProducerServiceTest {
             paymentMethodRepository,
             userService,
             minioStorageService,
-            producerMapper);
+            producerMapper,
+            reviewRepository,
+            reviewMapper);
   }
 
   // ─── getAllProducers ─────────────────────────────────────────────────────────

@@ -340,4 +340,70 @@ class AdminControllerProducerRegistrationTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
     }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void registerProducer_shouldReturn201_whenMultipleAvailabilityDaysAreProvided() throws Exception {
+        UUID id = UUID.randomUUID();
+        ProducerRegistrationRequest request = validRequest();
+        
+        // Criar disponibilidade para segunda a sábado (1 a 6)
+        List<AvailabilityRequest> multipleDays = new java.util.ArrayList<>();
+        
+        // Segunda-feira: 08:00 - 18:00
+        AvailabilityRequest monday = new AvailabilityRequest();
+        monday.setWeekday((short) 1);
+        monday.setOpensAt("08:00");
+        monday.setClosesAt("18:00");
+        multipleDays.add(monday);
+        
+        // Terça-feira: 08:00 - 18:00
+        AvailabilityRequest tuesday = new AvailabilityRequest();
+        tuesday.setWeekday((short) 2);
+        tuesday.setOpensAt("08:00");
+        tuesday.setClosesAt("18:00");
+        multipleDays.add(tuesday);
+        
+        // Quarta-feira: 08:00 - 18:00
+        AvailabilityRequest wednesday = new AvailabilityRequest();
+        wednesday.setWeekday((short) 3);
+        wednesday.setOpensAt("08:00");
+        wednesday.setClosesAt("18:00");
+        multipleDays.add(wednesday);
+        
+        // Quinta-feira: 08:00 - 18:00
+        AvailabilityRequest thursday = new AvailabilityRequest();
+        thursday.setWeekday((short) 4);
+        thursday.setOpensAt("08:00");
+        thursday.setClosesAt("18:00");
+        multipleDays.add(thursday);
+        
+        // Sexta-feira: 08:00 - 18:00
+        AvailabilityRequest friday = new AvailabilityRequest();
+        friday.setWeekday((short) 5);
+        friday.setOpensAt("08:00");
+        friday.setClosesAt("18:00");
+        multipleDays.add(friday);
+        
+        // Sábado: 08:00 - 13:00 (horário reduzido)
+        AvailabilityRequest saturday = new AvailabilityRequest();
+        saturday.setWeekday((short) 6);
+        saturday.setOpensAt("08:00");
+        saturday.setClosesAt("13:00");
+        multipleDays.add(saturday);
+        
+        request.setAvailability(multipleDays);
+        
+        when(producerRegistrationService.register(any())).thenReturn(validResponse(id));
+
+        mockMvc
+                .perform(post("/admin/producers")
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(id.toString()))
+                .andExpect(jsonPath("$.name").value("João Silva"))
+                .andExpect(jsonPath("$.active").value(true));
+    }
 }
