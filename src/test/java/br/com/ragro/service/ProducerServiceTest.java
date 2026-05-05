@@ -66,6 +66,7 @@ class ProducerServiceTest {
   @Mock private PaymentMethodRepository paymentMethodRepository;
   @Mock private UserService userService;
   @Mock private MinioStorageService minioStorageService;
+  @Mock private GeocodingService geocodingService;
 
   private ProducerService producerService;
 
@@ -82,7 +83,8 @@ class ProducerServiceTest {
             paymentMethodRepository,
             userService,
             minioStorageService,
-            producerMapper);
+            producerMapper,
+            geocodingService);
   }
 
   // ─── getAllProducers ─────────────────────────────────────────────────────────
