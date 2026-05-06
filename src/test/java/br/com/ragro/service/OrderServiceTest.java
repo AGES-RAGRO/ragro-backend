@@ -644,6 +644,7 @@ class OrderServiceTest {
     order.setStatus(OrderStatus.PENDING);
     order.setDeliveryAddressSnapshot(AddressSnapshot.builder().city("Test City").build());
     order.setPaymentMethod(paymentMethod);
+    farmer.setAvatarS3("https://cdn.example.com/avatar.jpg");
     farmer.setDisplayPhotoS3("https://cdn.example.com/display.jpg");
 
     User farmerUser = new User();
@@ -669,7 +670,7 @@ class OrderServiceTest {
     assertThat(response).isNotNull();
     assertThat(response.getPrice()).isEqualByComparingTo("20.00");
     assertThat(response.getProducerName()).isEqualTo("Producer Test");
-    assertThat(response.getProducerPicture()).isEqualTo("https://cdn.example.com/display.jpg");
+    assertThat(response.getProducerPicture()).isEqualTo("https://cdn.example.com/avatar.jpg");
     assertThat(response.getStatus()).isEqualTo(OrderStatus.PENDING);
   }
 

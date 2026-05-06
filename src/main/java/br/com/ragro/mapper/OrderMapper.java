@@ -105,9 +105,10 @@ public class OrderMapper {
   }
 
   private static String resolveProducerPicture(Order order) {
-    String picture = order.getFarmer().getDisplayPhotoS3();
+    // Prioriza avatar (foto circular do perfil) sobre displayPhoto (cover/background).
+    String picture = order.getFarmer().getAvatarS3();
     if (picture == null || picture.isBlank()) {
-      picture = order.getFarmer().getAvatarS3();
+      picture = order.getFarmer().getDisplayPhotoS3();
     }
     return picture;
   }
