@@ -6,6 +6,8 @@ import br.com.ragro.controller.response.CartResponse;
 import br.com.ragro.domain.Cart;
 import br.com.ragro.domain.CartItem;
 import br.com.ragro.domain.Customer;
+import br.com.ragro.domain.PaymentMethod;
+import br.com.ragro.domain.Producer;
 import br.com.ragro.domain.Product;
 import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.TypeUser;
@@ -16,8 +18,10 @@ import br.com.ragro.mapper.CartMapper;
 import br.com.ragro.repository.CartItemRepository;
 import br.com.ragro.repository.CartRepository;
 import br.com.ragro.repository.CustomerRepository;
+import br.com.ragro.repository.PaymentMethodRepository;
 import br.com.ragro.repository.ProductRepository;
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +38,7 @@ public class CartService {
   private final ProductRepository productRepository;
   private final CartRepository cartRepository;
   private final CartItemRepository cartItemRepository;
+  private final PaymentMethodRepository paymentMethodRepository;
 
   @Transactional
   public CartResponse addItem(Jwt jwt, AddToCartRequest request) {
@@ -70,7 +75,8 @@ public class CartService {
 
     updateOrAddItem(cart, product, request);
 
-    return CartMapper.toResponse(cartRepository.saveAndFlush(cart));
+    Cart savedCart = cartRepository.saveAndFlush(cart);
+    return CartMapper.toResponse(savedCart, findPrimaryPaymentMethod(savedCart.getFarmer()));
   }
 
   @Transactional(readOnly = true)
@@ -81,7 +87,7 @@ public class CartService {
     }
 
     return cartRepository.findByCustomerIdAndActiveTrue(user.getId())
-        .map(CartMapper::toResponse)
+        .map(cart -> CartMapper.toResponse(cart, findPrimaryPaymentMethod(cart.getFarmer())))
         .orElseThrow(() -> new NotFoundException("Carrinho não encontrado ou vazio"));
   }
 
@@ -114,7 +120,8 @@ public class CartService {
     item.setQuantity(newQuantity);
     cartItemRepository.save(item);
 
-    return CartMapper.toResponse(cartRepository.saveAndFlush(item.getCart()));
+    Cart savedCart = cartRepository.saveAndFlush(item.getCart());
+    return CartMapper.toResponse(savedCart, findPrimaryPaymentMethod(savedCart.getFarmer()));
   }
 
   @Transactional
@@ -130,7 +137,7 @@ public class CartService {
     cart.setActive(false);
     cart.getItems().forEach(item -> item.setActive(false));
 
-    CartResponse response = CartMapper.toResponse(cart);
+    CartResponse response = CartMapper.toResponse(cart, findPrimaryPaymentMethod(cart.getFarmer()));
 
     cartRepository.delete(cart);
     cartRepository.flush();
@@ -211,13 +218,21 @@ public class CartService {
 
     if (!hasActiveItems) {
       cart.setActive(false);
-      CartResponse response = CartMapper.toResponse(cart);
+      CartResponse response = CartMapper.toResponse(cart, findPrimaryPaymentMethod(cart.getFarmer()));
       cartRepository.delete(cart);
       cartRepository.flush();
       return response;
     }
 
     Cart savedCart = cartRepository.saveAndFlush(cart);
-    return CartMapper.toResponse(savedCart);
+    return CartMapper.toResponse(savedCart, findPrimaryPaymentMethod(savedCart.getFarmer()));
+  }
+
+  private PaymentMethod findPrimaryPaymentMethod(Producer farmer) {
+    if (farmer == null) {
+      return null;
+    }
+    List<PaymentMethod> methods = paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(farmer.getId());
+    return methods.isEmpty() ? null : methods.get(0);
   }
 }

@@ -12,6 +12,7 @@ public class OrderItemResponse {
   private UUID id;
   private UUID productId;
   private String productName;
+  private String productPhoto;
   private BigDecimal unitPrice;
   private String unityType;
   private BigDecimal quantity;
