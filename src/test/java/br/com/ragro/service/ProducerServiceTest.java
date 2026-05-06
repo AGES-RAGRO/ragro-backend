@@ -363,6 +363,23 @@ class ProducerServiceTest {
     verify(addressRepository, never()).findByUserIdAndIsPrimaryTrue(any(UUID.class));
   }
 
+  @Test
+  void getProducerReviews_shouldThrowNotFoundException_whenProducerIsInactive() {
+    UUID producerId = UUID.randomUUID();
+    User user = buildProducer(producerId);
+    user.setActive(false);
+    Producer producer = buildProducerEntity(producerId, user);
+    Pageable pageable = PageRequest.of(0, 10);
+    when(producerRepository.findDetailedById(producerId)).thenReturn(Optional.of(producer));
+
+    assertThatThrownBy(() -> producerService.getProducerReviews(producerId, pageable))
+        .isInstanceOf(NotFoundException.class)
+        .hasMessage("Produtor não encontrado");
+
+    verify(reviewRepository, never()).findAllByFarmerId(any(UUID.class), any(Pageable.class));
+    verify(reviewMapper, never()).toPageResponse(any(), any(), any());
+  }
+
   // ─── activateProducer ───────────────────────────────────────────────────────
 
   @Test

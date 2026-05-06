@@ -241,10 +241,16 @@ public class ProducerService {
   }
 
   @Transactional(readOnly = true)
-public ProducerReviewsResponse getProducerReviews(UUID producerId, Pageable pageable) {
-    Producer producer = producerRepository
-        .findById(producerId)
-        .orElseThrow(() -> new NotFoundException("Produtor não encontrado"));
+  public ProducerReviewsResponse getProducerReviews(UUID producerId, Pageable pageable) {
+    Producer producer =
+        producerRepository
+            .findDetailedById(producerId)
+            .orElseThrow(() -> new NotFoundException("Produtor não encontrado"));
+
+    User user = producer.getUser();
+    if (!user.isActive()) {
+      throw new NotFoundException("Produtor não encontrado");
+    }
 
     Page<Review> reviews = reviewRepository.findAllByFarmerId(producerId, pageable);
     
