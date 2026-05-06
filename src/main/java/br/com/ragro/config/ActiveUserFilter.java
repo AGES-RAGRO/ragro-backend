@@ -65,7 +65,7 @@ public class ActiveUserFilter extends OncePerRequestFilter {
     Map<String, Object> body = new LinkedHashMap<>();
     body.put("timestamp", LocalDateTime.now().toString());
     body.put("status", HttpServletResponse.SC_UNAUTHORIZED);
-    body.put("error", "Conta desativada ou usuário não encontrado");
+    body.put("error", "Inactive account or user not found");
     body.put("path", path);
 
     objectMapper.writeValue(response.getOutputStream(), body);

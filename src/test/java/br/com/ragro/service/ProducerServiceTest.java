@@ -357,7 +357,7 @@ class ProducerServiceTest {
 
     assertThatThrownBy(() -> producerService.getPublicProfileById(producerId))
         .isInstanceOf(NotFoundException.class)
-        .hasMessage("Produtor não encontrado");
+        .hasMessage("Producer not found");
 
     verify(producerProfileRepository, never()).findById(any(UUID.class));
     verify(addressRepository, never()).findByUserIdAndIsPrimaryTrue(any(UUID.class));
@@ -374,7 +374,7 @@ class ProducerServiceTest {
 
     assertThatThrownBy(() -> producerService.getProducerReviews(producerId, pageable))
         .isInstanceOf(NotFoundException.class)
-        .hasMessage("Produtor não encontrado");
+        .hasMessage("Producer not found");
 
     verify(reviewRepository, never()).findAllByFarmerId(any(UUID.class), any(Pageable.class));
     verify(reviewMapper, never()).toPageResponse(any(), any(), any());

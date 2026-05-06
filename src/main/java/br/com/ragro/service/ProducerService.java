@@ -32,7 +32,9 @@ import br.com.ragro.repository.ProducerRepository;
 import br.com.ragro.repository.ReviewRepository;
 import br.com.ragro.repository.UserRepository;
 import java.time.LocalTime;
+import java.math.RoundingMode;
 import java.time.format.DateTimeParseException;
+import java.math.BigDecimal;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -97,11 +99,11 @@ public class ProducerService {
     Producer producer =
         producerRepository
             .findDetailedById(id)
-            .orElseThrow(() -> new NotFoundException("Produtor não encontrado"));
+            .orElseThrow(() -> new NotFoundException("Producer not found"));
 
     User user = producer.getUser();
     if (!user.isActive()) {
-      throw new NotFoundException("Produtor não encontrado");
+      throw new NotFoundException("Producer not found");
     }
 
     ProducerProfile profile = producerProfileRepository.findById(id).orElse(null);
@@ -245,11 +247,11 @@ public class ProducerService {
     Producer producer =
         producerRepository
             .findDetailedById(producerId)
-            .orElseThrow(() -> new NotFoundException("Produtor não encontrado"));
+            .orElseThrow(() -> new NotFoundException("Producer not found"));
 
     User user = producer.getUser();
     if (!user.isActive()) {
-      throw new NotFoundException("Produtor não encontrado");
+      throw new NotFoundException("Producer not found");
     }
 
     Page<Review> reviews = reviewRepository.findAllByFarmerId(producerId, pageable);
@@ -268,12 +270,31 @@ public class ProducerService {
     reviews.getContent().forEach(review -> 
         customerNames.putIfAbsent(
             review.getCustomerId(), 
-            "Cliente " + review.getCustomerId().toString().substring(0, 8)
+            "Customer " + review.getCustomerId().toString().substring(0, 8)
         )
     );
 
     return reviewMapper.toPageResponse(reviews, producer, customerNames);
-}
+  }
+
+  @Transactional
+  public void updateReviewStats(UUID producerId) {
+    Producer producer =
+        producerRepository
+            .findById(producerId)
+            .orElseThrow(() -> new NotFoundException("Producer not found"));
+
+    long totalReviews = reviewRepository.countByFarmerId(producerId);
+    Double averageRating = reviewRepository.findAverageRatingByFarmerId(producerId);
+
+    producer.setTotalReviews(Math.toIntExact(totalReviews));
+    producer.setAverageRating(
+        averageRating == null
+            ? BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP)
+            : BigDecimal.valueOf(averageRating).setScale(2, RoundingMode.HALF_UP));
+
+    producerRepository.save(producer);
+  }
 
   private void applyPaymentMethod(Producer producer, PaymentMethodRequest pmRequest) {
     PaymentMethod pm =

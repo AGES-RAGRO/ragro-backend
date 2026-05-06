@@ -6,13 +6,18 @@ import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 @Repository
 public interface ReviewRepository extends JpaRepository<Review, UUID> {
 
-    Page<Review> findAllByFarmerId(UUID farmerId, Pageable pageable);
+  Page<Review> findAllByFarmerId(UUID farmerId, Pageable pageable);
 
-    Optional<Review> findByOrderId(UUID orderId);   
-    
+  Optional<Review> findByOrderId(UUID orderId);
+
+  long countByFarmerId(UUID farmerId);
+
+  @Query("select avg(r.rating) from Review r where r.farmerId = :farmerId")
+  Double findAverageRatingByFarmerId(UUID farmerId);
 }

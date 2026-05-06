@@ -126,7 +126,7 @@ public class GlobalExceptionHandler {
         ErrorResponse.builder()
             .timestamp(java.time.LocalDateTime.now())
             .status(HttpStatus.FORBIDDEN.value())
-            .error("Acesso negado")
+            .error("Access denied")
             .path(request.getRequestURI())
             .build();
 
@@ -141,7 +141,7 @@ public class GlobalExceptionHandler {
         ErrorResponse.builder()
             .timestamp(java.time.LocalDateTime.now())
             .status(HttpStatus.BAD_REQUEST.value())
-            .error("Arquivo muito grande. Tamanho máximo permitido: 5MB")
+            .error("File too large. Maximum allowed size: 5MB")
             .path(request.getRequestURI())
             .build();
 

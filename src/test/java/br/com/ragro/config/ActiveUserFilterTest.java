@@ -67,7 +67,7 @@ class ActiveUserFilterTest {
   }
 
   @Test
-  void shouldReturn403_whenUserIsInactive() throws Exception {
+  void shouldReturn401_whenUserIsInactive() throws Exception {
     String sub = "keycloak-sub-456";
     setAuthenticatedJwt(sub);
 
@@ -78,12 +78,11 @@ class ActiveUserFilterTest {
 
     verify(filterChain, never()).doFilter(request, response);
     assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_UNAUTHORIZED);
-    assertThat(response.getContentAsString())
-      .contains("Conta desativada ou usuário não encontrado");
+    assertThat(response.getContentAsString()).contains("Inactive account or user not found");
   }
 
   @Test
-  void shouldReturn403_whenUserNotFoundInDatabase() throws Exception {
+  void shouldReturn401_whenUserNotFoundInDatabase() throws Exception {
     String sub = "keycloak-sub-789";
     setAuthenticatedJwt(sub);
 
@@ -93,8 +92,7 @@ class ActiveUserFilterTest {
 
     verify(filterChain, never()).doFilter(request, response);
     assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_UNAUTHORIZED);
-    assertThat(response.getContentAsString())
-      .contains("Conta desativada ou usuário não encontrado");
+    assertThat(response.getContentAsString()).contains("Inactive account or user not found");
   }
 
   @Test

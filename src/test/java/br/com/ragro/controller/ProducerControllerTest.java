@@ -100,7 +100,7 @@ class ProducerControllerTest {
     when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(activeUser));
 
     when(producerService.getProducerProfileById(eq(producerId), any()))
-        .thenThrow(new NotFoundException("Produtor não encontrado"));
+        .thenThrow(new NotFoundException("Producer not found"));
 
     mockMvc
         .perform(
@@ -127,7 +127,7 @@ class ProducerControllerTest {
                         .jwt(jwt -> jwt.claim("sub", sub).claim("email", "farmer@test.com"))
                         .authorities(new SimpleGrantedAuthority("ROLE_FARMER"))))
         .andExpect(status().isUnauthorized())
-        .andExpect(jsonPath("$.error").value("Conta desativada ou usuário não encontrado"));
+        .andExpect(jsonPath("$.error").value("Inactive account or user not found"));
   }
 
   @Test
@@ -144,7 +144,7 @@ class ProducerControllerTest {
                         .jwt(jwt -> jwt.claim("sub", sub).claim("email", "farmer@test.com"))
                         .authorities(new SimpleGrantedAuthority("ROLE_FARMER"))))
         .andExpect(status().isUnauthorized())
-        .andExpect(jsonPath("$.error").value("Conta desativada ou usuário não encontrado"));
+        .andExpect(jsonPath("$.error").value("Inactive account or user not found"));
   }
 
   @Test
@@ -355,7 +355,7 @@ class ProducerControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isUnauthorized())
-        .andExpect(jsonPath("$.error").value("Conta desativada ou usuário não encontrado"));
+        .andExpect(jsonPath("$.error").value("Inactive account or user not found"));
   }
 
   // ─── GET /{id}/profile ──────────────────────────────────────────────────────
@@ -410,7 +410,7 @@ class ProducerControllerTest {
     User activeCustomer = buildCustomerUser(sub, true);
     when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(activeCustomer));
     when(producerService.getPublicProfileById(producerId))
-        .thenThrow(new NotFoundException("Produtor não encontrado"));
+        .thenThrow(new NotFoundException("Producer not found"));
 
     mockMvc
         .perform(
@@ -420,7 +420,7 @@ class ProducerControllerTest {
                         .jwt(jwt -> jwt.claim("sub", sub).claim("email", "customer@test.com"))
                         .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"))))
         .andExpect(status().isNotFound())
-        .andExpect(jsonPath("$.error").value("Produtor não encontrado"));
+        .andExpect(jsonPath("$.error").value("Producer not found"));
   }
 
   @Test
@@ -563,7 +563,7 @@ class ProducerControllerTest {
                         .jwt(jwt -> jwt.claim("sub", sub).claim("email", "customer@test.com"))
                         .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"))))
         .andExpect(status().isUnauthorized())
-        .andExpect(jsonPath("$.error").value("Conta desativada ou usuário não encontrado"));
+        .andExpect(jsonPath("$.error").value("Inactive account or user not found"));
   }
 
   // ─── GET /{id}/reviews ──────────────────────────────────────────────────────
@@ -620,7 +620,7 @@ class ProducerControllerTest {
     when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(activeCustomer));
     
     when(producerService.getProducerReviews(eq(producerId), any()))
-        .thenThrow(new NotFoundException("Produtor não encontrado"));
+        .thenThrow(new NotFoundException("Producer not found"));
 
     mockMvc
         .perform(
@@ -630,7 +630,8 @@ class ProducerControllerTest {
                     SecurityMockMvcRequestPostProcessors.jwt()
                         .jwt(jwt -> jwt.claim("sub", sub).claim("email", "customer@test.com"))
                         .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"))))
-        .andExpect(status().isNotFound());
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.error").value("Producer not found"));
   }
 
   @Test
@@ -771,6 +772,46 @@ class ProducerControllerTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.pageNumber").value(0))
         .andExpect(jsonPath("$.pageSize").value(10));
+  }
+
+  @Test
+  void getProducerReviews_shouldReturn400_whenSizeIsInvalid() throws Exception {
+    UUID producerId = UUID.randomUUID();
+    String sub = "keycloak-sub-customer";
+    User activeCustomer = buildCustomerUser(sub, true);
+    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(activeCustomer));
+
+    mockMvc
+        .perform(
+            get("/producers/" + producerId + "/reviews")
+                .param("size", "0")
+                .contentType(MediaType.APPLICATION_JSON)
+                .with(
+                    SecurityMockMvcRequestPostProcessors.jwt()
+                        .jwt(jwt -> jwt.claim("sub", sub).claim("email", "customer@test.com"))
+                        .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"))))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.error").value("size must be between 1 and 100"));
+  }
+
+  @Test
+  void getProducerReviews_shouldReturn400_whenSortFieldIsInvalid() throws Exception {
+    UUID producerId = UUID.randomUUID();
+    String sub = "keycloak-sub-customer";
+    User activeCustomer = buildCustomerUser(sub, true);
+    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(activeCustomer));
+
+    mockMvc
+        .perform(
+            get("/producers/" + producerId + "/reviews")
+                .param("sort", "farmName,desc")
+                .contentType(MediaType.APPLICATION_JSON)
+                .with(
+                    SecurityMockMvcRequestPostProcessors.jwt()
+                        .jwt(jwt -> jwt.claim("sub", sub).claim("email", "customer@test.com"))
+                        .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"))))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.error").value("sort must use one of: createdAt, rating"));
   }
 
   @Test
