@@ -8,6 +8,7 @@ import br.com.ragro.controller.response.MarketplaceProducerResponse;
 import br.com.ragro.controller.response.PaginatedResponse;
 import br.com.ragro.controller.response.ProducerGetResponse;
 import br.com.ragro.controller.response.ProducerPublicProfileResponse;
+import br.com.ragro.controller.response.ProducerReviewsResponse;
 import br.com.ragro.controller.response.ProductResponse;
 import br.com.ragro.controller.response.StockMovementResponse;
 import br.com.ragro.service.ProducerService;
@@ -22,6 +23,7 @@ import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -89,6 +91,17 @@ public class ProducerController {
       description = "Returns all active products of a producer. Restricted to Customers.")
   public ResponseEntity<List<ProductResponse>> getProducerProducts(@PathVariable UUID id) {
     return ResponseEntity.ok(productService.getActiveProductsByProducerId(id));
+  }
+
+  @GetMapping("/{id}/reviews")
+  @PreAuthorize("hasRole('CUSTOMER')")
+  @Operation(
+      summary = "Get producer public reviews",
+      description = "Returns the paginated public reviews used by the customer-facing producer profile screen.")
+  public ResponseEntity<ProducerReviewsResponse> getProducerReviews(
+      @PathVariable UUID id,
+      @ParameterObject Pageable pageable) {
+    return ResponseEntity.ok(producerService.getProducerReviews(id, pageable));
   }
 
   @GetMapping("/stock/{productId}/movements")
