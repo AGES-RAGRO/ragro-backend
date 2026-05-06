@@ -55,7 +55,7 @@ public class Product {
   private BigDecimal price;
 
   @Column(name = "unity_type", nullable = false, length = 20)
-  private String unityType = "unit";
+  private String unityType = "un";
 
   @Column(name = "stock_quantity", nullable = false, precision = 12, scale = 3)
   private BigDecimal stockQuantity = BigDecimal.ZERO;

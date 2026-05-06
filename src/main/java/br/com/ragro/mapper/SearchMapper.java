@@ -19,6 +19,8 @@ public class SearchMapper {
         .name(product.getName())
         .subtitle(product.getFarmer().getFarmName())
         .imageUrl(product.getImageS3())
+        .producerId(product.getFarmer().getId())
+        .farmerId(product.getFarmer().getId())
         .price(product.getPrice())
         .category(primaryCategoryName(product))
         .unit(product.getUnityType())
@@ -33,6 +35,8 @@ public class SearchMapper {
         .name(producer.getFarmName())
         .subtitle(producer.getUser().getName())
         .imageUrl(producer.getAvatarS3())
+        .producerId(producer.getId())
+        .farmerId(producer.getId())
         .rating(producer.getAverageRating())
         .reviewCount(producer.getTotalReviews())
         .build();

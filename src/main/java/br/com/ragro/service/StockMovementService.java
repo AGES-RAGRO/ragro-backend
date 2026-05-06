@@ -1,6 +1,7 @@
 package br.com.ragro.service;
 
 import br.com.ragro.controller.request.StockExitRequest;
+import br.com.ragro.controller.request.StockEntryRequest;
 import br.com.ragro.controller.request.StockMovementFilter;
 import br.com.ragro.controller.response.PaginatedResponse;
 import br.com.ragro.controller.response.StockMovementResponse;
@@ -20,7 +21,6 @@ import br.com.ragro.mapper.StockMovementMapper;
 import br.com.ragro.repository.ProducerRepository;
 import br.com.ragro.repository.ProductRepository;
 import br.com.ragro.repository.StockMovementRepository;
-import java.util.Set;
 import java.util.UUID;
 import java.math.BigDecimal;
 import lombok.RequiredArgsConstructor;
@@ -34,8 +34,8 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class StockMovementService {
 
-  private static final Set<StockMovementReason> EXIT_REASONS =
-      Set.of(StockMovementReason.SALE, StockMovementReason.LOSS, StockMovementReason.DISPOSAL);
+  private static final java.util.Set<StockMovementReason> EXIT_REASONS =
+      java.util.Set.of(StockMovementReason.SALE, StockMovementReason.LOSS, StockMovementReason.DISPOSAL);
 
   private final StockMovementRepository stockMovementRepository;
   private final ProducerRepository producerRepository;
@@ -94,6 +94,25 @@ public class StockMovementService {
   }
 
   @Transactional
+  public StockMovementResponse registerEntry(StockEntryRequest request, Jwt jwt) {
+    Producer farmer = getAuthenticatedFarmer(jwt);
+    Product product = getProductOwnedByFarmer(request.getProductId(), farmer.getId());
+
+    product.setStockQuantity(product.getStockQuantity().add(request.getQuantity()));
+    productRepository.saveAndFlush(product);
+
+    StockMovement movement = new StockMovement();
+    movement.setProduct(product);
+    movement.setType(StockMovementType.ENTRY);
+    movement.setReason(StockMovementReason.MANUAL_ENTRY);
+    movement.setQuantity(request.getQuantity());
+    movement.setNotes(request.getNotes());
+    stockMovementRepository.saveAndFlush(movement);
+
+    return StockMovementMapper.toResponse(movement);
+  }
+
+  @Transactional
   public void registerSale(Product product, BigDecimal quantity, String orderIdNotes) {
     if (product.getStockQuantity().compareTo(quantity) < 0) {
       throw new BusinessException("Saldo insuficiente no estoque para o produto " + product.getName());
@@ -108,6 +127,20 @@ public class StockMovementService {
     movement.setReason(StockMovementReason.SALE);
     movement.setQuantity(quantity);
     movement.setNotes(orderIdNotes);
+    stockMovementRepository.saveAndFlush(movement);
+  }
+
+  @Transactional
+  public void registerCancelledSale(Product product, BigDecimal quantity, String notes) {
+    product.setStockQuantity(product.getStockQuantity().add(quantity));
+    productRepository.saveAndFlush(product);
+
+    StockMovement movement = new StockMovement();
+    movement.setProduct(product);
+    movement.setType(StockMovementType.ENTRY);
+    movement.setReason(StockMovementReason.CANCELED_SALE);
+    movement.setQuantity(quantity);
+    movement.setNotes(notes);
     stockMovementRepository.saveAndFlush(movement);
   }
 

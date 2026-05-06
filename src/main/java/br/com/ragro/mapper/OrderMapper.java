@@ -1,5 +1,6 @@
 package br.com.ragro.mapper;
 
+import br.com.ragro.controller.response.CustomerOrderResponse;
 import br.com.ragro.controller.response.OrderItemResponse;
 import br.com.ragro.controller.response.OrderResponse;
 import br.com.ragro.domain.Order;
@@ -50,6 +51,29 @@ public class OrderMapper {
         .unityType(item.getUnityTypeSnapshot())
         .quantity(item.getQuantity())
         .subtotal(item.getSubtotal())
+        .build();
+  }
+
+  public static CustomerOrderResponse toCustomerOrderResponse(Order order) {
+    if (order == null) {
+      return null;
+    }
+
+    BigDecimal totalAmount = order.getItems().stream()
+        .map(OrderItem::getSubtotal)
+        .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+    String producerPicture = order.getFarmer().getDisplayPhotoS3();
+    if (producerPicture == null || producerPicture.isBlank()) {
+      producerPicture = order.getFarmer().getAvatarS3();
+    }
+
+    return CustomerOrderResponse.builder()
+        .id(order.getId())
+        .price(totalAmount)
+        .producerName(order.getFarmer().getUser().getName())
+        .producerPicture(producerPicture)
+        .status(order.getStatus())
         .build();
   }
 }

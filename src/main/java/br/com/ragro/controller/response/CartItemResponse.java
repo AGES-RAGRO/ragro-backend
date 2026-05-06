@@ -12,6 +12,7 @@ public class CartItemResponse {
   private UUID productId;
   private String productName;
   private BigDecimal unitPrice;
+  private String unityType;
   private String imageS3;
   private BigDecimal quantity;
   private BigDecimal subtotal;

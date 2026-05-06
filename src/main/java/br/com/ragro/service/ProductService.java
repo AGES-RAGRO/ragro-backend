@@ -22,18 +22,20 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 @RequiredArgsConstructor
 public class ProductService {
 
   private static final Set<String> ALLOWED_UNITY_TYPES =
-      Set.of("kg", "g", "unit", "box", "liter", "ml", "dozen");
+      Set.of("kg", "g", "un", "maço", "pacote", "box", "liter", "ml", "dozen");
 
   private final UserService userService;
   private final ProducerRepository producerRepository;
   private final ProductRepository productRepository;
   private final ProductCategoryRepository productCategoryRepository;
+  private final MinioStorageService storageService;
 
   @Transactional(readOnly = true)
   public List<ProductResponse> getMyProducts(Jwt jwt) {
@@ -79,6 +81,18 @@ public class ProductService {
     return ProductMapper.toResponse(productRepository.saveAndFlush(product));
   }
 
+  @Transactional
+  public ProductResponse updateProductPhoto(UUID id, Jwt jwt, MultipartFile file) {
+    Producer farmer = getAuthenticatedFarmer(jwt);
+    Product product = getProductOwnedByFarmer(id, farmer.getId());
+
+    String objectKey = storageService.upload(file, "products/" + id);
+    String publicUrl = storageService.composePublicUrl(objectKey);
+
+    product.setImageS3(publicUrl);
+    return ProductMapper.toResponse(productRepository.saveAndFlush(product));
+  }
+
   @Transactional(readOnly = true)
   public List<ProductResponse> getActiveProductsByProducerId(UUID producerId) {
     if (!producerRepository.existsById(producerId)) {
@@ -87,6 +101,19 @@ public class ProductService {
     return productRepository.findAllByFarmerIdAndActiveTrue(producerId).stream()
         .map(ProductMapper::toResponse)
         .toList();
+  }
+
+  @Transactional(readOnly = true)
+  public ProductResponse getActiveProductByProducerIdAndProductId(UUID producerId, UUID productId) {
+    if (!producerRepository.existsById(producerId)) {
+      throw new NotFoundException("Produtor não encontrado");
+    }
+    Product product =
+        productRepository
+            .findByIdAndFarmerId(productId, producerId)
+            .filter(Product::isActive)
+            .orElseThrow(() -> new NotFoundException("Produto não encontrado"));
+    return ProductMapper.toResponse(product);
   }
 
   @Transactional(readOnly = true)

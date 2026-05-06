@@ -47,6 +47,8 @@ class SearchControllerTest {
                 .type("product")
                 .name("Tomate Cereja")
                 .subtitle("Sítio Boa Colheita")
+                .producerId(UUID.fromString("550e8400-e29b-41d4-a716-446655440000"))
+                .farmerId(UUID.fromString("550e8400-e29b-41d4-a716-446655440000"))
                 .price(BigDecimal.valueOf(12.90))
                 .category("Horta")
                 .unit("kg")
@@ -56,6 +58,8 @@ class SearchControllerTest {
                 .type("producer")
                 .name("Sítio Boa Colheita")
                 .subtitle("Mariana Alves")
+                .producerId(UUID.fromString("660e8400-e29b-41d4-a716-446655440000"))
+                .farmerId(UUID.fromString("660e8400-e29b-41d4-a716-446655440000"))
                 .rating(BigDecimal.valueOf(4.8))
                 .reviewCount(24)
                 .build());
@@ -74,8 +78,12 @@ class SearchControllerTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$[0].type").value("product"))
         .andExpect(jsonPath("$[0].name").value("Tomate Cereja"))
+        .andExpect(jsonPath("$[0].producer_id").value("550e8400-e29b-41d4-a716-446655440000"))
+        .andExpect(jsonPath("$[0].farmer_id").value("550e8400-e29b-41d4-a716-446655440000"))
         .andExpect(jsonPath("$[0].category").value("Horta"))
         .andExpect(jsonPath("$[1].type").value("producer"))
+        .andExpect(jsonPath("$[1].producer_id").value("660e8400-e29b-41d4-a716-446655440000"))
+        .andExpect(jsonPath("$[1].farmer_id").value("660e8400-e29b-41d4-a716-446655440000"))
         .andExpect(jsonPath("$[1].review_count").value(24));
   }
 
