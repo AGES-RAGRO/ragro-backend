@@ -16,10 +16,13 @@ import br.com.ragro.exception.NotFoundException;
 import br.com.ragro.repository.CartItemRepository;
 import br.com.ragro.repository.CartRepository;
 import br.com.ragro.repository.CustomerRepository;
+import br.com.ragro.repository.PaymentMethodRepository;
 import br.com.ragro.repository.ProductRepository;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -39,6 +42,7 @@ class CartServiceTest {
   @Mock private ProductRepository productRepository;
   @Mock private CartRepository cartRepository;
   @Mock private CartItemRepository cartItemRepository;
+  @Mock private PaymentMethodRepository paymentMethodRepository;
 
   @InjectMocks private CartService cartService;
 
@@ -438,6 +442,79 @@ class CartServiceTest {
 
     assertThatThrownBy(() -> cartService.updateItemQuantity(jwt(), UUID.randomUUID(), req))
         .isInstanceOf(ForbiddenException.class);
+  }
+
+  @Test
+  void getCart_shouldIncludeBankInfo_whenFarmerHasActivePaymentMethod() {
+    Cart cart = new Cart();
+    cart.setId(UUID.randomUUID());
+    cart.setCustomer(customer);
+    cart.setFarmer(farmerA);
+    cart.setActive(true);
+
+    CartItem item = new CartItem();
+    item.setId(UUID.randomUUID());
+    item.setCart(cart);
+    item.setProduct(productA);
+    item.setQuantity(new BigDecimal("1"));
+    item.setActive(true);
+    cart.getItems().add(item);
+
+    PaymentMethod paymentMethod = new PaymentMethod();
+    paymentMethod.setId(UUID.randomUUID());
+    paymentMethod.setFarmer(farmerA);
+    paymentMethod.setType("pix");
+    paymentMethod.setPixKeyType("email");
+    paymentMethod.setPixKey("farmer@example.com");
+    paymentMethod.setBankCode("001");
+    paymentMethod.setBankName("Banco do Brasil");
+    paymentMethod.setAgency("1234");
+    paymentMethod.setAccountNumber("56789-0");
+    paymentMethod.setAccountType("checking");
+    paymentMethod.setHolderName("Fazendeiro A");
+    paymentMethod.setActive(true);
+
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(cartRepository.findByCustomerIdAndActiveTrue(user.getId())).thenReturn(Optional.of(cart));
+    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(farmerA.getId()))
+        .thenReturn(List.of(paymentMethod));
+
+    CartResponse response = cartService.getCart(jwt());
+
+    assertThat(response.getBankInfo()).isNotNull();
+    assertThat(response.getBankInfo().getBankName()).isEqualTo("Banco do Brasil");
+    assertThat(response.getBankInfo().getBankCode()).isEqualTo("001");
+    assertThat(response.getBankInfo().getAgency()).isEqualTo("1234");
+    assertThat(response.getBankInfo().getAccount()).isEqualTo("56789-0");
+    assertThat(response.getBankInfo().getPixKey()).isEqualTo("farmer@example.com");
+    assertThat(response.getBankInfo().getPixType()).isEqualTo("email");
+    assertThat(response.getBankInfo().getHolderName()).isEqualTo("Fazendeiro A");
+  }
+
+  @Test
+  void getCart_shouldReturnNullBankInfo_whenFarmerHasNoActivePaymentMethod() {
+    Cart cart = new Cart();
+    cart.setId(UUID.randomUUID());
+    cart.setCustomer(customer);
+    cart.setFarmer(farmerA);
+    cart.setActive(true);
+
+    CartItem item = new CartItem();
+    item.setId(UUID.randomUUID());
+    item.setCart(cart);
+    item.setProduct(productA);
+    item.setQuantity(new BigDecimal("1"));
+    item.setActive(true);
+    cart.getItems().add(item);
+
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(cartRepository.findByCustomerIdAndActiveTrue(user.getId())).thenReturn(Optional.of(cart));
+    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(farmerA.getId()))
+        .thenReturn(Collections.emptyList());
+
+    CartResponse response = cartService.getCart(jwt());
+
+    assertThat(response.getBankInfo()).isNull();
   }
 
   private Jwt jwt() {

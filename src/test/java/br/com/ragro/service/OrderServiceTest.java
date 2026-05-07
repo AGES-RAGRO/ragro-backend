@@ -5,10 +5,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import br.com.ragro.controller.request.CancelOrderRequest;
 import br.com.ragro.controller.response.CartResponse;
 import br.com.ragro.controller.response.CustomerOrderResponse;
 import br.com.ragro.controller.response.OrderResponse;
@@ -62,6 +65,7 @@ class OrderServiceTest {
   @Mock private StockMovementService stockMovementService;
   @Mock private OrderRepository orderRepository;
   @Mock private OrderStatusHistoryRepository orderStatusHistoryRepository;
+  @Mock private MinioStorageService storageService;
 
   @InjectMocks private OrderService orderService;
 
@@ -122,6 +126,12 @@ class OrderServiceTest {
     paymentMethod.setFarmer(farmer);
     paymentMethod.setType("PIX");
     paymentMethod.setActive(true);
+
+    // Mapper agora resolve URLs via MinioStorageService. Para simplificar
+    // assertions, devolvemos a chave/URL crua sem composição.
+    lenient()
+        .when(storageService.composePublicUrl(anyString()))
+        .thenAnswer(invocation -> invocation.getArgument(0));
   }
 
   @Test
@@ -185,7 +195,7 @@ class OrderServiceTest {
     when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
     when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId())).thenReturn(Optional.of(cart));
     when(addressRepository.findByUserIdAndIsPrimaryTrue(customer.getId())).thenReturn(Optional.of(address));
-    when(paymentMethodRepository.findByFarmerIdAndActiveTrue(farmer.getId())).thenReturn(List.of());
+    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(farmer.getId())).thenReturn(List.of());
 
     assertThatThrownBy(() -> orderService.createOrderFromCart(jwt()))
         .isInstanceOf(BusinessException.class)
@@ -198,7 +208,7 @@ class OrderServiceTest {
     when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
     when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId())).thenReturn(Optional.of(cart));
     when(addressRepository.findByUserIdAndIsPrimaryTrue(customer.getId())).thenReturn(Optional.of(address));
-    when(paymentMethodRepository.findByFarmerIdAndActiveTrue(farmer.getId())).thenReturn(List.of(paymentMethod));
+    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(farmer.getId())).thenReturn(List.of(paymentMethod));
     when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
     OrderResponse response = orderService.createOrderFromCart(jwt());
@@ -230,9 +240,10 @@ class OrderServiceTest {
     when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
     when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
-    OrderResponse response = orderService.cancelOrder(order.getId(), jwt());
+    OrderResponse response = orderService.cancelOrder(order.getId(), jwt(), null);
     assertThat(response.getStatus()).isEqualTo(OrderStatus.CANCELLED);
-    verify(stockMovementService, times(1)).registerCancelledSale(eq(product), eq(new BigDecimal("2.00")), anyString());
+    // D26: cancelling a PENDING order must NOT touch stock — PENDING never debited it.
+    verify(stockMovementService, never()).registerCancelledSale(any(), any(), anyString());
   }
 
   @Test
@@ -240,7 +251,7 @@ class OrderServiceTest {
     user.setType(TypeUser.ADMIN);
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
 
-    assertThatThrownBy(() -> orderService.cancelOrder(UUID.randomUUID(), jwt()))
+    assertThatThrownBy(() -> orderService.cancelOrder(UUID.randomUUID(), jwt(), null))
         .isInstanceOf(ForbiddenException.class);
   }
 
@@ -250,7 +261,7 @@ class OrderServiceTest {
     UUID fakeId = UUID.randomUUID();
     when(orderRepository.findById(fakeId)).thenReturn(Optional.empty());
 
-    assertThatThrownBy(() -> orderService.cancelOrder(fakeId, jwt()))
+    assertThatThrownBy(() -> orderService.cancelOrder(fakeId, jwt(), null))
         .isInstanceOf(NotFoundException.class);
   }
 
@@ -266,7 +277,7 @@ class OrderServiceTest {
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
     when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
 
-    assertThatThrownBy(() -> orderService.cancelOrder(order.getId(), jwt()))
+    assertThatThrownBy(() -> orderService.cancelOrder(order.getId(), jwt(), null))
         .isInstanceOf(ForbiddenException.class);
   }
 
@@ -280,7 +291,7 @@ class OrderServiceTest {
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
     when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
 
-    assertThatThrownBy(() -> orderService.cancelOrder(order.getId(), jwt()))
+    assertThatThrownBy(() -> orderService.cancelOrder(order.getId(), jwt(), null))
         .isInstanceOf(BusinessException.class);
   }
 
@@ -301,9 +312,10 @@ class OrderServiceTest {
     when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
     when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
-    OrderResponse response = orderService.cancelOrder(order.getId(), jwt());
+    OrderResponse response = orderService.cancelOrder(order.getId(), jwt(), null);
 
     assertThat(response.getStatus()).isEqualTo(OrderStatus.CANCELLED);
+    assertThat(order.getCancellationReason()).isEqualTo("REFUSED_BY_FARMER");
   }
 
   @Test
@@ -322,8 +334,236 @@ class OrderServiceTest {
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
     when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
 
-    assertThatThrownBy(() -> orderService.cancelOrder(order.getId(), jwt()))
+    assertThatThrownBy(() -> orderService.cancelOrder(order.getId(), jwt(), null))
         .isInstanceOf(ForbiddenException.class);
+  }
+
+  // ---------- cancelOrderAsCustomer ----------
+
+  @Test
+  void shouldCancelOrderAsCustomer_andPersistReasonAndDetails() {
+    Order order = new Order();
+    order.setId(UUID.randomUUID());
+    order.setCustomer(customer);
+    order.setFarmer(farmer);
+    order.setStatus(OrderStatus.PENDING);
+    order.setDeliveryAddressSnapshot(AddressSnapshot.builder().city("Test City").build());
+    order.setPaymentMethod(paymentMethod);
+
+    CancelOrderRequest request = new CancelOrderRequest();
+    request.setReason("CHANGED_MY_MIND");
+    request.setDetails("Comprei em outro lugar");
+
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+    when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    OrderResponse response = orderService.cancelOrderAsCustomer(order.getId(), jwt(), request);
+
+    assertThat(response.getStatus()).isEqualTo(OrderStatus.CANCELLED);
+    assertThat(order.getCancellationReason()).isEqualTo("CHANGED_MY_MIND");
+    assertThat(order.getCancellationDetails()).isEqualTo("Comprei em outro lugar");
+    verify(stockMovementService, never()).registerCancelledSale(any(), any(), anyString());
+  }
+
+  @Test
+  void shouldUseDefaultReason_whenCustomerCancelsWithoutBody() {
+    Order order = new Order();
+    order.setId(UUID.randomUUID());
+    order.setCustomer(customer);
+    order.setFarmer(farmer);
+    order.setStatus(OrderStatus.PENDING);
+    order.setDeliveryAddressSnapshot(AddressSnapshot.builder().city("Test City").build());
+    order.setPaymentMethod(paymentMethod);
+
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+    when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    orderService.cancelOrderAsCustomer(order.getId(), jwt(), null);
+
+    assertThat(order.getCancellationReason()).isEqualTo("CUSTOMER_CANCELLED");
+    assertThat(order.getCancellationDetails()).isNull();
+  }
+
+  @Test
+  void shouldThrowForbidden_whenNonCustomerCallsCustomerCancel() {
+    user.setType(TypeUser.FARMER);
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+
+    assertThatThrownBy(() -> orderService.cancelOrderAsCustomer(UUID.randomUUID(), jwt(), null))
+        .isInstanceOf(ForbiddenException.class)
+        .hasMessageContaining("consumidores");
+  }
+
+  @Test
+  void shouldThrowForbidden_whenCustomerCancelsOrderFromAnotherCustomer() {
+    Customer otherCustomer = new Customer();
+    otherCustomer.setId(UUID.randomUUID());
+    Order order = new Order();
+    order.setId(UUID.randomUUID());
+    order.setCustomer(otherCustomer);
+    order.setStatus(OrderStatus.PENDING);
+
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+
+    assertThatThrownBy(() -> orderService.cancelOrderAsCustomer(order.getId(), jwt(), null))
+        .isInstanceOf(ForbiddenException.class);
+  }
+
+  @Test
+  void shouldThrowBusinessException_whenCustomerCancelsNonPendingOrder() {
+    Order order = new Order();
+    order.setId(UUID.randomUUID());
+    order.setCustomer(customer);
+    order.setStatus(OrderStatus.IN_DELIVERY);
+
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+
+    assertThatThrownBy(() -> orderService.cancelOrderAsCustomer(order.getId(), jwt(), null))
+        .isInstanceOf(BusinessException.class)
+        .hasMessageContaining("PENDING");
+  }
+
+  // ---------- refuseOrderAsFarmer ----------
+
+  @Test
+  void shouldRefuseOrderAsFarmer_andTagReason() {
+    user.setType(TypeUser.FARMER);
+    farmer.setId(user.getId());
+
+    Order order = new Order();
+    order.setId(UUID.randomUUID());
+    order.setCustomer(customer);
+    order.setFarmer(farmer);
+    order.setStatus(OrderStatus.PENDING);
+    order.setDeliveryAddressSnapshot(AddressSnapshot.builder().city("Test City").build());
+    order.setPaymentMethod(paymentMethod);
+
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+    when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    OrderResponse response = orderService.refuseOrderAsFarmer(order.getId(), jwt(), null);
+
+    assertThat(response.getStatus()).isEqualTo(OrderStatus.CANCELLED);
+    assertThat(order.getCancellationReason()).isEqualTo("REFUSED_BY_FARMER");
+    verify(stockMovementService, never()).registerCancelledSale(any(), any(), anyString());
+  }
+
+  @Test
+  void shouldThrowForbidden_whenNonFarmerRefuses() {
+    user.setType(TypeUser.CUSTOMER);
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+
+    assertThatThrownBy(() -> orderService.refuseOrderAsFarmer(UUID.randomUUID(), jwt(), null))
+        .isInstanceOf(ForbiddenException.class)
+        .hasMessageContaining("produtores");
+  }
+
+  @Test
+  void shouldThrowForbidden_whenFarmerRefusesOrderFromAnotherProducer() {
+    user.setType(TypeUser.FARMER);
+
+    Producer anotherFarmer = new Producer();
+    anotherFarmer.setId(UUID.randomUUID());
+
+    Order order = new Order();
+    order.setId(UUID.randomUUID());
+    order.setCustomer(customer);
+    order.setFarmer(anotherFarmer);
+    order.setStatus(OrderStatus.PENDING);
+
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+
+    assertThatThrownBy(() -> orderService.refuseOrderAsFarmer(order.getId(), jwt(), null))
+        .isInstanceOf(ForbiddenException.class);
+  }
+
+  @Test
+  void shouldThrowBusinessException_whenFarmerRefusesNonPendingOrder() {
+    user.setType(TypeUser.FARMER);
+    farmer.setId(user.getId());
+
+    Order order = new Order();
+    order.setId(UUID.randomUUID());
+    order.setCustomer(customer);
+    order.setFarmer(farmer);
+    order.setStatus(OrderStatus.CONFIRMED);
+
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+
+    assertThatThrownBy(() -> orderService.refuseOrderAsFarmer(order.getId(), jwt(), null))
+        .isInstanceOf(BusinessException.class)
+        .hasMessageContaining("PENDING");
+  }
+
+  // ---------- confirmDelivery ----------
+
+  @Test
+  void shouldConfirmDelivery_whenCustomerOwnsInDeliveryOrder() {
+    Order order = new Order();
+    order.setId(UUID.randomUUID());
+    order.setCustomer(customer);
+    order.setFarmer(farmer);
+    order.setStatus(OrderStatus.IN_DELIVERY);
+    order.setDeliveryAddressSnapshot(AddressSnapshot.builder().city("Test City").build());
+    order.setPaymentMethod(paymentMethod);
+
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+    when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    OrderResponse response = orderService.confirmDelivery(order.getId(), jwt());
+
+    assertThat(response.getStatus()).isEqualTo(OrderStatus.DELIVERED);
+    assertThat(order.getStatusHistory()).hasSize(1);
+    assertThat(order.getStatusHistory().get(0).getStatus()).isEqualTo(OrderStatus.DELIVERED);
+  }
+
+  @Test
+  void shouldThrowForbidden_whenNonCustomerConfirmsDelivery() {
+    user.setType(TypeUser.FARMER);
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+
+    assertThatThrownBy(() -> orderService.confirmDelivery(UUID.randomUUID(), jwt()))
+        .isInstanceOf(ForbiddenException.class)
+        .hasMessageContaining("consumidores");
+  }
+
+  @Test
+  void shouldThrowForbidden_whenCustomerConfirmsDeliveryOfAnotherCustomer() {
+    Customer otherCustomer = new Customer();
+    otherCustomer.setId(UUID.randomUUID());
+    Order order = new Order();
+    order.setId(UUID.randomUUID());
+    order.setCustomer(otherCustomer);
+    order.setStatus(OrderStatus.IN_DELIVERY);
+
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+
+    assertThatThrownBy(() -> orderService.confirmDelivery(order.getId(), jwt()))
+        .isInstanceOf(ForbiddenException.class);
+  }
+
+  @Test
+  void shouldThrowBusinessException_whenConfirmingDeliveryOfNonInDeliveryOrder() {
+    Order order = new Order();
+    order.setId(UUID.randomUUID());
+    order.setCustomer(customer);
+    order.setStatus(OrderStatus.PENDING);
+
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+
+    assertThatThrownBy(() -> orderService.confirmDelivery(order.getId(), jwt()))
+        .isInstanceOf(BusinessException.class)
+        .hasMessageContaining("entrega");
   }
 
   @Test
@@ -404,6 +644,7 @@ class OrderServiceTest {
     order.setStatus(OrderStatus.PENDING);
     order.setDeliveryAddressSnapshot(AddressSnapshot.builder().city("Test City").build());
     order.setPaymentMethod(paymentMethod);
+    farmer.setAvatarS3("https://cdn.example.com/avatar.jpg");
     farmer.setDisplayPhotoS3("https://cdn.example.com/display.jpg");
 
     User farmerUser = new User();
@@ -429,7 +670,7 @@ class OrderServiceTest {
     assertThat(response).isNotNull();
     assertThat(response.getPrice()).isEqualByComparingTo("20.00");
     assertThat(response.getProducerName()).isEqualTo("Producer Test");
-    assertThat(response.getProducerPicture()).isEqualTo("https://cdn.example.com/display.jpg");
+    assertThat(response.getProducerPicture()).isEqualTo("https://cdn.example.com/avatar.jpg");
     assertThat(response.getStatus()).isEqualTo(OrderStatus.PENDING);
   }
 

@@ -69,6 +69,9 @@ public class Order {
   @Column(name = "cancellation_reason", columnDefinition = "text")
   private String cancellationReason;
 
+  @Column(name = "cancellation_details", columnDefinition = "text")
+  private String cancellationDetails;
+
   @CreationTimestamp
   @Column(name = "created_at", nullable = false, updatable = false)
   private OffsetDateTime createdAt;
