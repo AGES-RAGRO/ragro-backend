@@ -9,7 +9,6 @@ import br.com.ragro.controller.response.ProducerGetResponse;
 import br.com.ragro.controller.response.ProducerPublicProfileResponse;
 import br.com.ragro.controller.response.ProducerReviewsResponse;
 import br.com.ragro.controller.response.ProductResponse;
-import br.com.ragro.exception.BusinessException;
 import br.com.ragro.service.ProducerService;
 import br.com.ragro.service.ProductService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -20,7 +19,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
@@ -41,8 +39,6 @@ import org.springframework.web.multipart.MultipartFile;
 @RequiredArgsConstructor
 @Tag(name = "Producer", description = "Producer operations")
 public class ProducerController {
-
-  private static final Set<String> ALLOWED_REVIEW_SORT_FIELDS = Set.of("createdAt", "rating");
 
   private final ProducerService producerService;
   private final ProductService productService;
@@ -123,43 +119,10 @@ public class ProducerController {
   })
   public ResponseEntity<ProducerReviewsResponse> getProducerReviews(
       @PathVariable UUID id,
-      @RequestParam(required = false) Integer page,
-      @RequestParam(required = false) Integer size,
-      @RequestParam(required = false) List<String> sort,
       @ParameterObject
           @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC)
           Pageable pageable) {
-    validateReviewsRequest(page, size, sort, pageable);
     return ResponseEntity.ok(producerService.getProducerReviews(id, pageable));
-  }
-
-  private void validateReviewsRequest(
-      Integer page, Integer size, List<String> sort, Pageable pageable) {
-    if (page != null && page < 0) {
-      throw new BusinessException("page must be greater than or equal to 0");
-    }
-
-    if (size != null && (size < 1 || size > 100)) {
-      throw new BusinessException("size must be between 1 and 100");
-    }
-
-    if (sort != null) {
-      for (String sortEntry : sort) {
-        String property = sortEntry.split(",")[0];
-        if (!ALLOWED_REVIEW_SORT_FIELDS.contains(property)) {
-          throw new BusinessException("sort must use one of: createdAt, rating");
-        }
-      }
-    }
-
-    pageable
-        .getSort()
-        .forEach(
-            order -> {
-              if (!ALLOWED_REVIEW_SORT_FIELDS.contains(order.getProperty())) {
-                throw new BusinessException("sort must use one of: createdAt, rating");
-              }
-            });
   }
 
   @GetMapping("/{producerId}/products/{productId}")

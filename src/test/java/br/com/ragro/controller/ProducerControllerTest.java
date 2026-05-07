@@ -775,46 +775,6 @@ class ProducerControllerTest {
   }
 
   @Test
-  void getProducerReviews_shouldReturn400_whenSizeIsInvalid() throws Exception {
-    UUID producerId = UUID.randomUUID();
-    String sub = "keycloak-sub-customer";
-    User activeCustomer = buildCustomerUser(sub, true);
-    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(activeCustomer));
-
-    mockMvc
-        .perform(
-            get("/producers/" + producerId + "/reviews")
-                .param("size", "0")
-                .contentType(MediaType.APPLICATION_JSON)
-                .with(
-                    SecurityMockMvcRequestPostProcessors.jwt()
-                        .jwt(jwt -> jwt.claim("sub", sub).claim("email", "customer@test.com"))
-                        .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"))))
-        .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.error").value("size must be between 1 and 100"));
-  }
-
-  @Test
-  void getProducerReviews_shouldReturn400_whenSortFieldIsInvalid() throws Exception {
-    UUID producerId = UUID.randomUUID();
-    String sub = "keycloak-sub-customer";
-    User activeCustomer = buildCustomerUser(sub, true);
-    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(activeCustomer));
-
-    mockMvc
-        .perform(
-            get("/producers/" + producerId + "/reviews")
-                .param("sort", "farmName,desc")
-                .contentType(MediaType.APPLICATION_JSON)
-                .with(
-                    SecurityMockMvcRequestPostProcessors.jwt()
-                        .jwt(jwt -> jwt.claim("sub", sub).claim("email", "customer@test.com"))
-                        .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"))))
-        .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.error").value("sort must use one of: createdAt, rating"));
-  }
-
-  @Test
   void getProducerReviews_shouldReturnReviewsWithCorrectFields() throws Exception {
     UUID producerId = UUID.randomUUID();
     UUID reviewId = UUID.randomUUID();
