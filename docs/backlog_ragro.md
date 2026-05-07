@@ -631,15 +631,16 @@ As a customer, I want to view a producer's profile to learn about who produces t
 
 | Method | Route | Description |
 | :---- | :---- | :---- |
-| GET | /producers/:id | Producer profile + products + reviews |
+| GET | /producers/:id/profile | Public producer profile |
+| GET | /producers/:id/products | Producer's active products |
 
 ### **FE-30 — Public Producer Profile Endpoint**
 
-* Create/update GET /producers/:id endpoint  
+* Create GET /producers/:id/profile endpoint  
 * Include fields: name, description, story, photoUrl, location, phone, rating, memberSince  
-* Retrieve and include associated available products  
+* Retrieve associated available products through GET /producers/:id/products  
 * Retrieve and include recent reviews  
-* Build consolidated response
+* Build public response without fiscal, financial, or payment method data
 
 ### **FE-31 — Producer Profile Screen**
 

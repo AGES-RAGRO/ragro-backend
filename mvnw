@@ -58,14 +58,16 @@ case "`uname`" in
   CYGWIN*) cygwin=true ;;
   MINGW*) mingw=true;;
   Darwin*) darwin=true
-    # Use /usr/libexec/java_home if available, otherwise fall back to /Library/Java/Home
-    # See https://developer.apple.com/library/mac/qa/qa1170/_index.html
-    if [ -z "$JAVA_HOME" ]; then
-      if [ -x "/usr/libexec/java_home" ]; then
-        export JAVA_HOME="`/usr/libexec/java_home`"
-      else
-        export JAVA_HOME="/Library/Java/Home"
+    # Force Java 21 — project requires Java 21 (Lombok is incompatible with Java 25+)
+    if [ -x "/usr/libexec/java_home" ]; then
+      JAVA_21="$(/usr/libexec/java_home -v 21 2>/dev/null)"
+      if [ -n "$JAVA_21" ]; then
+        export JAVA_HOME="$JAVA_21"
+      elif [ -z "$JAVA_HOME" ]; then
+        export JAVA_HOME="$(/usr/libexec/java_home)"
       fi
+    elif [ -z "$JAVA_HOME" ]; then
+      export JAVA_HOME="/Library/Java/Home"
     fi
     ;;
 esac

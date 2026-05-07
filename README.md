@@ -6,6 +6,10 @@ REST API for the RAGRO platform — connecting urban customers with local family
 
 ---
 
+# Community
+
+![Alt](https://repobeats.axiom.co/api/embed/35cf2791321772402da64da98fb075a4a10c4910.svg "Repobeats analytics image")
+
 ## Documentation
 
 | Document | Description |

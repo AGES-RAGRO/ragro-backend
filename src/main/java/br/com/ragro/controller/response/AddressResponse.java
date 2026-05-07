@@ -23,25 +23,43 @@ public class AddressResponse {
       example = "550e8400-e29b-41d4-a716-446655440001")
   private UUID id;
 
-  @Schema(description = "Street name", example = "Rua das Flores")
+  @Schema(
+      description = "Street name",
+      example = "Rua das Flores",
+      requiredMode = Schema.RequiredMode.REQUIRED)
   private String street;
 
-  @Schema(description = "Street number", example = "123")
+  @Schema(
+      description = "Street number",
+      example = "123",
+      requiredMode = Schema.RequiredMode.REQUIRED)
   private String number;
 
   @Schema(description = "Complementary information", example = "Apto 42")
   private String complement;
 
-  @Schema(description = "Neighborhood name", example = "Centro")
+  @Schema(
+      description = "Neighborhood name",
+      example = "Centro",
+      requiredMode = Schema.RequiredMode.REQUIRED)
   private String neighborhood;
 
-  @Schema(description = "City name", example = "Porto Alegre")
+  @Schema(
+      description = "City name",
+      example = "Porto Alegre",
+      requiredMode = Schema.RequiredMode.REQUIRED)
   private String city;
 
-  @Schema(description = "State code", example = "RS")
+  @Schema(
+      description = "State code",
+      example = "RS",
+      requiredMode = Schema.RequiredMode.REQUIRED)
   private String state;
 
-  @Schema(description = "Zip code", example = "90010120")
+  @Schema(
+      description = "Zip code",
+      example = "90010120",
+      requiredMode = Schema.RequiredMode.REQUIRED)
   private String zipCode;
 
   @Schema(description = "Latitude coordinate")

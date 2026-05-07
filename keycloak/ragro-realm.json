@@ -1,6 +1,12 @@
 {
   "realm": "ragro",
   "enabled": true,
+  "loginTheme": "ragro",
+  "internationalizationEnabled": true,
+  "supportedLocales": [
+    "pt-BR"
+  ],
+  "defaultLocale": "pt-BR",
   "registrationAllowed": false,
   "loginWithEmailAllowed": true,
   "registrationEmailAsUsername": true,
@@ -10,6 +16,15 @@
   "waitIncrementSeconds": 60,
   "maxFailureWaitSeconds": 900,
   "sslRequired": "none",
+  "smtpServer": {
+    "host": "mailpit",
+    "port": "1025",
+    "from": "noreply@ragro.com.br",
+    "fromDisplayName": "Ragro App",
+    "ssl": "false",
+    "starttls": "false",
+    "auth": "false"
+  },
   "passwordPolicy": "length(8) and lowerCase(1) and upperCase(1) and digits(1)",
   "requiredActions": [
     {
@@ -30,7 +45,7 @@
       "alias": "UPDATE_PASSWORD",
       "name": "Update Password",
       "providerId": "UPDATE_PASSWORD",
-      "enabled": false,
+      "enabled": true,
       "defaultAction": false
     },
     {
@@ -42,9 +57,15 @@
     }
   ],
   "groups": [
-    { "name": "ADMIN" },
-    { "name": "CUSTOMER" },
-    { "name": "FARMER" }
+    {
+      "name": "ADMIN"
+    },
+    {
+      "name": "CUSTOMER"
+    },
+    {
+      "name": "FARMER"
+    }
   ],
   "clients": [
     {
@@ -56,8 +77,12 @@
       "implicitFlowEnabled": false,
       "serviceAccountsEnabled": false,
       "fullScopeAllowed": true,
-      "redirectUris": ["*"],
-      "webOrigins": ["*"],
+      "redirectUris": [
+        "*"
+      ],
+      "webOrigins": [
+        "*"
+      ],
       "attributes": {
         "access.token.lifespan": "3600"
       },
@@ -95,7 +120,9 @@
           "temporary": false
         }
       ],
-      "groups": ["ADMIN"]
+      "groups": [
+        "ADMIN"
+      ]
     },
     {
       "id": "10000000-0000-0000-0000-000000000002",
@@ -112,7 +139,9 @@
           "temporary": false
         }
       ],
-      "groups": ["CUSTOMER"]
+      "groups": [
+        "CUSTOMER"
+      ]
     },
     {
       "id": "10000000-0000-0000-0000-000000000003",
@@ -129,7 +158,9 @@
           "temporary": false
         }
       ],
-      "groups": ["FARMER"]
+      "groups": [
+        "FARMER"
+      ]
     }
   ]
 }

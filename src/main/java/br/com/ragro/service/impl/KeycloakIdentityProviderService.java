@@ -65,6 +65,24 @@ public class KeycloakIdentityProviderService implements IdentityProviderService 
     }
   }
 
+  @Override
+  public void sendPasswordResetEmail(String userId) {
+    String adminToken = getAdminToken();
+    try {
+      restClient
+          .put()
+          .uri(serverUrl + "/admin/realms/" + realm + "/users/" + userId + "/execute-actions-email")
+          .headers(h -> h.setBearerAuth(adminToken))
+          .contentType(MediaType.APPLICATION_JSON)
+          .body(List.of("UPDATE_PASSWORD"))
+          .retrieve()
+          .toBodilessEntity();
+    } catch (Exception e) {
+      log.error("Failed to trigger password reset email for Keycloak user {}: {}", userId, e.getMessage());
+      throw new BusinessException("Falha ao disparar e-mail de redefinição de senha");
+    }
+  }
+
   private String registerUser(String email, String rawPassword, String group) {
     String adminToken = getAdminToken();
     String userId = createUser(adminToken, email, List.of(group));

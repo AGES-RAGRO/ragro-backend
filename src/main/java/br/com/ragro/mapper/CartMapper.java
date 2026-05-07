@@ -1,0 +1,69 @@
+package br.com.ragro.mapper;
+
+import br.com.ragro.controller.response.BankInfoResponse;
+import br.com.ragro.controller.response.CartItemResponse;
+import br.com.ragro.controller.response.CartResponse;
+import br.com.ragro.domain.Cart;
+import br.com.ragro.domain.CartItem;
+import br.com.ragro.domain.PaymentMethod;
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.stream.Collectors;
+
+public class CartMapper {
+
+  public static CartResponse toResponse(Cart cart) {
+    return toResponse(cart, null);
+  }
+
+  public static CartResponse toResponse(Cart cart, PaymentMethod paymentMethod) {
+    List<CartItemResponse> itemResponses = cart.getItems().stream()
+        .filter(CartItem::isActive)
+        .map(CartMapper::toItemResponse)
+        .collect(Collectors.toList());
+
+    BigDecimal total = itemResponses.stream()
+        .map(CartItemResponse::getSubtotal)
+        .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+    return CartResponse.builder()
+        .id(cart.getId())
+        .farmerId(cart.getFarmer().getId())
+        .farmName(cart.getFarmer().getFarmName())
+        .items(itemResponses)
+        .totalAmount(total)
+        .bankInfo(toBankInfo(paymentMethod))
+        .build();
+  }
+
+  public static CartItemResponse toItemResponse(CartItem item) {
+    BigDecimal subtotal = item.getProduct().getPrice().multiply(item.getQuantity());
+
+    return CartItemResponse.builder()
+        .id(item.getId())
+        .productId(item.getProduct().getId())
+        .productName(item.getProduct().getName())
+        .unitPrice(item.getProduct().getPrice())
+        .unityType(item.getProduct().getUnityType())
+        .imageS3(item.getProduct().getImageS3())
+        .quantity(item.getQuantity())
+        .subtotal(subtotal)
+        .build();
+  }
+
+  private static BankInfoResponse toBankInfo(PaymentMethod paymentMethod) {
+    if (paymentMethod == null) {
+      return null;
+    }
+    return BankInfoResponse.builder()
+        .bankName(paymentMethod.getBankName())
+        .bankCode(paymentMethod.getBankCode())
+        .agency(paymentMethod.getAgency())
+        .account(paymentMethod.getAccountNumber())
+        .accountType(paymentMethod.getAccountType())
+        .pixKey(paymentMethod.getPixKey())
+        .pixType(paymentMethod.getPixKeyType())
+        .holderName(paymentMethod.getHolderName())
+        .build();
+  }
+}

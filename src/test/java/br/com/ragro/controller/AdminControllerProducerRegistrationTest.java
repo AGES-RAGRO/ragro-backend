@@ -74,6 +74,7 @@ class AdminControllerProducerRegistrationTest {
         address.setStreet("Rua das Flores");
         address.setNumber("123");
         address.setCity("Porto Alegre");
+        address.setNeighborhood("Centro");
         address.setState("RS");
         address.setZipCode("90010120");
 

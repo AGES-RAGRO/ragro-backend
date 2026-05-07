@@ -7,4 +7,6 @@ public interface IdentityProviderService {
   String registerProducer(String email, String rawPassword);
 
   void deleteUser(String userId);
+
+  void sendPasswordResetEmail(String userId);
 }

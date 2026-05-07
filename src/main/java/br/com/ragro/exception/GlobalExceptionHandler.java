@@ -6,6 +6,7 @@ import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.validation.BindException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -17,21 +18,29 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(MethodArgumentNotValidException.class)
   public ResponseEntity<ErrorResponse> handleValidation(
       MethodArgumentNotValidException ex, HttpServletRequest request) {
-
-    String errorMessage =
-        ex.getBindingResult().getFieldErrors().stream()
+    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+        .body(buildValidationErrorResponse(ex.getBindingResult().getFieldErrors().stream()
             .map(fieldError -> fieldError.getField() + ": " + fieldError.getDefaultMessage())
-            .collect(Collectors.joining("; "));
+            .collect(Collectors.joining("; ")), request));
+  }
 
-    ErrorResponse response =
-        ErrorResponse.builder()
-            .timestamp(java.time.LocalDateTime.now())
-            .status(HttpStatus.BAD_REQUEST.value())
-            .error(errorMessage)
-            .path(request.getRequestURI())
-            .build();
+  @ExceptionHandler(BindException.class)
+  public ResponseEntity<ErrorResponse> handleBindException(
+      BindException ex, HttpServletRequest request) {
+    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+        .body(buildValidationErrorResponse(ex.getBindingResult().getFieldErrors().stream()
+            .map(fieldError -> fieldError.getField() + ": " + fieldError.getDefaultMessage())
+            .collect(Collectors.joining("; ")), request));
+  }
 
-    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+  private ErrorResponse buildValidationErrorResponse(
+      String errorMessage, HttpServletRequest request) {
+    return ErrorResponse.builder()
+        .timestamp(java.time.LocalDateTime.now())
+        .status(HttpStatus.BAD_REQUEST.value())
+        .error(errorMessage)
+        .path(request.getRequestURI())
+        .build();
   }
 
   @ExceptionHandler(BusinessException.class)
