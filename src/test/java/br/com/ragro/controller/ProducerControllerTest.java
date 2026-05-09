@@ -23,6 +23,8 @@ import br.com.ragro.repository.ProducerRepository;
 import br.com.ragro.repository.UserRepository;
 import br.com.ragro.service.ProducerService;
 import br.com.ragro.service.ProductService;
+import br.com.ragro.service.ReviewService;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -49,6 +51,7 @@ class ProducerControllerTest {
 
   @MockBean private ProducerService producerService;
   @MockBean private ProductService productService;
+  @MockBean private ReviewService reviewService;
   @MockBean private UserRepository userRepository;
   @MockBean private ProducerRepository producerRepository;
 
