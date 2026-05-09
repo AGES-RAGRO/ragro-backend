@@ -2,7 +2,6 @@ package br.com.ragro.service;
 
 import br.com.ragro.controller.response.PaginatedResponse;
 import br.com.ragro.controller.response.ReviewResponse;
-import br.com.ragro.domain.Review;
 import br.com.ragro.exception.NotFoundException;
 import br.com.ragro.mapper.ReviewMapper;
 import br.com.ragro.repository.ProducerRepository;
