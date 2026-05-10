@@ -101,7 +101,7 @@ public class ProducerController {
    @PreAuthorize("hasAnyRole('CUSTOMER', 'FARMER')")
    @Operation(
         summary = "List reviews of a producer",
-        description = "Returns a paginated list of reviews for a producer. Restricted to Customers.")
+        description = "Returns a paginated list of reviews for a producer. Restricted to Customers and Farmers.")
     public ResponseEntity<PaginatedResponse<ReviewResponse>> getProducerReviews(
         @PathVariable UUID id,
         @RequestParam(defaultValue = "0") int page,
