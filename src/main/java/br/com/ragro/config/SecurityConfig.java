@@ -50,6 +50,8 @@ public class SecurityConfig {
                     .permitAll()
                     .requestMatchers("/webjars/**")
                     .permitAll()
+                    .requestMatchers("/co2/**")
+                    .permitAll()
                     .requestMatchers("/admin/**")
                     .hasRole("ADMIN")
                     .requestMatchers(HttpMethod.GET, "/search")
