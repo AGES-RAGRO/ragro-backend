@@ -127,8 +127,10 @@ public class ProducerService {
 
     ProducerProfile profile = producerProfileRepository.findById(id).orElse(null);
     Address primaryAddress = addressRepository.findByUserIdAndIsPrimaryTrue(id).orElse(null);
+
     List<PaymentMethod> paymentMethods =
         paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(id);
+
     List<FarmerAvailability> availability =
         farmerAvailabilityRepository.findByFarmerIdAndActiveTrueOrderByWeekdayAsc(id);
 
@@ -230,6 +232,7 @@ public class ProducerService {
 
     List<PaymentMethod> paymentMethods =
         paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(id);
+
     List<FarmerAvailability> availability =
         farmerAvailabilityRepository.findByFarmerIdAndActiveTrueOrderByWeekdayAsc(id);
 
