@@ -1,9 +1,11 @@
 package br.com.ragro.mapper;
 
+import br.com.ragro.controller.response.BankInfoResponse;
 import br.com.ragro.controller.response.CartItemResponse;
 import br.com.ragro.controller.response.CartResponse;
 import br.com.ragro.domain.Cart;
 import br.com.ragro.domain.CartItem;
+import br.com.ragro.domain.PaymentMethod;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -11,6 +13,10 @@ import java.util.stream.Collectors;
 public class CartMapper {
 
   public static CartResponse toResponse(Cart cart) {
+    return toResponse(cart, null);
+  }
+
+  public static CartResponse toResponse(Cart cart, PaymentMethod paymentMethod) {
     List<CartItemResponse> itemResponses = cart.getItems().stream()
         .filter(CartItem::isActive)
         .map(CartMapper::toItemResponse)
@@ -26,6 +32,7 @@ public class CartMapper {
         .farmName(cart.getFarmer().getFarmName())
         .items(itemResponses)
         .totalAmount(total)
+        .bankInfo(toBankInfo(paymentMethod))
         .build();
   }
 
@@ -41,6 +48,22 @@ public class CartMapper {
         .imageS3(item.getProduct().getImageS3())
         .quantity(item.getQuantity())
         .subtotal(subtotal)
+        .build();
+  }
+
+  private static BankInfoResponse toBankInfo(PaymentMethod paymentMethod) {
+    if (paymentMethod == null) {
+      return null;
+    }
+    return BankInfoResponse.builder()
+        .bankName(paymentMethod.getBankName())
+        .bankCode(paymentMethod.getBankCode())
+        .agency(paymentMethod.getAgency())
+        .account(paymentMethod.getAccountNumber())
+        .accountType(paymentMethod.getAccountType())
+        .pixKey(paymentMethod.getPixKey())
+        .pixType(paymentMethod.getPixKeyType())
+        .holderName(paymentMethod.getHolderName())
         .build();
   }
 }

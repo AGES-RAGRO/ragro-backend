@@ -1,5 +1,6 @@
 package br.com.ragro.controller;
 
+import br.com.ragro.controller.request.CancelOrderRequest;
 import br.com.ragro.controller.request.UpdateOrderStatusRequest;
 import br.com.ragro.controller.response.CartResponse;
 import br.com.ragro.controller.response.CustomerOrderResponse;
@@ -96,13 +97,52 @@ public class OrderController {
   @PatchMapping("/{id}/cancel")
   @ResponseStatus(HttpStatus.OK)
   @Operation(
-      summary = "Cancel an order",
-      description = "Cancels an order that is still in PENDING status. Only the customer who created the order can cancel it."
+      summary = "Cancel an order (legacy)",
+      description = "Cancels a PENDING order. Routes by role: a customer cancels their own order, a producer refuses one of their incoming orders. Optional body carries reason/details for audit. Prefer /orders/customer/{id}/cancel or /orders/{id}/refuse."
   )
   public OrderResponse cancelOrder(
       @PathVariable UUID id,
+      @Valid @RequestBody(required = false) CancelOrderRequest request,
       @AuthenticationPrincipal Jwt jwt) {
-    return orderService.cancelOrder(id, jwt);
+    return orderService.cancelOrder(id, jwt, request);
+  }
+
+  @PatchMapping("/customer/{id}/cancel")
+  @ResponseStatus(HttpStatus.OK)
+  @Operation(
+      summary = "Customer cancels own order",
+      description = "Allows a customer to cancel their own PENDING order. Optional body carries reason and details that are persisted for audit."
+  )
+  public OrderResponse cancelOrderAsCustomer(
+      @PathVariable UUID id,
+      @Valid @RequestBody(required = false) CancelOrderRequest request,
+      @AuthenticationPrincipal Jwt jwt) {
+    return orderService.cancelOrderAsCustomer(id, jwt, request);
+  }
+
+  @PatchMapping("/customer/{id}/confirm-delivery")
+  @ResponseStatus(HttpStatus.OK)
+  @Operation(
+      summary = "Customer confirms delivery",
+      description = "Allows a customer to confirm that an IN_DELIVERY order was received. Transitions the order to DELIVERED."
+  )
+  public OrderResponse confirmDelivery(
+      @PathVariable UUID id,
+      @AuthenticationPrincipal Jwt jwt) {
+    return orderService.confirmDelivery(id, jwt);
+  }
+
+  @PatchMapping("/{id}/refuse")
+  @ResponseStatus(HttpStatus.OK)
+  @Operation(
+      summary = "Producer refuses an order",
+      description = "Allows the owning producer to refuse a PENDING order. Cancels with reason REFUSED_BY_FARMER unless overridden in the body."
+  )
+  public OrderResponse refuseOrder(
+      @PathVariable UUID id,
+      @Valid @RequestBody(required = false) CancelOrderRequest request,
+      @AuthenticationPrincipal Jwt jwt) {
+    return orderService.refuseOrderAsFarmer(id, jwt, request);
   }
 
   @PostMapping("/{id}/repeat")

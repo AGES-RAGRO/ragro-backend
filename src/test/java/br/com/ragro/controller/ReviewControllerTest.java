@@ -54,6 +54,7 @@ class ReviewControllerTest {
     ReviewResponse response =
         new ReviewResponse(
             reviewId,
+            "Customer Test",
             5,
             "Great quality and quick delivery.",
             orderId,
@@ -78,6 +79,7 @@ class ReviewControllerTest {
         .andExpect(jsonPath("$.orderId").value(orderId.toString()))
         .andExpect(jsonPath("$.farmerId").value(producerId.toString()))
         .andExpect(jsonPath("$.customerId").value(customerId.toString()))
+        .andExpect(jsonPath("$.authorName").value("Customer Test"))
         .andExpect(jsonPath("$.rating").value(5))
         .andExpect(jsonPath("$.comment").value("Great quality and quick delivery."));
   }

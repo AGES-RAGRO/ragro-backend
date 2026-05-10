@@ -2,30 +2,22 @@ package br.com.ragro.controller;
 
 import br.com.ragro.controller.request.ProducerFilter;
 import br.com.ragro.controller.request.ProducerUpdateRequest;
-import br.com.ragro.controller.response.ErrorResponse;
 import br.com.ragro.controller.response.MarketplaceProducerResponse;
 import br.com.ragro.controller.response.PaginatedResponse;
 import br.com.ragro.controller.response.ProducerGetResponse;
 import br.com.ragro.controller.response.ProducerPublicProfileResponse;
-import br.com.ragro.controller.response.ProducerReviewsResponse;
 import br.com.ragro.controller.response.ProductResponse;
+import br.com.ragro.controller.response.ReviewResponse;
 import br.com.ragro.service.ProducerService;
 import br.com.ragro.service.ProductService;
+import br.com.ragro.service.ReviewService;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.web.PageableDefault;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -42,6 +34,7 @@ public class ProducerController {
 
   private final ProducerService producerService;
   private final ProductService productService;
+  private final ReviewService reviewService;
 
   @GetMapping
   @PreAuthorize("hasRole('CUSTOMER')")
@@ -92,39 +85,6 @@ public class ProducerController {
     return ResponseEntity.ok(productService.getActiveProductsByProducerId(id));
   }
 
-  @GetMapping("/{id}/reviews")
-  @PreAuthorize("hasRole('CUSTOMER')")
-  @Operation(
-      summary = "Get producer public reviews",
-      description =
-          "Returns the paginated public reviews used by the customer-facing producer profile screen.")
-  @ApiResponses({
-    @ApiResponse(responseCode = "200", description = "Producer reviews returned successfully"),
-    @ApiResponse(
-        responseCode = "400",
-        description = "Invalid pagination or sorting parameters",
-        content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
-    @ApiResponse(
-        responseCode = "401",
-        description = "Inactive account or user not found",
-        content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
-    @ApiResponse(
-        responseCode = "403",
-        description = "Access denied",
-        content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
-    @ApiResponse(
-        responseCode = "404",
-        description = "Producer not found",
-        content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-  })
-  public ResponseEntity<ProducerReviewsResponse> getProducerReviews(
-      @PathVariable UUID id,
-      @ParameterObject
-          @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC)
-          Pageable pageable) {
-    return ResponseEntity.ok(producerService.getProducerReviews(id, pageable));
-  }
-
   @GetMapping("/{producerId}/products/{productId}")
   @PreAuthorize("hasRole('CUSTOMER')")
   @Operation(
@@ -136,6 +96,19 @@ public class ProducerController {
     return ResponseEntity.ok(
         productService.getActiveProductByProducerIdAndProductId(producerId, productId));
   }
+
+   @GetMapping("/{id}/reviews")
+   @PreAuthorize("hasAnyRole('CUSTOMER', 'FARMER')")
+   @Operation(
+        summary = "List reviews of a producer",
+        description = "Returns a paginated list of reviews for a producer. Restricted to Customers and Farmers.")
+    public ResponseEntity<PaginatedResponse<ReviewResponse>> getProducerReviews(
+        @PathVariable UUID id,
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(
+            reviewService.getReviewsByProducer(id, PageRequest.of(page, size)));
+    }
 
   @PutMapping("/{id}")
   @PreAuthorize("hasAnyRole('FARMER', 'ADMIN')")

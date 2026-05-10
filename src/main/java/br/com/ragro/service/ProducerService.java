@@ -9,13 +9,11 @@ import br.com.ragro.controller.response.MarketplaceProducerResponse;
 import br.com.ragro.controller.response.ProducerGetResponse;
 import br.com.ragro.controller.response.ProducerPublicProfileResponse;
 import br.com.ragro.controller.response.ProducerResponse;
-import br.com.ragro.controller.response.ProducerReviewsResponse;
 import br.com.ragro.domain.Address;
 import br.com.ragro.domain.FarmerAvailability;
 import br.com.ragro.domain.PaymentMethod;
 import br.com.ragro.domain.Producer;
 import br.com.ragro.domain.ProducerProfile;
-import br.com.ragro.domain.Review;
 import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.TypeUser;
 import br.com.ragro.exception.BusinessException;
@@ -23,25 +21,21 @@ import br.com.ragro.exception.ForbiddenException;
 import br.com.ragro.exception.NotFoundException;
 import br.com.ragro.mapper.AddressMapper;
 import br.com.ragro.mapper.ProducerMapper;
-import br.com.ragro.mapper.ReviewMapper;
+import br.com.ragro.repository.ReviewRepository;
 import br.com.ragro.repository.AddressRepository;
 import br.com.ragro.repository.FarmerAvailabilityRepository;
 import br.com.ragro.repository.PaymentMethodRepository;
 import br.com.ragro.repository.ProducerProfileRepository;
 import br.com.ragro.repository.ProducerRepository;
-import br.com.ragro.repository.ReviewRepository;
 import br.com.ragro.repository.UserRepository;
-import java.time.LocalTime;
-import java.math.RoundingMode;
-import java.time.format.DateTimeParseException;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalTime;
+import java.time.format.DateTimeParseException;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
-
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -64,7 +58,6 @@ public class ProducerService {
   private final MinioStorageService minioStorageService;
   private final ProducerMapper producerMapper;
   private final ReviewRepository reviewRepository;
-  private final ReviewMapper reviewMapper;
 
   public ProducerResponse getProducerById(UUID id) {
     var producer =
@@ -99,11 +92,11 @@ public class ProducerService {
     Producer producer =
         producerRepository
             .findDetailedById(id)
-            .orElseThrow(() -> new NotFoundException("Producer not found"));
+            .orElseThrow(() -> new NotFoundException("Produtor não encontrado"));
 
     User user = producer.getUser();
     if (!user.isActive()) {
-      throw new NotFoundException("Producer not found");
+      throw new NotFoundException("Produtor não encontrado");
     }
 
     ProducerProfile profile = producerProfileRepository.findById(id).orElse(null);
@@ -134,7 +127,8 @@ public class ProducerService {
 
     ProducerProfile profile = producerProfileRepository.findById(id).orElse(null);
     Address primaryAddress = addressRepository.findByUserIdAndIsPrimaryTrue(id).orElse(null);
-    List<PaymentMethod> paymentMethods = paymentMethodRepository.findByFarmerIdAndActiveTrue(id);
+    List<PaymentMethod> paymentMethods =
+        paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(id);
     List<FarmerAvailability> availability =
         farmerAvailabilityRepository.findByFarmerIdAndActiveTrueOrderByWeekdayAsc(id);
 
@@ -234,66 +228,13 @@ public class ProducerService {
       applyAvailability(producer, request.getAvailability());
     }
 
-    List<PaymentMethod> paymentMethods = paymentMethodRepository.findByFarmerIdAndActiveTrue(id);
+    List<PaymentMethod> paymentMethods =
+        paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(id);
     List<FarmerAvailability> availability =
         farmerAvailabilityRepository.findByFarmerIdAndActiveTrueOrderByWeekdayAsc(id);
 
     return producerMapper.toGetResponse(
         targetUser, producer, profile, primaryAddress, paymentMethods, availability);
-  }
-
-  @Transactional(readOnly = true)
-  public ProducerReviewsResponse getProducerReviews(UUID producerId, Pageable pageable) {
-    Producer producer =
-        producerRepository
-            .findDetailedById(producerId)
-            .orElseThrow(() -> new NotFoundException("Producer not found"));
-
-    User user = producer.getUser();
-    if (!user.isActive()) {
-      throw new NotFoundException("Producer not found");
-    }
-
-    Page<Review> reviews = reviewRepository.findAllByFarmerId(producerId, pageable);
-    
-    List<UUID> customerIds = reviews.getContent().stream()
-        .map(Review::getCustomerId)
-        .filter(id -> id != null)
-        .distinct()
-        .toList();
-    
-    Map<UUID, String> customerNames = userRepository.findAllById(customerIds)
-        .stream()
-        .collect(Collectors.toMap(User::getId, User::getName));
-    
-    // Fallback para não encontrados
-    reviews.getContent().forEach(review -> 
-        customerNames.putIfAbsent(
-            review.getCustomerId(), 
-            "Customer " + review.getCustomerId().toString().substring(0, 8)
-        )
-    );
-
-    return reviewMapper.toPageResponse(reviews, producer, customerNames);
-  }
-
-  @Transactional
-  public void updateReviewStats(UUID producerId) {
-    Producer producer =
-        producerRepository
-            .findById(producerId)
-            .orElseThrow(() -> new NotFoundException("Producer not found"));
-
-    long totalReviews = reviewRepository.countByFarmerId(producerId);
-    Double averageRating = reviewRepository.findAverageRatingByFarmerId(producerId);
-
-    producer.setTotalReviews(Math.toIntExact(totalReviews));
-    producer.setAverageRating(
-        averageRating == null
-            ? BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP)
-            : BigDecimal.valueOf(averageRating).setScale(2, RoundingMode.HALF_UP));
-
-    producerRepository.save(producer);
   }
 
   private void applyPaymentMethod(Producer producer, PaymentMethodRequest pmRequest) {
@@ -343,6 +284,25 @@ public class ProducerService {
     producer.setActive(false);
     userRepository.saveAndFlush(producer);
     return producerMapper.toResponse(producer);
+  }
+
+  @Transactional
+  public void updateReviewStats(UUID producerId) {
+    Producer producer =
+        producerRepository
+            .findById(producerId)
+            .orElseThrow(() -> new NotFoundException("Produtor não encontrado"));
+
+    long totalReviews = reviewRepository.countByFarmer_Id(producerId);
+    Double averageRating = reviewRepository.findAverageRatingByFarmerId(producerId);
+
+    producer.setTotalReviews(Math.toIntExact(totalReviews));
+    producer.setAverageRating(
+        averageRating == null
+            ? BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP)
+            : BigDecimal.valueOf(averageRating).setScale(2, RoundingMode.HALF_UP));
+
+    producerRepository.save(producer);
   }
 
   private void applyAvailability(Producer producer, List<AvailabilityRequest> availability) {

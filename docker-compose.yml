@@ -39,6 +39,7 @@ services:
       - "8180:8180"
     volumes:
       - ./keycloak/ragro-realm.json:/opt/keycloak/data/import/ragro-realm.json
+      - ./keycloak/themes:/opt/keycloak/themes
     depends_on:
       postgres:
         condition: service_healthy

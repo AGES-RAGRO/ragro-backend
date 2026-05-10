@@ -20,7 +20,6 @@ import br.com.ragro.domain.enums.TypeUser;
 import br.com.ragro.exception.BusinessException;
 import br.com.ragro.exception.ConflictException;
 import br.com.ragro.exception.NotFoundException;
-import br.com.ragro.mapper.ReviewMapper;
 import br.com.ragro.repository.OrderRepository;
 import br.com.ragro.repository.ReviewRepository;
 import java.time.OffsetDateTime;
@@ -29,7 +28,6 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -42,7 +40,6 @@ class ReviewServiceTest {
   @Mock private ReviewRepository reviewRepository;
   @Mock private UserService userService;
   @Mock private ProducerService producerService;
-  @Mock private ReviewMapper reviewMapper;
 
   @InjectMocks private ReviewService reviewService;
 
@@ -78,36 +75,30 @@ class ReviewServiceTest {
 
     Review savedReview = new Review();
     savedReview.setId(UUID.randomUUID());
-    savedReview.setOrderId(orderId);
-    savedReview.setFarmerId(producerId);
-    savedReview.setCustomerId(customerId);
+    savedReview.setOrder(order);
+    savedReview.setFarmer(order.getFarmer());
+    savedReview.setCustomer(order.getCustomer());
     savedReview.setRating((short) 5);
     savedReview.setComment("Great quality and quick delivery.");
     savedReview.setCreatedAt(OffsetDateTime.parse("2026-05-06T18:30:00Z"));
-
-    ReviewResponse response =
-        new ReviewResponse(
-            savedReview.getId(),
-            5,
-            "Great quality and quick delivery.",
-            orderId,
-            producerId,
-            customerId,
-            savedReview.getCreatedAt());
 
     when(userService.getAuthenticatedUser(jwt)).thenReturn(authenticatedCustomer);
     when(orderRepository.findByIdAndCustomerId(orderId, customerId)).thenReturn(Optional.of(order));
     when(reviewRepository.findByOrderId(orderId)).thenReturn(Optional.empty());
     when(reviewRepository.saveAndFlush(any(Review.class))).thenReturn(savedReview);
-    when(reviewMapper.toResponse(savedReview)).thenReturn(response);
 
     ReviewResponse result = reviewService.createReview(request, jwt);
 
-    assertThat(result).isEqualTo(response);
-    InOrder inOrder = inOrder(reviewRepository, producerService, reviewMapper);
-    inOrder.verify(reviewRepository).saveAndFlush(any(Review.class));
-    inOrder.verify(producerService).updateReviewStats(producerId);
-    inOrder.verify(reviewMapper).toResponse(savedReview);
+    assertThat(result.id()).isEqualTo(savedReview.getId());
+    assertThat(result.authorName()).isEqualTo("Customer Test");
+    assertThat(result.rating()).isEqualTo(5);
+    assertThat(result.comment()).isEqualTo("Great quality and quick delivery.");
+    assertThat(result.orderId()).isEqualTo(orderId);
+    assertThat(result.farmerId()).isEqualTo(producerId);
+    assertThat(result.customerId()).isEqualTo(customerId);
+
+    verify(reviewRepository).saveAndFlush(any(Review.class));
+    verify(producerService).updateReviewStats(producerId);
   }
 
   @Test
@@ -165,9 +156,9 @@ class ReviewServiceTest {
     Order order = buildDeliveredOrder(orderId, customerId, producerId);
     Review savedReview = new Review();
     savedReview.setId(UUID.randomUUID());
-    savedReview.setOrderId(orderId);
-    savedReview.setFarmerId(producerId);
-    savedReview.setCustomerId(customerId);
+    savedReview.setOrder(order);
+    savedReview.setFarmer(order.getFarmer());
+    savedReview.setCustomer(order.getCustomer());
     savedReview.setRating((short) 3);
 
     when(userService.getAuthenticatedUser(jwt)).thenReturn(authenticatedCustomer);
@@ -180,22 +171,28 @@ class ReviewServiceTest {
               assertThat(review.getComment()).isNull();
               return savedReview;
             });
-    when(reviewMapper.toResponse(savedReview))
-        .thenReturn(
-            new ReviewResponse(
-                savedReview.getId(), 3, null, orderId, producerId, customerId, null));
 
-    reviewService.createReview(request, jwt);
+    ReviewResponse result = reviewService.createReview(request, jwt);
 
+    assertThat(result.authorName()).isEqualTo("Customer Test");
+    assertThat(result.comment()).isNull();
     verify(producerService).updateReviewStats(producerId);
   }
 
   private Order buildDeliveredOrder(UUID orderId, UUID customerId, UUID producerId) {
+    User customerUser = new User();
+    customerUser.setId(customerId);
+    customerUser.setName("Customer Test");
+
     Customer customer = new Customer();
     customer.setId(customerId);
+    customer.setUser(customerUser);
 
+    User producerUser = new User();
+    producerUser.setId(producerId);
     Producer producer = new Producer();
     producer.setId(producerId);
+    producer.setUser(producerUser);
 
     Order order = new Order();
     order.setId(orderId);

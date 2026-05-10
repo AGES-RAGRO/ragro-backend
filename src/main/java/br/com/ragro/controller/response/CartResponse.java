@@ -14,4 +14,5 @@ public class CartResponse {
   private String farmName;
   private List<CartItemResponse> items;
   private BigDecimal totalAmount;
+  private BankInfoResponse bankInfo;
 }

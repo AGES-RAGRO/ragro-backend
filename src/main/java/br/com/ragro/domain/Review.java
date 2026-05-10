@@ -1,47 +1,47 @@
 package br.com.ragro.domain;
 
+import jakarta.persistence.*;
 import java.time.OffsetDateTime;
 import java.util.UUID;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
-import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.ToString;
 import org.hibernate.annotations.CreationTimestamp;
+
 
 @Entity
 @Table(name = "review")
-@AllArgsConstructor
-@NoArgsConstructor
 @Getter
 @Setter
+@EqualsAndHashCode(of = "id")
+@ToString(of = "id")
 public class Review {
+
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "id", columnDefinition = "uuid")
     private UUID id;
 
-    @Column(name = "order_id", unique = true, nullable = false, columnDefinition = "uuid")
-    private UUID orderId;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "order_id", nullable = false)
+    private Order order;
 
-    @Column(name = "farmer_id", nullable = false, columnDefinition = "uuid")
-    private UUID farmerId;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "customer_id", nullable = false)
+    private Customer customer;
 
-    @Column(name = "customer_id", nullable = false, columnDefinition = "uuid")
-    private UUID customerId;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "farmer_id", nullable = false)
+    private Producer farmer;
 
     @Column(name = "rating", nullable = false)
-    private Short rating; // 1-5
+    private Short rating;
 
     @Column(name = "comment", columnDefinition = "text")
     private String comment;
 
     @CreationTimestamp
-    @Column(name = "created_at", nullable = false, updatable = false, insertable = false)
+    @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 }

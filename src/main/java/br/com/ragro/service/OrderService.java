@@ -1,5 +1,6 @@
 package br.com.ragro.service;
 
+import br.com.ragro.controller.request.CancelOrderRequest;
 import br.com.ragro.controller.response.CartResponse;
 import br.com.ragro.controller.response.CustomerOrderResponse;
 import br.com.ragro.controller.response.OrderResponse;
@@ -51,6 +52,7 @@ public class OrderService {
   private final StockMovementService stockMovementService;
   private final OrderRepository orderRepository;
   private final OrderStatusHistoryRepository orderStatusHistoryRepository;
+  private final MinioStorageService storageService;
 
   @Transactional
   public OrderResponse createOrderFromCart(Jwt jwt) {
@@ -103,24 +105,42 @@ public class OrderService {
 
     Order savedOrder = orderRepository.saveAndFlush(order);
     cartService.clearCart(customer);
-    return OrderMapper.toResponse(savedOrder);
+    return OrderMapper.toResponse(savedOrder, storageService);
   }
 
+  /**
+   * Legacy cancel entry-point (backward compatible with the existing {@code PATCH /orders/{id}/cancel}).
+   * Routes to the role-specific flow:
+   *  - CUSTOMER → cancel own PENDING order (no stock movement).
+   *  - FARMER  → refuse own PENDING order (no stock movement).
+   * See decision D26: PENDING orders never debit stock, so cancelling one must NOT credit it back.
+   */
   @Transactional
-  public OrderResponse cancelOrder(UUID orderId, Jwt jwt) {
+  public OrderResponse cancelOrder(UUID orderId, Jwt jwt, CancelOrderRequest request) {
     User user = userService.getAuthenticatedUser(jwt);
-    if (user.getType() != TypeUser.CUSTOMER && user.getType() != TypeUser.FARMER) {
-      throw new ForbiddenException("Apenas consumidores ou produtores podem cancelar pedidos");
+    if (user.getType() == TypeUser.CUSTOMER) {
+      return cancelOrderAsCustomer(orderId, jwt, request);
+    }
+    if (user.getType() == TypeUser.FARMER) {
+      return refuseOrderAsFarmer(orderId, jwt, request);
+    }
+    throw new ForbiddenException("Apenas consumidores ou produtores podem cancelar pedidos");
+  }
+
+  /**
+   * Customer cancels their own PENDING order. Does not touch stock (D26).
+   */
+  @Transactional
+  public OrderResponse cancelOrderAsCustomer(UUID orderId, Jwt jwt, CancelOrderRequest request) {
+    User user = userService.getAuthenticatedUser(jwt);
+    if (user.getType() != TypeUser.CUSTOMER) {
+      throw new ForbiddenException("Apenas consumidores podem cancelar seus pedidos");
     }
 
     Order order = orderRepository.findById(orderId)
         .orElseThrow(() -> new NotFoundException("Pedido não encontrado"));
 
-    if (user.getType() == TypeUser.CUSTOMER && !order.getCustomer().getId().equals(user.getId())) {
-      throw new ForbiddenException("Você não tem permissão para cancelar este pedido");
-    }
-
-    if (user.getType() == TypeUser.FARMER && !order.getFarmer().getId().equals(user.getId())) {
+    if (!order.getCustomer().getId().equals(user.getId())) {
       throw new ForbiddenException("Você não tem permissão para cancelar este pedido");
     }
 
@@ -128,23 +148,93 @@ public class OrderService {
       throw new BusinessException("Somente pedidos com status PENDING podem ser cancelados");
     }
 
+    applyCancellation(order, request, "CUSTOMER_CANCELLED");
+    Order savedOrder = orderRepository.saveAndFlush(order);
+    return OrderMapper.toResponse(savedOrder, storageService);
+  }
+
+  /**
+   * Farmer refuses an incoming PENDING order. Records {@code REFUSED_BY_FARMER} so the history
+   * stays distinguishable from a customer-driven cancellation.
+   */
+  @Transactional
+  public OrderResponse refuseOrderAsFarmer(UUID orderId, Jwt jwt, CancelOrderRequest request) {
+    User user = userService.getAuthenticatedUser(jwt);
+    if (user.getType() != TypeUser.FARMER) {
+      throw new ForbiddenException("Apenas produtores podem recusar pedidos");
+    }
+
+    Order order = orderRepository.findById(orderId)
+        .orElseThrow(() -> new NotFoundException("Pedido não encontrado"));
+
+    if (!order.getFarmer().getId().equals(user.getId())) {
+      throw new ForbiddenException("Você não tem permissão para recusar este pedido");
+    }
+
+    if (order.getStatus() != OrderStatus.PENDING) {
+      throw new BusinessException("Somente pedidos com status PENDING podem ser recusados");
+    }
+
+    applyCancellation(order, request, "REFUSED_BY_FARMER");
+    Order savedOrder = orderRepository.saveAndFlush(order);
+    return OrderMapper.toResponse(savedOrder, storageService);
+  }
+
+  /**
+   * Customer confirms that an in-delivery order was received. Transitions IN_DELIVERY → DELIVERED.
+   */
+  @Transactional
+  public OrderResponse confirmDelivery(UUID orderId, Jwt jwt) {
+    User user = userService.getAuthenticatedUser(jwt);
+    if (user.getType() != TypeUser.CUSTOMER) {
+      throw new ForbiddenException("Apenas consumidores podem confirmar a entrega");
+    }
+
+    Order order = orderRepository.findById(orderId)
+        .orElseThrow(() -> new NotFoundException("Pedido não encontrado"));
+
+    if (!order.getCustomer().getId().equals(user.getId())) {
+      throw new ForbiddenException("Você não tem permissão para confirmar este pedido");
+    }
+
+    if (order.getStatus() != OrderStatus.IN_DELIVERY) {
+      throw new BusinessException("Somente pedidos em entrega podem ser confirmados como entregues");
+    }
+
+    order.setStatus(OrderStatus.DELIVERED);
+
+    OrderStatusHistory history = new OrderStatusHistory();
+    history.setOrder(order);
+    history.setStatus(OrderStatus.DELIVERED);
+    order.getStatusHistory().add(history);
+
+    Order savedOrder = orderRepository.saveAndFlush(order);
+    return OrderMapper.toResponse(savedOrder, storageService);
+  }
+
+  private void applyCancellation(Order order, CancelOrderRequest request, String defaultReason) {
+    if (order.getStatus() == OrderStatus.CANCELLED) {
+      return; // idempotente: já cancelado, não re-aplica nem duplica histórico
+    }
     order.setStatus(OrderStatus.CANCELLED);
 
-    order.getItems().forEach(item -> {
-      stockMovementService.registerCancelledSale(
-          item.getProduct(), 
-          item.getQuantity(), 
-          "Pedido cancelado"
-      );
-    });
+    String reason = defaultReason;
+    String details = null;
+    if (request != null) {
+      if (request.getReason() != null && !request.getReason().isBlank()) {
+        reason = request.getReason();
+      }
+      if (request.getDetails() != null && !request.getDetails().isBlank()) {
+        details = request.getDetails();
+      }
+    }
+    order.setCancellationReason(reason);
+    order.setCancellationDetails(details);
 
     OrderStatusHistory history = new OrderStatusHistory();
     history.setOrder(order);
     history.setStatus(OrderStatus.CANCELLED);
     order.getStatusHistory().add(history);
-
-    Order savedOrder = orderRepository.saveAndFlush(order);
-    return OrderMapper.toResponse(savedOrder);
   }
 
   @Transactional(readOnly = true)
@@ -158,7 +248,7 @@ public class OrderService {
         .orElseThrow(() -> new NotFoundException("Dados do consumidor não encontrados"));
 
     return orderRepository.findByCustomerIdOrderByCreatedAtDesc(user.getId()).stream()
-        .map(OrderMapper::toCustomerOrderResponse)
+        .map(order -> OrderMapper.toCustomerOrderResponse(order, storageService))
         .toList();
   }
 
@@ -170,7 +260,7 @@ public class OrderService {
     }
 
     return orderRepository.findByFarmerIdOrderByCreatedAtDesc(user.getId()).stream()
-        .map(OrderMapper::toResponse)
+        .map(order -> OrderMapper.toResponse(order, storageService))
         .toList();
   }
 
@@ -187,7 +277,7 @@ public class OrderService {
     Order order = orderRepository.findByIdAndCustomerId(orderId, user.getId())
         .orElseThrow(() -> new NotFoundException("Pedido não encontrado para este consumidor"));
 
-    return OrderMapper.toCustomerOrderResponse(order);
+    return OrderMapper.toCustomerOrderResponse(order, storageService);
   }
 
   @Transactional
@@ -212,7 +302,7 @@ public class OrderService {
     history.setStatus(newStatus);
     orderStatusHistoryRepository.save(history);
 
-    return OrderMapper.toResponse(updatedOrder);
+    return OrderMapper.toResponse(updatedOrder, storageService);
   }
 
   @Transactional
@@ -245,7 +335,7 @@ public class OrderService {
     history.setStatus(OrderStatus.CONFIRMED);
     orderStatusHistoryRepository.save(history);
 
-    return OrderMapper.toResponse(updatedOrder);
+    return OrderMapper.toResponse(updatedOrder, storageService);
   }
 
   private Address getDeliveryAddress(Customer customer) {
@@ -254,7 +344,7 @@ public class OrderService {
   }
 
   private PaymentMethod getPaymentMethod(Producer farmer) {
-    List<PaymentMethod> methods = paymentMethodRepository.findByFarmerIdAndActiveTrue(farmer.getId());
+    List<PaymentMethod> methods = paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(farmer.getId());
     if (methods.isEmpty()) {
       throw new BusinessException("O produtor não possui nenhum método de pagamento ativo");
     }
@@ -348,6 +438,15 @@ public class OrderService {
     }
 
     Cart savedCart = cartRepository.saveAndFlush(cart);
-    return CartMapper.toResponse(savedCart);
+    return CartMapper.toResponse(savedCart, findPrimaryPaymentMethod(savedCart.getFarmer()));
+  }
+
+  private PaymentMethod findPrimaryPaymentMethod(Producer farmer) {
+    if (farmer == null) {
+      return null;
+    }
+    List<PaymentMethod> methods =
+        paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(farmer.getId());
+    return methods.isEmpty() ? null : methods.get(0);
   }
 }

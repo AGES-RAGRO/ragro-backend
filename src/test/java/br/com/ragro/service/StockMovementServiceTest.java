@@ -158,7 +158,9 @@ class StockMovementServiceTest {
     when(productRepository.findByIdAndFarmerId(product.getId(), farmer.getId()))
         .thenReturn(Optional.of(product));
 
-    assertThatThrownBy(() -> stockMovementService.registerExit(request, jwt()))
+    assertThatThrownBy(() -> stockMovementService
+                            .registerExit
+                            (request, jwt()))
         .isInstanceOf(BusinessException.class)
         .hasMessage("Saldo insuficiente para registrar saída de estoque");
 

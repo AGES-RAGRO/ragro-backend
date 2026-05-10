@@ -14,9 +14,7 @@ import br.com.ragro.config.SecurityConfig;
 import br.com.ragro.controller.request.ProducerUpdateRequest;
 import br.com.ragro.controller.response.ProducerGetResponse;
 import br.com.ragro.controller.response.ProducerPublicProfileResponse;
-import br.com.ragro.controller.response.ProducerReviewsResponse;
 import br.com.ragro.controller.response.ProductResponse;
-import br.com.ragro.controller.response.ReviewItemResponse;
 import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.TypeUser;
 import br.com.ragro.exception.ForbiddenException;
@@ -25,6 +23,8 @@ import br.com.ragro.repository.ProducerRepository;
 import br.com.ragro.repository.UserRepository;
 import br.com.ragro.service.ProducerService;
 import br.com.ragro.service.ProductService;
+import br.com.ragro.service.ReviewService;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -51,6 +51,7 @@ class ProducerControllerTest {
 
   @MockBean private ProducerService producerService;
   @MockBean private ProductService productService;
+  @MockBean private ReviewService reviewService;
   @MockBean private UserRepository userRepository;
   @MockBean private ProducerRepository producerRepository;
 
@@ -100,7 +101,7 @@ class ProducerControllerTest {
     when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(activeUser));
 
     when(producerService.getProducerProfileById(eq(producerId), any()))
-        .thenThrow(new NotFoundException("Producer not found"));
+        .thenThrow(new NotFoundException("Produtor não encontrado"));
 
     mockMvc
         .perform(
@@ -127,7 +128,7 @@ class ProducerControllerTest {
                         .jwt(jwt -> jwt.claim("sub", sub).claim("email", "farmer@test.com"))
                         .authorities(new SimpleGrantedAuthority("ROLE_FARMER"))))
         .andExpect(status().isUnauthorized())
-        .andExpect(jsonPath("$.error").value("Inactive account or user not found"));
+        .andExpect(jsonPath("$.error").value("Conta desativada ou usuário não encontrado"));
   }
 
   @Test
@@ -144,7 +145,7 @@ class ProducerControllerTest {
                         .jwt(jwt -> jwt.claim("sub", sub).claim("email", "farmer@test.com"))
                         .authorities(new SimpleGrantedAuthority("ROLE_FARMER"))))
         .andExpect(status().isUnauthorized())
-        .andExpect(jsonPath("$.error").value("Inactive account or user not found"));
+        .andExpect(jsonPath("$.error").value("Conta desativada ou usuário não encontrado"));
   }
 
   @Test
@@ -355,7 +356,7 @@ class ProducerControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isUnauthorized())
-        .andExpect(jsonPath("$.error").value("Inactive account or user not found"));
+        .andExpect(jsonPath("$.error").value("Conta desativada ou usuário não encontrado"));
   }
 
   // ─── GET /{id}/profile ──────────────────────────────────────────────────────
@@ -410,7 +411,7 @@ class ProducerControllerTest {
     User activeCustomer = buildCustomerUser(sub, true);
     when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(activeCustomer));
     when(producerService.getPublicProfileById(producerId))
-        .thenThrow(new NotFoundException("Producer not found"));
+        .thenThrow(new NotFoundException("Produtor não encontrado"));
 
     mockMvc
         .perform(
@@ -420,7 +421,7 @@ class ProducerControllerTest {
                         .jwt(jwt -> jwt.claim("sub", sub).claim("email", "customer@test.com"))
                         .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"))))
         .andExpect(status().isNotFound())
-        .andExpect(jsonPath("$.error").value("Producer not found"));
+        .andExpect(jsonPath("$.error").value("Produtor não encontrado"));
   }
 
   @Test
@@ -563,394 +564,10 @@ class ProducerControllerTest {
                         .jwt(jwt -> jwt.claim("sub", sub).claim("email", "customer@test.com"))
                         .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"))))
         .andExpect(status().isUnauthorized())
-        .andExpect(jsonPath("$.error").value("Inactive account or user not found"));
+        .andExpect(jsonPath("$.error").value("Conta desativada ou usuário não encontrado"));
   }
 
-  // ─── GET /{id}/reviews ──────────────────────────────────────────────────────
-
-  @Test
-  void getProducerReviews_shouldReturn200_withReviewsList_whenProducerExists() throws Exception {
-    UUID producerId = UUID.randomUUID();
-    String sub = "keycloak-sub-customer";
-    User activeCustomer = buildCustomerUser(sub, true);
-    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(activeCustomer));
-    
-    ProducerReviewsResponse response = buildProducerReviewsResponse(
-        producerId,
-        new BigDecimal("4.80"),
-        3,
-        0,
-        10,
-        3
-    );
-    
-    when(producerService.getProducerReviews(eq(producerId), any()))
-        .thenReturn(response);
-
-    mockMvc
-        .perform(
-            get("/producers/" + producerId + "/reviews")
-                .param("page", "0")
-                .param("size", "10")
-                .contentType(MediaType.APPLICATION_JSON)
-                .with(
-                    SecurityMockMvcRequestPostProcessors.jwt()
-                        .jwt(jwt -> jwt.claim("sub", sub).claim("email", "customer@test.com"))
-                        .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"))))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.averageRating").value(4.80))
-        .andExpect(jsonPath("$.totalReviews").value(3))
-        .andExpect(jsonPath("$.reviews").isArray())
-        .andExpect(jsonPath("$.reviews[0].id").exists())
-        .andExpect(jsonPath("$.reviews[0].customerName").value("Maria Cliente"))
-        .andExpect(jsonPath("$.reviews[0].rating").value(5))
-        .andExpect(jsonPath("$.reviews[0].comment").value("Ótimo produtor!"))
-        .andExpect(jsonPath("$.reviews[0].createdAt").exists())
-        .andExpect(jsonPath("$.pageNumber").value(0))
-        .andExpect(jsonPath("$.pageSize").value(10))
-        .andExpect(jsonPath("$.totalPages").value(1))
-        .andExpect(jsonPath("$.totalElements").value(3));
-  }
-
-  @Test
-  void getProducerReviews_shouldReturn404_whenProducerNotFound() throws Exception {
-    UUID producerId = UUID.randomUUID();
-    String sub = "keycloak-sub-customer";
-    User activeCustomer = buildCustomerUser(sub, true);
-    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(activeCustomer));
-    
-    when(producerService.getProducerReviews(eq(producerId), any()))
-        .thenThrow(new NotFoundException("Producer not found"));
-
-    mockMvc
-        .perform(
-            get("/producers/" + producerId + "/reviews")
-                .contentType(MediaType.APPLICATION_JSON)
-                .with(
-                    SecurityMockMvcRequestPostProcessors.jwt()
-                        .jwt(jwt -> jwt.claim("sub", sub).claim("email", "customer@test.com"))
-                        .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"))))
-        .andExpect(status().isNotFound())
-        .andExpect(jsonPath("$.error").value("Producer not found"));
-  }
-
-  @Test
-  void getProducerReviews_shouldReturn200_withEmptyList_whenProducerHasNoReviews() throws Exception {
-    UUID producerId = UUID.randomUUID();
-    String sub = "keycloak-sub-customer";
-    User activeCustomer = buildCustomerUser(sub, true);
-    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(activeCustomer));
-    
-    ProducerReviewsResponse response = ProducerReviewsResponse.builder()
-        .averageRating(BigDecimal.ZERO)
-        .totalReviews(0)
-        .reviews(List.of())
-        .pageNumber(0)
-        .pageSize(10)
-        .totalPages(0)
-        .totalElements(0L)
-        .build();
-    
-    when(producerService.getProducerReviews(eq(producerId), any()))
-        .thenReturn(response);
-
-    mockMvc
-        .perform(
-            get("/producers/" + producerId + "/reviews")
-                .contentType(MediaType.APPLICATION_JSON)
-                .with(
-                    SecurityMockMvcRequestPostProcessors.jwt()
-                        .jwt(jwt -> jwt.claim("sub", sub).claim("email", "customer@test.com"))
-                        .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"))))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.averageRating").value(0))
-        .andExpect(jsonPath("$.totalReviews").value(0))
-        .andExpect(jsonPath("$.reviews").isArray())
-        .andExpect(jsonPath("$.reviews.length()").value(0))
-        .andExpect(jsonPath("$.totalElements").value(0));
-  }
-
-  @Test
-  void getProducerReviews_shouldRespectPageParameter() throws Exception {
-    UUID producerId = UUID.randomUUID();
-    String sub = "keycloak-sub-customer";
-    User activeCustomer = buildCustomerUser(sub, true);
-    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(activeCustomer));
-    
-    ProducerReviewsResponse response = buildProducerReviewsResponse(
-        producerId,
-        new BigDecimal("4.50"),
-        20,
-        1,
-        10,
-        20
-    );
-    
-    when(producerService.getProducerReviews(eq(producerId), any()))
-        .thenReturn(response);
-
-    mockMvc
-        .perform(
-            get("/producers/" + producerId + "/reviews")
-                .param("page", "1")
-                .param("size", "10")
-                .contentType(MediaType.APPLICATION_JSON)
-                .with(
-                    SecurityMockMvcRequestPostProcessors.jwt()
-                        .jwt(jwt -> jwt.claim("sub", sub).claim("email", "customer@test.com"))
-                        .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"))))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.pageNumber").value(1))
-        .andExpect(jsonPath("$.pageSize").value(10))
-        .andExpect(jsonPath("$.totalPages").value(2))
-        .andExpect(jsonPath("$.totalElements").value(20));
-  }
-
-  @Test
-  void getProducerReviews_shouldRespectSizeParameter() throws Exception {
-    UUID producerId = UUID.randomUUID();
-    String sub = "keycloak-sub-customer";
-    User activeCustomer = buildCustomerUser(sub, true);
-    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(activeCustomer));
-    
-    ProducerReviewsResponse response = ProducerReviewsResponse.builder()
-        .averageRating(new BigDecimal("4.60"))
-        .totalReviews(50)
-        .reviews(buildReviewItems(20))
-        .pageNumber(0)
-        .pageSize(20)
-        .totalPages(3)
-        .totalElements(50L)
-        .build();
-    
-    when(producerService.getProducerReviews(eq(producerId), any()))
-        .thenReturn(response);
-
-    mockMvc
-        .perform(
-            get("/producers/" + producerId + "/reviews")
-                .param("page", "0")
-                .param("size", "20")
-                .contentType(MediaType.APPLICATION_JSON)
-                .with(
-                    SecurityMockMvcRequestPostProcessors.jwt()
-                        .jwt(jwt -> jwt.claim("sub", sub).claim("email", "customer@test.com"))
-                        .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"))))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.pageSize").value(20))
-        .andExpect(jsonPath("$.reviews.length()").value(20))
-        .andExpect(jsonPath("$.totalPages").value(3));
-  }
-
-  @Test
-  void getProducerReviews_shouldSupportDefaultPagination() throws Exception {
-    UUID producerId = UUID.randomUUID();
-    String sub = "keycloak-sub-customer";
-    User activeCustomer = buildCustomerUser(sub, true);
-    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(activeCustomer));
-    
-    ProducerReviewsResponse response = buildProducerReviewsResponse(
-        producerId,
-        new BigDecimal("4.70"),
-        15,
-        0,
-        10,
-        15
-    );
-    
-    when(producerService.getProducerReviews(eq(producerId), any()))
-        .thenReturn(response);
-
-    mockMvc
-        .perform(
-            get("/producers/" + producerId + "/reviews")
-                .contentType(MediaType.APPLICATION_JSON)
-                .with(
-                    SecurityMockMvcRequestPostProcessors.jwt()
-                        .jwt(jwt -> jwt.claim("sub", sub).claim("email", "customer@test.com"))
-                        .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"))))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.pageNumber").value(0))
-        .andExpect(jsonPath("$.pageSize").value(10));
-  }
-
-  @Test
-  void getProducerReviews_shouldReturnReviewsWithCorrectFields() throws Exception {
-    UUID producerId = UUID.randomUUID();
-    UUID reviewId = UUID.randomUUID();
-    OffsetDateTime createdAt = OffsetDateTime.now();
-    String sub = "keycloak-sub-customer";
-    User activeCustomer = buildCustomerUser(sub, true);
-    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(activeCustomer));
-    
-    ReviewItemResponse review = ReviewItemResponse.builder()
-        .id(reviewId)
-        .customerName("João Cliente")
-        .rating((short) 4)
-        .comment("Produto de qualidade")
-        .createdAt(createdAt)
-        .build();
-    
-    ProducerReviewsResponse response = ProducerReviewsResponse.builder()
-        .averageRating(new BigDecimal("4.40"))
-        .totalReviews(1)
-        .reviews(List.of(review))
-        .pageNumber(0)
-        .pageSize(10)
-        .totalPages(1)
-        .totalElements(1L)
-        .build();
-    
-    when(producerService.getProducerReviews(eq(producerId), any()))
-        .thenReturn(response);
-
-    mockMvc
-        .perform(
-            get("/producers/" + producerId + "/reviews")
-                .contentType(MediaType.APPLICATION_JSON)
-                .with(
-                    SecurityMockMvcRequestPostProcessors.jwt()
-                        .jwt(jwt -> jwt.claim("sub", sub).claim("email", "customer@test.com"))
-                        .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"))))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.reviews[0].id").value(reviewId.toString()))
-        .andExpect(jsonPath("$.reviews[0].customerName").value("João Cliente"))
-        .andExpect(jsonPath("$.reviews[0].rating").value(4))
-        .andExpect(jsonPath("$.reviews[0].comment").value("Produto de qualidade"))
-        .andExpect(jsonPath("$.reviews[0].createdAt").exists());
-  }
-
-  @Test
-  void getProducerReviews_shouldReturnHighAverageRating() throws Exception {
-    UUID producerId = UUID.randomUUID();
-    String sub = "keycloak-sub-customer";
-    User activeCustomer = buildCustomerUser(sub, true);
-    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(activeCustomer));
-    
-    ProducerReviewsResponse response = buildProducerReviewsResponse(
-        producerId,
-        new BigDecimal("4.95"),
-        100,
-        0,
-        10,
-        100
-    );
-    
-    when(producerService.getProducerReviews(eq(producerId), any()))
-        .thenReturn(response);
-
-    mockMvc
-        .perform(
-            get("/producers/" + producerId + "/reviews")
-                .contentType(MediaType.APPLICATION_JSON)
-                .with(
-                    SecurityMockMvcRequestPostProcessors.jwt()
-                        .jwt(jwt -> jwt.claim("sub", sub).claim("email", "customer@test.com"))
-                        .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"))))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.averageRating").value(4.95))
-        .andExpect(jsonPath("$.totalReviews").value(100));
-  }
-
-  @Test
-  void getProducerReviews_shouldReturnLowAverageRating() throws Exception {
-    UUID producerId = UUID.randomUUID();
-    String sub = "keycloak-sub-customer";
-    User activeCustomer = buildCustomerUser(sub, true);
-    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(activeCustomer));
-    
-    ProducerReviewsResponse response = buildProducerReviewsResponse(
-        producerId,
-        new BigDecimal("2.30"),
-        5,
-        0,
-        10,
-        5
-    );
-    
-    when(producerService.getProducerReviews(eq(producerId), any()))
-        .thenReturn(response);
-
-    mockMvc
-        .perform(
-            get("/producers/" + producerId + "/reviews")
-                .contentType(MediaType.APPLICATION_JSON)
-                .with(
-                    SecurityMockMvcRequestPostProcessors.jwt()
-                        .jwt(jwt -> jwt.claim("sub", sub).claim("email", "customer@test.com"))
-                        .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"))))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.averageRating").value(2.30))
-        .andExpect(jsonPath("$.totalReviews").value(5));
-  }
-
-  @Test
-  void getProducerReviews_shouldHandleMultiplePages() throws Exception {
-    UUID producerId = UUID.randomUUID();
-    String sub = "keycloak-sub-customer";
-    User activeCustomer = buildCustomerUser(sub, true);
-    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(activeCustomer));
-    
-    ProducerReviewsResponse response = ProducerReviewsResponse.builder()
-        .averageRating(new BigDecimal("4.75"))
-        .totalReviews(100)
-        .reviews(buildReviewItems(10))
-        .pageNumber(2)
-        .pageSize(10)
-        .totalPages(10)
-        .totalElements(100L)
-        .build();
-    
-    when(producerService.getProducerReviews(eq(producerId), any()))
-        .thenReturn(response);
-
-    mockMvc
-        .perform(
-            get("/producers/" + producerId + "/reviews")
-                .param("page", "2")
-                .param("size", "10")
-                .contentType(MediaType.APPLICATION_JSON)
-                .with(
-                    SecurityMockMvcRequestPostProcessors.jwt()
-                        .jwt(jwt -> jwt.claim("sub", sub).claim("email", "customer@test.com"))
-                        .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"))))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.pageNumber").value(2))
-        .andExpect(jsonPath("$.totalPages").value(10))
-        .andExpect(jsonPath("$.totalElements").value(100));
-  }
   // ─── helpers ────────────────────────────────────────────────────────────────
-
-  private ProducerReviewsResponse buildProducerReviewsResponse(
-      UUID producerId,
-      BigDecimal averageRating,
-      int totalReviews,
-      int pageNumber,
-      int pageSize,
-      long totalElements) {
-    
-    return ProducerReviewsResponse.builder()
-        .averageRating(averageRating)
-        .totalReviews(totalReviews)
-        .reviews(buildReviewItems(Math.min(pageSize, (int) totalElements)))
-        .pageNumber(pageNumber)
-        .pageSize(pageSize)
-        .totalPages((int) Math.ceil((double) totalElements / pageSize))
-        .totalElements(totalElements)
-        .build();
-  }
-
-  private List<ReviewItemResponse> buildReviewItems(int count) {
-    return java.util.stream.IntStream.range(0, count)
-        .mapToObj(i -> ReviewItemResponse.builder()
-            .id(UUID.randomUUID())
-            .customerName("Maria Cliente")
-            .rating((short) 5)
-            .comment("Ótimo produtor!")
-            .createdAt(OffsetDateTime.now().minusDays(i))
-            .build())
-        .toList();
-  }
 
   private User buildUser(String authSub, boolean active) {
     User user = new User();
