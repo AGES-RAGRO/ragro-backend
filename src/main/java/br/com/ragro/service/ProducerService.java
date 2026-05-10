@@ -21,12 +21,15 @@ import br.com.ragro.exception.ForbiddenException;
 import br.com.ragro.exception.NotFoundException;
 import br.com.ragro.mapper.AddressMapper;
 import br.com.ragro.mapper.ProducerMapper;
+import br.com.ragro.repository.ReviewRepository;
 import br.com.ragro.repository.AddressRepository;
 import br.com.ragro.repository.FarmerAvailabilityRepository;
 import br.com.ragro.repository.PaymentMethodRepository;
 import br.com.ragro.repository.ProducerProfileRepository;
 import br.com.ragro.repository.ProducerRepository;
 import br.com.ragro.repository.UserRepository;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
 import java.util.HashSet;
@@ -54,6 +57,7 @@ public class ProducerService {
   private final UserService userService;
   private final MinioStorageService minioStorageService;
   private final ProducerMapper producerMapper;
+  private final ReviewRepository reviewRepository;
 
   public ProducerResponse getProducerById(UUID id) {
     var producer =
@@ -123,7 +127,10 @@ public class ProducerService {
 
     ProducerProfile profile = producerProfileRepository.findById(id).orElse(null);
     Address primaryAddress = addressRepository.findByUserIdAndIsPrimaryTrue(id).orElse(null);
-    List<PaymentMethod> paymentMethods = paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(id);
+
+    List<PaymentMethod> paymentMethods =
+        paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(id);
+
     List<FarmerAvailability> availability =
         farmerAvailabilityRepository.findByFarmerIdAndActiveTrueOrderByWeekdayAsc(id);
 
@@ -223,7 +230,9 @@ public class ProducerService {
       applyAvailability(producer, request.getAvailability());
     }
 
-    List<PaymentMethod> paymentMethods = paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(id);
+    List<PaymentMethod> paymentMethods =
+        paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(id);
+
     List<FarmerAvailability> availability =
         farmerAvailabilityRepository.findByFarmerIdAndActiveTrueOrderByWeekdayAsc(id);
 
@@ -278,6 +287,25 @@ public class ProducerService {
     producer.setActive(false);
     userRepository.saveAndFlush(producer);
     return producerMapper.toResponse(producer);
+  }
+
+  @Transactional
+  public void updateReviewStats(UUID producerId) {
+    Producer producer =
+        producerRepository
+            .findById(producerId)
+            .orElseThrow(() -> new NotFoundException("Produtor não encontrado"));
+
+    long totalReviews = reviewRepository.countByFarmer_Id(producerId);
+    Double averageRating = reviewRepository.findAverageRatingByFarmerId(producerId);
+
+    producer.setTotalReviews(Math.toIntExact(totalReviews));
+    producer.setAverageRating(
+        averageRating == null
+            ? BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP)
+            : BigDecimal.valueOf(averageRating).setScale(2, RoundingMode.HALF_UP));
+
+    producerRepository.save(producer);
   }
 
   private void applyAvailability(Producer producer, List<AvailabilityRequest> availability) {
