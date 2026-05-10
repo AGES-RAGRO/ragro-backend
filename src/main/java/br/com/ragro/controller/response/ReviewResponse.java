@@ -4,6 +4,7 @@ import java.util.UUID;
 
 public record ReviewResponse(
     UUID id,
+    String authorName,
     Integer rating,
     String comment,
     UUID orderId,

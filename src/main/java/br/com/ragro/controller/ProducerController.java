@@ -7,8 +7,10 @@ import br.com.ragro.controller.response.PaginatedResponse;
 import br.com.ragro.controller.response.ProducerGetResponse;
 import br.com.ragro.controller.response.ProducerPublicProfileResponse;
 import br.com.ragro.controller.response.ProductResponse;
+import br.com.ragro.controller.response.ReviewResponse;
 import br.com.ragro.service.ProducerService;
 import br.com.ragro.service.ProductService;
+import br.com.ragro.service.ReviewService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -32,6 +34,7 @@ public class ProducerController {
 
   private final ProducerService producerService;
   private final ProductService productService;
+  private final ReviewService reviewService;
 
   @GetMapping
   @PreAuthorize("hasRole('CUSTOMER')")
@@ -93,6 +96,19 @@ public class ProducerController {
     return ResponseEntity.ok(
         productService.getActiveProductByProducerIdAndProductId(producerId, productId));
   }
+
+   @GetMapping("/{id}/reviews")
+   @PreAuthorize("hasAnyRole('CUSTOMER', 'FARMER')")
+   @Operation(
+        summary = "List reviews of a producer",
+        description = "Returns a paginated list of reviews for a producer. Restricted to Customers and Farmers.")
+    public ResponseEntity<PaginatedResponse<ReviewResponse>> getProducerReviews(
+        @PathVariable UUID id,
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(
+            reviewService.getReviewsByProducer(id, PageRequest.of(page, size)));
+    }
 
   @PutMapping("/{id}")
   @PreAuthorize("hasAnyRole('FARMER', 'ADMIN')")
