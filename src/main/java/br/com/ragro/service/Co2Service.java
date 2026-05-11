@@ -5,12 +5,14 @@ import br.com.ragro.controller.request.RecordCo2SavingRequest;
 import br.com.ragro.controller.response.Co2CalculationResponse;
 import br.com.ragro.controller.response.Co2OptionsResponse;
 import br.com.ragro.controller.response.VehiclePreferenceResponse;
+import br.com.ragro.domain.Co2Emission;
 import br.com.ragro.domain.Co2Saving;
 import br.com.ragro.domain.User;
 import br.com.ragro.domain.VehiclePreference;
 import br.com.ragro.domain.enums.FuelType;
 import br.com.ragro.domain.enums.VehicleType;
 import br.com.ragro.exception.BusinessException;
+import br.com.ragro.repository.Co2EmissionRepository;
 import br.com.ragro.repository.Co2SavingRepository;
 import br.com.ragro.repository.VehiclePreferenceRepository;
 import java.math.BigDecimal;
@@ -29,6 +31,7 @@ public class Co2Service {
 
   private final VehiclePreferenceRepository vehiclePreferenceRepository;
   private final Co2SavingRepository co2SavingRepository;
+  private final Co2EmissionRepository co2EmissionRepository;
   private final UserService userService;
 
   private static final Map<VehicleType, List<FuelType>> ALLOWED_FUELS_BY_VEHICLE = Map.of(
@@ -62,7 +65,9 @@ public class Co2Service {
     }
 
     if (user != null && consumption != null) {
-      saveOrUpdatePreference(user, request.getVehicleType(), request.getFuelType(), consumption);
+      VehiclePreference preference =
+          saveOrUpdatePreference(user, request.getVehicleType(), request.getFuelType(), consumption);
+      recordEmission(preference, request.getDistanceKm(), co2Emission);
     }
 
     return Co2CalculationResponse.builder()
@@ -120,16 +125,27 @@ public class Co2Service {
     saveOrUpdatePreference(user, request.getVehicleType(), request.getFuelType(), consumption);
   }
 
-  private void saveOrUpdatePreference(User user, VehicleType vehicleType, FuelType fuelType, Double consumption) {
+  private VehiclePreference saveOrUpdatePreference(User user, VehicleType vehicleType, FuelType fuelType, Double consumption) {
     VehiclePreference preference = vehiclePreferenceRepository.findById(user.getId())
         .orElse(new VehiclePreference());
-    
+
     preference.setUser(user);
     preference.setUserId(user.getId());
     preference.setVehicleType(vehicleType);
     preference.setFuelType(fuelType);
     preference.setAverageConsumption(consumption);
-    vehiclePreferenceRepository.save(preference);
+    return vehiclePreferenceRepository.save(preference);
+  }
+
+  private void recordEmission(VehiclePreference preference, double routeDistanceKm, double co2Emission) {
+    Co2Emission emission = new Co2Emission();
+    emission.setVehiclePreference(preference);
+    emission.setRouteDistanceKm(routeDistanceKm);
+    emission.setCo2Emission(round(co2Emission));
+    emission.setVehicleType(preference.getVehicleType());
+    emission.setFuelType(preference.getFuelType());
+    emission.setAverageConsumption(preference.getAverageConsumption());
+    co2EmissionRepository.save(emission);
   }
 
   private void validate(Co2CalculationRequest request) {
