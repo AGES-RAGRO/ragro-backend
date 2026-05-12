@@ -3,9 +3,11 @@ package br.com.ragro.controller;
 import br.com.ragro.controller.request.Co2CalculationRequest;
 import br.com.ragro.controller.request.RecordCo2SavingRequest;
 import br.com.ragro.controller.response.Co2CalculationResponse;
+import br.com.ragro.controller.response.Co2EmissionResponse;
 import br.com.ragro.controller.response.Co2OptionsResponse;
 import br.com.ragro.controller.response.VehiclePreferenceResponse;
 import br.com.ragro.service.Co2Service;
+import java.util.List;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -42,7 +44,7 @@ public class Co2Controller {
 
   @GetMapping("/emissions")
   @Operation(summary = "Get emissions history", description = "Returns the CO2 emissions history for the authenticated user.")
-  public ResponseEntity<java.util.List<br.com.ragro.controller.response.Co2EmissionResponse>> getEmissionsHistory(
+  public ResponseEntity<List<Co2EmissionResponse>> getEmissionsHistory(
       @AuthenticationPrincipal Jwt jwt) {
     return ResponseEntity.ok(co2Service.getEmissionsHistory(jwt));
   }

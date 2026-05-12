@@ -3,6 +3,7 @@ package br.com.ragro.service;
 import br.com.ragro.controller.request.Co2CalculationRequest;
 import br.com.ragro.controller.request.RecordCo2SavingRequest;
 import br.com.ragro.controller.response.Co2CalculationResponse;
+import br.com.ragro.controller.response.Co2EmissionResponse;
 import br.com.ragro.controller.response.Co2OptionsResponse;
 import br.com.ragro.controller.response.VehiclePreferenceResponse;
 import br.com.ragro.domain.Co2Emission;
@@ -91,11 +92,11 @@ public class Co2Service {
   }
 
   @Transactional(readOnly = true)
-  public List<br.com.ragro.controller.response.Co2EmissionResponse> getEmissionsHistory(Jwt jwt) {
+  public List<Co2EmissionResponse> getEmissionsHistory(Jwt jwt) {
     User user = userService.getAuthenticatedUser(jwt);
     return co2EmissionRepository.findByVehiclePreferenceUserIdOrderByCreatedAtDesc(user.getId())
         .stream()
-        .map(emission -> br.com.ragro.controller.response.Co2EmissionResponse.builder()
+        .map(emission -> Co2EmissionResponse.builder()
             .id(emission.getId())
             .routeDistanceKm(emission.getRouteDistanceKm())
             .co2Emission(emission.getCo2Emission())
@@ -119,11 +120,20 @@ public class Co2Service {
           .orElseThrow(() -> new BusinessException("Consumo médio não informado e sem preferência salva."));
     }
 
+    double nonOptimizedDist = 0.0;
+    if (request.getSeparateDeliveryDistances() != null && !request.getSeparateDeliveryDistances().isEmpty()) {
+      nonOptimizedDist = request.getSeparateDeliveryDistances().stream().mapToDouble(d -> d * 2).sum();
+    } else if (request.getDistanceNonOptimized() != null) {
+      nonOptimizedDist = request.getDistanceNonOptimized();
+    } else {
+      throw new BusinessException("É necessário informar a distância não otimizada ou as distâncias separadas das entregas.");
+    }
+
     double co2NonOptimized = 0.0;
     double co2Optimized = 0.0;
     
     if (request.getFuelType() != FuelType.ELECTRIC) {
-      co2NonOptimized = (request.getDistanceNonOptimized() / consumption) * request.getFuelType().getEmissionFactor();
+      co2NonOptimized = (nonOptimizedDist / consumption) * request.getFuelType().getEmissionFactor();
       co2Optimized = (request.getDistanceOptimized() / consumption) * request.getFuelType().getEmissionFactor();
     }
 
@@ -132,7 +142,7 @@ public class Co2Service {
     Co2Saving saving = new Co2Saving();
     saving.setUser(user);
     saving.setDistanceOptimized(request.getDistanceOptimized());
-    saving.setDistanceNonOptimized(request.getDistanceNonOptimized());
+    saving.setDistanceNonOptimized(nonOptimizedDist);
     saving.setCo2Saved(round(co2Saved));
     saving.setVehicleType(request.getVehicleType());
     saving.setFuelType(request.getFuelType());
@@ -148,7 +158,6 @@ public class Co2Service {
         .orElse(new VehiclePreference());
 
     preference.setUser(user);
-    preference.setUserId(user.getId());
     preference.setVehicleType(vehicleType);
     preference.setFuelType(fuelType);
     preference.setAverageConsumption(consumption);

@@ -7,6 +7,8 @@ import jakarta.validation.constraints.Positive;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.List;
+
 @Getter
 @Setter
 public class RecordCo2SavingRequest {
@@ -15,9 +17,10 @@ public class RecordCo2SavingRequest {
   @Positive(message = "Distance must be positive")
   private Double distanceOptimized;
 
-  @NotNull(message = "Non-optimized distance is required")
   @Positive(message = "Distance must be positive")
   private Double distanceNonOptimized;
+
+  private List<@Positive(message = "Each distance must be positive") Double> separateDeliveryDistances;
 
   @NotNull(message = "Vehicle type is required")
   private VehicleType vehicleType;
