@@ -37,7 +37,7 @@ public class Co2Emission {
   @Column(name = "fuel_type", nullable = false)
   private FuelType fuelType;
 
-  @Column(name = "average_consumption", nullable = false)
+  @Column(name = "average_consumption")
   private Double averageConsumption;
 
   @CreationTimestamp

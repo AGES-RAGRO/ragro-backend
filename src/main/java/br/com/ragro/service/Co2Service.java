@@ -90,6 +90,23 @@ public class Co2Service {
             .build());
   }
 
+  @Transactional(readOnly = true)
+  public List<br.com.ragro.controller.response.Co2EmissionResponse> getEmissionsHistory(Jwt jwt) {
+    User user = userService.getAuthenticatedUser(jwt);
+    return co2EmissionRepository.findByVehiclePreferenceUserIdOrderByCreatedAtDesc(user.getId())
+        .stream()
+        .map(emission -> br.com.ragro.controller.response.Co2EmissionResponse.builder()
+            .id(emission.getId())
+            .routeDistanceKm(emission.getRouteDistanceKm())
+            .co2Emission(emission.getCo2Emission())
+            .vehicleType(emission.getVehicleType())
+            .fuelType(emission.getFuelType())
+            .averageConsumption(emission.getAverageConsumption())
+            .createdAt(emission.getCreatedAt())
+            .build())
+        .toList();
+  }
+
   @Transactional
   public void recordSaving(RecordCo2SavingRequest request, Jwt jwt) {
     User user = userService.getAuthenticatedUser(jwt);
@@ -122,7 +139,8 @@ public class Co2Service {
     saving.setAverageConsumption(consumption);
     co2SavingRepository.save(saving);
 
-    saveOrUpdatePreference(user, request.getVehicleType(), request.getFuelType(), consumption);
+    VehiclePreference preference = saveOrUpdatePreference(user, request.getVehicleType(), request.getFuelType(), consumption);
+    recordEmission(preference, request.getDistanceOptimized(), co2Optimized);
   }
 
   private VehiclePreference saveOrUpdatePreference(User user, VehicleType vehicleType, FuelType fuelType, Double consumption) {

@@ -40,6 +40,13 @@ public class Co2Controller {
         .orElse(ResponseEntity.noContent().build());
   }
 
+  @GetMapping("/emissions")
+  @Operation(summary = "Get emissions history", description = "Returns the CO2 emissions history for the authenticated user.")
+  public ResponseEntity<java.util.List<br.com.ragro.controller.response.Co2EmissionResponse>> getEmissionsHistory(
+      @AuthenticationPrincipal Jwt jwt) {
+    return ResponseEntity.ok(co2Service.getEmissionsHistory(jwt));
+  }
+
   @PostMapping("/record-savings")
   @Operation(summary = "Record CO2 savings", description = "Calculates and logs CO2 savings between an optimized and non-optimized route.")
   public ResponseEntity<Void> recordSavings(
