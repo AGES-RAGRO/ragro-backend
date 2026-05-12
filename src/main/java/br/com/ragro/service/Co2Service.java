@@ -158,6 +158,7 @@ public class Co2Service {
         .orElse(new VehiclePreference());
 
     preference.setUser(user);
+    preference.setUserId(user.getId());
     preference.setVehicleType(vehicleType);
     preference.setFuelType(fuelType);
     preference.setAverageConsumption(consumption);

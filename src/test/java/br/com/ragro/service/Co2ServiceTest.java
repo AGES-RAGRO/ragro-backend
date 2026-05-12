@@ -103,7 +103,7 @@ class Co2ServiceTest {
 
     Co2Emission saved = captor.getValue();
     assertThat(saved.getVehiclePreference()).isNotNull();
-    assertThat(saved.getVehiclePreference().getUserId()).isEqualTo(userId);
+    assertThat(saved.getVehiclePreference().getUser().getId()).isEqualTo(userId);
     assertThat(saved.getRouteDistanceKm()).isEqualTo(10.2);
     assertThat(saved.getCo2Emission()).isEqualTo(2.36);
     assertThat(saved.getVehicleType()).isEqualTo(VehicleType.CAR);
