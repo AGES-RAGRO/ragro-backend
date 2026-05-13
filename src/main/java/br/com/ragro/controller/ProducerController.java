@@ -2,15 +2,19 @@ package br.com.ragro.controller;
 
 import br.com.ragro.controller.request.ProducerFilter;
 import br.com.ragro.controller.request.ProducerUpdateRequest;
+import br.com.ragro.controller.response.DashboardWeeklyResponse;
 import br.com.ragro.controller.response.MarketplaceProducerResponse;
 import br.com.ragro.controller.response.PaginatedResponse;
+import br.com.ragro.controller.response.ProducerDashboardResponse;
 import br.com.ragro.controller.response.ProducerGetResponse;
 import br.com.ragro.controller.response.ProducerPublicProfileResponse;
 import br.com.ragro.controller.response.ProductResponse;
 import br.com.ragro.controller.response.ReviewResponse;
+import br.com.ragro.service.DashboardService;
 import br.com.ragro.service.ProducerService;
 import br.com.ragro.service.ProductService;
 import br.com.ragro.service.ReviewService;
+import br.com.ragro.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -35,6 +39,8 @@ public class ProducerController {
   private final ProducerService producerService;
   private final ProductService productService;
   private final ReviewService reviewService;
+  private final DashboardService dashboardService;
+  private final UserService userService;
 
   @GetMapping
   @PreAuthorize("hasRole('CUSTOMER')")
@@ -109,6 +115,46 @@ public class ProducerController {
         return ResponseEntity.ok(
             reviewService.getReviewsByProducer(id, PageRequest.of(page, size)));
     }
+
+  @GetMapping("/me/dashboard")
+  @PreAuthorize("hasRole('FARMER')")
+  @Operation(
+      summary = "Get authenticated producer's financial dashboard",
+      description = "Returns consolidated financial dashboard data for the authenticated producer. "
+          + "Includes total sales, delivered orders, and stock sold percentage for the selected month, "
+          + "all with comparisons to the previous month. Defaults to current month if not specified.")
+  public ResponseEntity<ProducerDashboardResponse> getProducerDashboard(
+      @AuthenticationPrincipal Jwt jwt,
+      @RequestParam(required = false) Integer month,
+      @RequestParam(required = false) Integer year) {
+    if ((month == null) ^ (year == null)) {
+      throw new br.com.ragro.exception.BusinessException("Both 'month' and 'year' must be provided together");
+    }
+
+    if (month != null) {
+      if (month < 1 || month > 12) {
+        throw new br.com.ragro.exception.BusinessException("'month' must be between 1 and 12");
+      }
+      if (year < 1900 || year > 2100) {
+        throw new br.com.ragro.exception.BusinessException("'year' is out of allowed range");
+      }
+    }
+
+    UUID producerId = userService.getAuthenticatedUser(jwt).getId();
+    return ResponseEntity.ok(dashboardService.getProducerDashboard(producerId, month, year));
+  }
+
+  @GetMapping("/me/dashboard/week")
+  @PreAuthorize("hasRole('FARMER')")
+  @Operation(
+      summary = "Get authenticated producer's weekly sales dashboard",
+      description = "Returns daily sales data for the last 7 days (including today). "
+          + "Each day includes order count and total sales amount.")
+  public ResponseEntity<DashboardWeeklyResponse> getWeeklyDashboard(
+      @AuthenticationPrincipal Jwt jwt) {
+    UUID producerId = userService.getAuthenticatedUser(jwt).getId();
+    return ResponseEntity.ok(dashboardService.getWeeklyDashboard(producerId));
+  }
 
   @PutMapping("/{id}")
   @PreAuthorize("hasAnyRole('FARMER', 'ADMIN')")

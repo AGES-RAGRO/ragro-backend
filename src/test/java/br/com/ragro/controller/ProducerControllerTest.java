@@ -21,9 +21,11 @@ import br.com.ragro.exception.ForbiddenException;
 import br.com.ragro.exception.NotFoundException;
 import br.com.ragro.repository.ProducerRepository;
 import br.com.ragro.repository.UserRepository;
+import br.com.ragro.service.DashboardService;
 import br.com.ragro.service.ProducerService;
 import br.com.ragro.service.ProductService;
 import br.com.ragro.service.ReviewService;
+import br.com.ragro.service.UserService;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
@@ -52,6 +54,8 @@ class ProducerControllerTest {
   @MockBean private ProducerService producerService;
   @MockBean private ProductService productService;
   @MockBean private ReviewService reviewService;
+  @MockBean private DashboardService dashboardService;
+  @MockBean private UserService userService;
   @MockBean private UserRepository userRepository;
   @MockBean private ProducerRepository producerRepository;
 
