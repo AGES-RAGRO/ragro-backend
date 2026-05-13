@@ -23,6 +23,7 @@ import br.com.ragro.service.api.IdentityProviderService;
 
 import java.time.LocalTime;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.time.format.DateTimeParseException;
 import java.util.Locale;
@@ -65,8 +66,7 @@ public class ProducerRegistrationService {
 
         validateUniqueness(normalizedEmail, normalizedFiscalNumber);
 
-        String externalUserId =
-            identityProviderService.registerProducer(normalizedEmail, request.getPassword());
+        String externalUserId = identityProviderService.registerProducer(normalizedEmail, request.getPassword());
 
         try {
             User user = new User();
@@ -83,8 +83,7 @@ public class ProducerRegistrationService {
             addressRepository.save(address);
 
             Producer savedProducer = producerRepository.saveAndFlush(
-                    producerMapper.toEntity(savedUser, request, normalizedFiscalNumber)
-            );
+                    producerMapper.toEntity(savedUser, request, normalizedFiscalNumber));
 
             applyRegistrationPaymentMethod(savedProducer, request);
             applyAvailability(savedProducer, request.getAvailability());
@@ -154,7 +153,7 @@ public class ProducerRegistrationService {
         }
     }
 
-    private void applyAvailability(Producer producer, java.util.List<AvailabilityRequest> availability) {
+    private void applyAvailability(Producer producer, List<AvailabilityRequest> availability) {
         if (availability == null) {
             return;
         }
