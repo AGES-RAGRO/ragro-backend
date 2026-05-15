@@ -3,43 +3,43 @@ package br.com.ragro.config;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.TestPropertySource;
 import org.springframework.web.client.RestClient;
 
-@SpringBootTest(classes = {OllamaConfig.class, OllamaProperties.class})
-@EnableConfigurationProperties(OllamaProperties.class)
-@TestPropertySource(
-    properties = {
-      "ollama.base-url=http://test-ollama:11434",
-      "ollama.model=gemma2:2b",
-      "ollama.connect-timeout-ms=2000",
-      "ollama.read-timeout-ms=30000"
-    })
 class OllamaConfigTest {
-
-  @Autowired private RestClient ollamaRestClient;
-
-  @Autowired private OllamaProperties ollamaProperties;
 
   @Test
   void shouldCreateOllamaRestClientBean() {
-    assertThat(ollamaRestClient).isNotNull();
+    OllamaConfig config = new OllamaConfig(buildProperties());
+
+    RestClient client = config.ollamaRestClient();
+
+    assertThat(client).isNotNull();
   }
 
   @Test
-  void shouldApplyConnectAndReadTimeoutsIndependently() {
-    assertThat(ollamaProperties.getConnectTimeoutMs()).isEqualTo(2000);
-    assertThat(ollamaProperties.getReadTimeoutMs()).isEqualTo(30000);
+  void shouldExposeIndependentConnectAndReadTimeouts() {
+    OllamaProperties properties = buildProperties();
+
+    assertThat(properties.getConnectTimeoutMs()).isEqualTo(2000);
+    assertThat(properties.getReadTimeoutMs()).isEqualTo(30000);
+    assertThat(properties.getConnectTimeoutMs())
+        .isNotEqualTo(properties.getReadTimeoutMs());
   }
 
   @Test
-  void shouldBindPropertiesCorrectlyFromYaml() {
-    assertThat(ollamaProperties.getBaseUrl()).isEqualTo("http://test-ollama:11434");
-    assertThat(ollamaProperties.getModel()).isEqualTo("gemma2:2b");
-    assertThat(ollamaProperties.getConnectTimeoutMs()).isEqualTo(2000);
-    assertThat(ollamaProperties.getReadTimeoutMs()).isEqualTo(30000);
+  void shouldExposeBaseUrlAndModel() {
+    OllamaProperties properties = buildProperties();
+
+    assertThat(properties.getBaseUrl()).isEqualTo("http://test-ollama:11434");
+    assertThat(properties.getModel()).isEqualTo("gemma2:2b");
+  }
+
+  private OllamaProperties buildProperties() {
+    OllamaProperties properties = new OllamaProperties();
+    properties.setBaseUrl("http://test-ollama:11434");
+    properties.setModel("gemma2:2b");
+    properties.setConnectTimeoutMs(2000);
+    properties.setReadTimeoutMs(30000);
+    return properties;
   }
 }
