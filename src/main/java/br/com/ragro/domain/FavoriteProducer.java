@@ -1,66 +1,43 @@
 package br.com.ragro.domain;
 
-import jakarta.persistence.*;
-import java.util.UUID;
+import jakarta.persistence.Column;
+import jakarta.persistence.EmbeddedId;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.MapsId;
+import jakarta.persistence.Table;
+import java.time.OffsetDateTime;
 import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.ToString;
 import org.hibernate.annotations.CreationTimestamp;
-import jakarta.validation.constraints.NotNull;
-import java.time.OffsetDateTime;
 
 @Entity
-@Table(name = "favorite_producers")
+@Table(name = "favorites")
+@Getter
+@Setter
 @EqualsAndHashCode(of = "id")
 @ToString(of = "id")
 public class FavoriteProducer {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private UUID id;
 
-    @NotNull
-    @Column(name = "customer_id")
-    private UUID customerId;
+  @EmbeddedId private FavoriteProducerId id;
 
-    @NotNull
-    @Column(name = "producer_id")
-    private UUID producerId;
+  @ManyToOne(fetch = FetchType.LAZY, optional = false)
+  @MapsId("producerId")
+  @JoinColumn(name = "farmer_id", nullable = false)
+  private Producer producer;
 
-    @CreationTimestamp
-    private OffsetDateTime createdAt;
+  @CreationTimestamp
+  @Column(name = "created_at", nullable = false, updatable = false)
+  private OffsetDateTime createdAt;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "producer_id", insertable = false, updatable = false)
-    private Producer producer;
+  public FavoriteProducer() {}
 
-    public UUID getId() {
-        return id;
-    }
-
-    public void setCustomerId(UUID customerId) {
-        this.customerId = customerId;
-    }
-
-    public void setProducerId(UUID producerId) {
-        this.producerId = producerId;
-    }
-
-    public void setCreatedAt(OffsetDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public UUID getCustomerId() {
-        return customerId;
-    }
-
-    public UUID getProducerId() {
-        return producerId;
-    }
-
-    public OffsetDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public Producer getProducer() {
-        return producer;
-    }
+  public FavoriteProducer(FavoriteProducerId id, Producer producer) {
+    this.id = id;
+    this.producer = producer;
+  }
 }

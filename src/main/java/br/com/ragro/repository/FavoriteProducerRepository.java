@@ -1,21 +1,19 @@
 package br.com.ragro.repository;
 
 import br.com.ragro.domain.FavoriteProducer;
-import java.util.UUID;
-import org.springframework.data.jpa.repository.JpaRepository;
+import br.com.ragro.domain.FavoriteProducerId;
 import java.util.List;
+import java.util.UUID;
+import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface FavoriteProducerRepository extends JpaRepository<FavoriteProducer, UUID> {
+public interface FavoriteProducerRepository
+    extends JpaRepository<FavoriteProducer, FavoriteProducerId> {
 
-boolean existsByCustomerIdAndProducerId(
-    UUID customerId,
-    UUID producerId
-);
+  boolean existsByIdCustomerIdAndIdProducerId(UUID customerId, UUID producerId);
 
-void deleteByCustomerIdAndProducerId(
-    UUID customerId,
-    UUID producerId
-);
+  long deleteByIdCustomerIdAndIdProducerId(UUID customerId, UUID producerId);
 
-List<FavoriteProducer> findByCustomerId(UUID customerId);
+  @EntityGraph(attributePaths = {"producer", "producer.user"})
+  List<FavoriteProducer> findByIdCustomerIdOrderByCreatedAtDesc(UUID customerId);
 }
