@@ -30,6 +30,7 @@ import br.com.ragro.repository.CustomerRepository;
 import br.com.ragro.repository.OrderRepository;
 import br.com.ragro.repository.OrderStatusHistoryRepository;
 import br.com.ragro.repository.PaymentMethodRepository;
+import br.com.ragro.repository.ReviewRepository;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
@@ -52,6 +53,7 @@ public class OrderService {
   private final StockMovementService stockMovementService;
   private final OrderRepository orderRepository;
   private final OrderStatusHistoryRepository orderStatusHistoryRepository;
+  private final ReviewRepository reviewRepository;
   private final MinioStorageService storageService;
 
   @Transactional
@@ -248,7 +250,7 @@ public class OrderService {
         .orElseThrow(() -> new NotFoundException("Dados do consumidor não encontrados"));
 
     return orderRepository.findByCustomerIdOrderByCreatedAtDesc(user.getId()).stream()
-        .map(order -> OrderMapper.toCustomerOrderResponse(order, storageService))
+        .map(this::toCustomerOrderResponse)
         .toList();
   }
 
@@ -277,7 +279,12 @@ public class OrderService {
     Order order = orderRepository.findByIdAndCustomerId(orderId, user.getId())
         .orElseThrow(() -> new NotFoundException("Pedido não encontrado para este consumidor"));
 
-    return OrderMapper.toCustomerOrderResponse(order, storageService);
+    return toCustomerOrderResponse(order);
+  }
+
+  private CustomerOrderResponse toCustomerOrderResponse(Order order) {
+    boolean reviewed = reviewRepository.existsByOrderId(order.getId());
+    return OrderMapper.toCustomerOrderResponse(order, storageService, reviewed);
   }
 
   @Transactional

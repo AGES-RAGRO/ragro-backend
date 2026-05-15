@@ -12,6 +12,10 @@ import br.com.ragro.config.CorsConfig;
 import br.com.ragro.config.KeycloakRolesConverter;
 import br.com.ragro.config.SecurityConfig;
 import br.com.ragro.controller.request.ProducerUpdateRequest;
+import br.com.ragro.controller.response.DailySalesResponse;
+import br.com.ragro.controller.response.DashboardMetricResponse;
+import br.com.ragro.controller.response.DashboardWeeklyResponse;
+import br.com.ragro.controller.response.ProducerDashboardResponse;
 import br.com.ragro.controller.response.ProducerGetResponse;
 import br.com.ragro.controller.response.ProducerPublicProfileResponse;
 import br.com.ragro.controller.response.ProductResponse;
@@ -21,9 +25,11 @@ import br.com.ragro.exception.ForbiddenException;
 import br.com.ragro.exception.NotFoundException;
 import br.com.ragro.repository.ProducerRepository;
 import br.com.ragro.repository.UserRepository;
+import br.com.ragro.service.DashboardService;
 import br.com.ragro.service.ProducerService;
 import br.com.ragro.service.ProductService;
 import br.com.ragro.service.ReviewService;
+import br.com.ragro.service.UserService;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
@@ -52,6 +58,8 @@ class ProducerControllerTest {
   @MockBean private ProducerService producerService;
   @MockBean private ProductService productService;
   @MockBean private ReviewService reviewService;
+  @MockBean private DashboardService dashboardService;
+  @MockBean private UserService userService;
   @MockBean private UserRepository userRepository;
   @MockBean private ProducerRepository producerRepository;
 
@@ -563,6 +571,291 @@ class ProducerControllerTest {
                     SecurityMockMvcRequestPostProcessors.jwt()
                         .jwt(jwt -> jwt.claim("sub", sub).claim("email", "customer@test.com"))
                         .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"))))
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.error").value("Conta desativada ou usuário não encontrado"));
+  }
+
+  // ─── GET /me/dashboard ──────────────────────────────────────────────────────
+
+  @Test
+  void getDashboard_shouldReturn200_withDefaultCurrentMonth() throws Exception {
+    String sub = "keycloak-sub-farmer";
+    User farmer = buildUser(sub, true);
+    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(farmer));
+    when(userService.getAuthenticatedUser(any())).thenReturn(farmer);
+
+    ProducerDashboardResponse dashboardResponse =
+        ProducerDashboardResponse.builder()
+            .month(LocalDate.now().getMonthValue())
+            .year(LocalDate.now().getYear())
+            .ordersMetric(
+                DashboardMetricResponse.builder()
+                    .currentValue(BigDecimal.valueOf(5))
+                    .previousValue(BigDecimal.valueOf(3))
+                    .percentageChange(new BigDecimal("66.67"))
+                    .build())
+            .salesMetric(
+                DashboardMetricResponse.builder()
+                    .currentValue(new BigDecimal("150.00"))
+                    .previousValue(new BigDecimal("100.00"))
+                    .percentageChange(new BigDecimal("50.00"))
+                    .build())
+            .stockSoldPercentage(new BigDecimal("35.50"))
+            .stockMetric(
+                DashboardMetricResponse.builder()
+                    .currentValue(new BigDecimal("35.50"))
+                    .previousValue(new BigDecimal("40.00"))
+                    .percentageChange(new BigDecimal("-11.25"))
+                    .build())
+            .build();
+
+    when(dashboardService.getProducerDashboard(any(), any(), any()))
+        .thenReturn(dashboardResponse);
+
+    mockMvc
+        .perform(
+            get("/producers/me/dashboard")
+                .with(
+                    SecurityMockMvcRequestPostProcessors.jwt()
+                        .jwt(jwt -> jwt.claim("sub", sub).claim("email", "farmer@test.com"))
+                        .authorities(new SimpleGrantedAuthority("ROLE_FARMER"))))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.ordersMetric.currentValue").value(5))
+        .andExpect(jsonPath("$.salesMetric.currentValue").value(150.00))
+        .andExpect(jsonPath("$.stockSoldPercentage").value(35.50));
+  }
+
+  @Test
+  void getDashboard_shouldReturn200_withSpecificMonthAndYear() throws Exception {
+    String sub = "keycloak-sub-farmer";
+    User farmer = buildUser(sub, true);
+    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(farmer));
+    when(userService.getAuthenticatedUser(any())).thenReturn(farmer);
+
+    ProducerDashboardResponse dashboardResponse =
+        ProducerDashboardResponse.builder()
+            .month(3)
+            .year(2024)
+            .ordersMetric(
+                DashboardMetricResponse.builder()
+                    .currentValue(BigDecimal.valueOf(10))
+                    .previousValue(BigDecimal.valueOf(5))
+                    .percentageChange(BigDecimal.valueOf(100))
+                    .build())
+            .salesMetric(
+                DashboardMetricResponse.builder()
+                    .currentValue(new BigDecimal("500.00"))
+                    .previousValue(new BigDecimal("250.00"))
+                    .percentageChange(BigDecimal.valueOf(100))
+                    .build())
+            .stockSoldPercentage(new BigDecimal("50.00"))
+            .stockMetric(
+                DashboardMetricResponse.builder()
+                    .currentValue(new BigDecimal("50.00"))
+                    .previousValue(new BigDecimal("45.00"))
+                    .percentageChange(new BigDecimal("11.11"))
+                    .build())
+            .build();
+
+    when(dashboardService.getProducerDashboard(any(), eq(3), eq(2024)))
+        .thenReturn(dashboardResponse);
+
+    mockMvc
+        .perform(
+            get("/producers/me/dashboard")
+                .param("month", "3")
+                .param("year", "2024")
+                .with(
+                    SecurityMockMvcRequestPostProcessors.jwt()
+                        .jwt(jwt -> jwt.claim("sub", sub).claim("email", "farmer@test.com"))
+                        .authorities(new SimpleGrantedAuthority("ROLE_FARMER"))))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.month").value(3))
+        .andExpect(jsonPath("$.year").value(2024))
+        .andExpect(jsonPath("$.ordersMetric.currentValue").value(10))
+        .andExpect(jsonPath("$.salesMetric.currentValue").value(500.00));
+  }
+
+  @Test
+  void getDashboard_shouldReturn400_whenMonthInvalid() throws Exception {
+    String sub = "keycloak-sub-farmer";
+    User farmer = buildUser(sub, true);
+    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(farmer));
+
+    mockMvc
+        .perform(
+            get("/producers/me/dashboard")
+                .param("month", "13")
+                .param("year", "2024")
+                .with(
+                    SecurityMockMvcRequestPostProcessors.jwt()
+                        .jwt(jwt -> jwt.claim("sub", sub).claim("email", "farmer@test.com"))
+                        .authorities(new SimpleGrantedAuthority("ROLE_FARMER"))))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void getDashboard_shouldReturn400_whenYearInvalid() throws Exception {
+    String sub = "keycloak-sub-farmer";
+    User farmer = buildUser(sub, true);
+    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(farmer));
+
+    mockMvc
+        .perform(
+            get("/producers/me/dashboard")
+                .param("month", "3")
+                .param("year", "1800")
+                .with(
+                    SecurityMockMvcRequestPostProcessors.jwt()
+                        .jwt(jwt -> jwt.claim("sub", sub).claim("email", "farmer@test.com"))
+                        .authorities(new SimpleGrantedAuthority("ROLE_FARMER"))))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void getDashboard_shouldReturn400_whenOnlyMonthProvided() throws Exception {
+    String sub = "keycloak-sub-farmer";
+    User farmer = buildUser(sub, true);
+    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(farmer));
+
+    mockMvc
+        .perform(
+            get("/producers/me/dashboard")
+                .param("month", "3")
+                .with(
+                    SecurityMockMvcRequestPostProcessors.jwt()
+                        .jwt(jwt -> jwt.claim("sub", sub).claim("email", "farmer@test.com"))
+                        .authorities(new SimpleGrantedAuthority("ROLE_FARMER"))))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void getDashboard_shouldReturn400_whenOnlyYearProvided() throws Exception {
+    String sub = "keycloak-sub-farmer";
+    User farmer = buildUser(sub, true);
+    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(farmer));
+
+    mockMvc
+        .perform(
+            get("/producers/me/dashboard")
+                .param("year", "2024")
+                .with(
+                    SecurityMockMvcRequestPostProcessors.jwt()
+                        .jwt(jwt -> jwt.claim("sub", sub).claim("email", "farmer@test.com"))
+                        .authorities(new SimpleGrantedAuthority("ROLE_FARMER"))))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void getDashboard_shouldReturn401_whenUserInactive() throws Exception {
+    String sub = "keycloak-sub-inactive";
+    User inactiveUser = buildUser(sub, false);
+    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(inactiveUser));
+
+    mockMvc
+        .perform(
+            get("/producers/me/dashboard")
+                .with(
+                    SecurityMockMvcRequestPostProcessors.jwt()
+                        .jwt(jwt -> jwt.claim("sub", sub).claim("email", "farmer@test.com"))
+                        .authorities(new SimpleGrantedAuthority("ROLE_FARMER"))))
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.error").value("Conta desativada ou usuário não encontrado"));
+  }
+
+  @Test
+  void getDashboard_shouldReturn401_whenUserNotFound() throws Exception {
+    String sub = "keycloak-sub-unknown";
+    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.empty());
+
+    mockMvc
+        .perform(
+            get("/producers/me/dashboard")
+                .with(
+                    SecurityMockMvcRequestPostProcessors.jwt()
+                        .jwt(jwt -> jwt.claim("sub", sub).claim("email", "farmer@test.com"))
+                        .authorities(new SimpleGrantedAuthority("ROLE_FARMER"))))
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.error").value("Conta desativada ou usuário não encontrado"));
+  }
+
+  // ─── GET /me/dashboard/week ─────────────────────────────────────────────────
+
+  @Test
+  void getWeeklyDashboard_shouldReturn200() throws Exception {
+    String sub = "keycloak-sub-farmer";
+    User farmer = buildUser(sub, true);
+    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(farmer));
+    when(userService.getAuthenticatedUser(any())).thenReturn(farmer);
+
+    DashboardWeeklyResponse weeklyResponse =
+        DashboardWeeklyResponse.builder()
+            .weekStartDate(LocalDate.now().minusDays(6))
+            .weekEndDate(LocalDate.now())
+            .dailySales(
+                List.of(
+                    DailySalesResponse.builder()
+                        .dayOfWeek("Monday")
+                        .date("07/05")
+                        .fullDate(LocalDate.now().minusDays(6))
+                        .orderCount(2L)
+                        .salesAmount(new BigDecimal("50.00"))
+                        .build(),
+                    DailySalesResponse.builder()
+                        .dayOfWeek("Tuesday")
+                        .date("08/05")
+                        .fullDate(LocalDate.now().minusDays(5))
+                        .orderCount(1L)
+                        .salesAmount(new BigDecimal("25.00"))
+                        .build()))
+            .build();
+
+    when(dashboardService.getWeeklyDashboard(any())).thenReturn(weeklyResponse);
+
+    mockMvc
+        .perform(
+            get("/producers/me/dashboard/week")
+                .with(
+                    SecurityMockMvcRequestPostProcessors.jwt()
+                        .jwt(jwt -> jwt.claim("sub", sub).claim("email", "farmer@test.com"))
+                        .authorities(new SimpleGrantedAuthority("ROLE_FARMER"))))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.dailySales").isArray())
+        .andExpect(jsonPath("$.dailySales[0].orderCount").value(2))
+        .andExpect(jsonPath("$.dailySales[0].salesAmount").value(50.00))
+        .andExpect(jsonPath("$.dailySales[1].orderCount").value(1))
+        .andExpect(jsonPath("$.dailySales[1].salesAmount").value(25.00));
+  }
+
+  @Test
+  void getWeeklyDashboard_shouldReturn401_whenUserInactive() throws Exception {
+    String sub = "keycloak-sub-inactive";
+    User inactiveUser = buildUser(sub, false);
+    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(inactiveUser));
+
+    mockMvc
+        .perform(
+            get("/producers/me/dashboard/week")
+                .with(
+                    SecurityMockMvcRequestPostProcessors.jwt()
+                        .jwt(jwt -> jwt.claim("sub", sub).claim("email", "farmer@test.com"))
+                        .authorities(new SimpleGrantedAuthority("ROLE_FARMER"))))
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.error").value("Conta desativada ou usuário não encontrado"));
+  }
+
+  @Test
+  void getWeeklyDashboard_shouldReturn401_whenUserNotFound() throws Exception {
+    String sub = "keycloak-sub-unknown";
+    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.empty());
+
+    mockMvc
+        .perform(
+            get("/producers/me/dashboard/week")
+                .with(
+                    SecurityMockMvcRequestPostProcessors.jwt()
+                        .jwt(jwt -> jwt.claim("sub", sub).claim("email", "farmer@test.com"))
+                        .authorities(new SimpleGrantedAuthority("ROLE_FARMER"))))
         .andExpect(status().isUnauthorized())
         .andExpect(jsonPath("$.error").value("Conta desativada ou usuário não encontrado"));
   }
