@@ -11,7 +11,8 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "ollama")
 public class OllamaProperties {
 
-  private String baseUrl = "http://ollama:11434";
-  private String model = "gemma2:2b";
-  private int timeoutMs = 3000;
+  private String baseUrl;
+  private String model;
+  private int connectTimeoutMs;
+  private int readTimeoutMs;
 }
