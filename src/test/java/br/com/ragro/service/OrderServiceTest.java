@@ -38,6 +38,7 @@ import br.com.ragro.repository.CustomerRepository;
 import br.com.ragro.repository.OrderRepository;
 import br.com.ragro.repository.OrderStatusHistoryRepository;
 import br.com.ragro.repository.PaymentMethodRepository;
+import br.com.ragro.repository.ReviewRepository;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -65,6 +66,7 @@ class OrderServiceTest {
   @Mock private StockMovementService stockMovementService;
   @Mock private OrderRepository orderRepository;
   @Mock private OrderStatusHistoryRepository orderStatusHistoryRepository;
+  @Mock private ReviewRepository reviewRepository;
   @Mock private MinioStorageService storageService;
 
   @InjectMocks private OrderService orderService;
@@ -664,6 +666,7 @@ class OrderServiceTest {
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
     when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
     when(orderRepository.findByIdAndCustomerId(orderId, user.getId())).thenReturn(Optional.of(order));
+    when(reviewRepository.existsByOrderId(orderId)).thenReturn(true);
 
     CustomerOrderResponse response = orderService.getMyOrderById(orderId, jwt());
 
@@ -672,6 +675,7 @@ class OrderServiceTest {
     assertThat(response.getProducerName()).isEqualTo("Producer Test");
     assertThat(response.getProducerPicture()).isEqualTo("https://cdn.example.com/avatar.jpg");
     assertThat(response.getStatus()).isEqualTo(OrderStatus.PENDING);
+    assertThat(response.isReviewed()).isTrue();
   }
 
   @Test
