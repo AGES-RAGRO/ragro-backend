@@ -79,7 +79,7 @@ services:
   ollama:
     image: ollama/ollama:latest
     container_name: ragro-ollama
-    mem_limit: 1g
+    mem_limit: 3g
     entrypoint: ["/bin/sh", "/entrypoint.sh"]
     environment:
       OLLAMA_KEEP_ALIVE: 5m
