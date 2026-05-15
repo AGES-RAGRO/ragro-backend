@@ -95,20 +95,21 @@ public class DashboardService {
 
   @Transactional(readOnly = true)
   public DashboardWeeklyResponse getWeeklyDashboard(UUID producerId) {
+    ZoneId zoneId = ZoneId.systemDefault();
     LocalDate today = LocalDate.now();
     LocalDate sevenDaysAgo = today.minusDays(6);
 
     OffsetDateTime startDateTime = sevenDaysAgo.atStartOfDay()
-        .atZone(ZoneId.of("America/Sao_Paulo")).toOffsetDateTime();
+        .atZone(zoneId).toOffsetDateTime();
     OffsetDateTime endDateTime = today.plusDays(1).atStartOfDay()
-        .atZone(ZoneId.of("America/Sao_Paulo")).toOffsetDateTime();
+        .atZone(zoneId).toOffsetDateTime();
 
     List<Order> orders =
         orderRepository.findDeliveredOrdersBetweenDates(producerId, startDateTime, endDateTime);
 
     Map<LocalDate, List<Order>> ordersByDay = orders.stream()
         .collect(Collectors.groupingBy(order -> order.getDeliveredAt()
-            .atZoneSameInstant(ZoneId.of("America/Sao_Paulo"))
+            .atZoneSameInstant(zoneId)
             .toLocalDate()));
 
     List<DailySalesResponse> dailySales = new ArrayList<>();
@@ -202,7 +203,6 @@ public class DashboardService {
         .setScale(2, RoundingMode.HALF_UP);
   }
 }
-
 
 
 
