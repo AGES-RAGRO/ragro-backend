@@ -588,8 +588,6 @@ class ProducerControllerTest {
         ProducerDashboardResponse.builder()
             .month(LocalDate.now().getMonthValue())
             .year(LocalDate.now().getYear())
-            .deliveredOrdersCount(5L)
-            .totalSales(new BigDecimal("150.00"))
             .ordersMetric(
                 DashboardMetricResponse.builder()
                     .currentValue(BigDecimal.valueOf(5))
@@ -622,8 +620,8 @@ class ProducerControllerTest {
                         .jwt(jwt -> jwt.claim("sub", sub).claim("email", "farmer@test.com"))
                         .authorities(new SimpleGrantedAuthority("ROLE_FARMER"))))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.deliveredOrdersCount").value(5))
-        .andExpect(jsonPath("$.totalSales").value(150.00))
+        .andExpect(jsonPath("$.ordersMetric.currentValue").value(5))
+        .andExpect(jsonPath("$.salesMetric.currentValue").value(150.00))
         .andExpect(jsonPath("$.stockSoldPercentage").value(35.50));
   }
 
@@ -638,8 +636,6 @@ class ProducerControllerTest {
         ProducerDashboardResponse.builder()
             .month(3)
             .year(2024)
-            .deliveredOrdersCount(10L)
-            .totalSales(new BigDecimal("500.00"))
             .ordersMetric(
                 DashboardMetricResponse.builder()
                     .currentValue(BigDecimal.valueOf(10))
@@ -676,8 +672,8 @@ class ProducerControllerTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.month").value(3))
         .andExpect(jsonPath("$.year").value(2024))
-        .andExpect(jsonPath("$.deliveredOrdersCount").value(10))
-        .andExpect(jsonPath("$.totalSales").value(500.00));
+        .andExpect(jsonPath("$.ordersMetric.currentValue").value(10))
+        .andExpect(jsonPath("$.salesMetric.currentValue").value(500.00));
   }
 
   @Test

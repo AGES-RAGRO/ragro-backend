@@ -22,14 +22,8 @@ public class ProducerDashboardResponse {
   @Schema(description = "Selected year", example = "2026")
   private Integer year;
 
-  @Schema(description = "Total sales amount for the selected month")
-  private BigDecimal totalSales;
-
   @Schema(description = "Total sales with comparison to previous month")
   private DashboardMetricResponse salesMetric;
-
-  @Schema(description = "Number of delivered orders in the month")
-  private Long deliveredOrdersCount;
 
   @Schema(description = "Delivered orders with comparison to previous month")
   private DashboardMetricResponse ordersMetric;

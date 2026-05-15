@@ -14,6 +14,7 @@ import br.com.ragro.service.DashboardService;
 import br.com.ragro.service.ProducerService;
 import br.com.ragro.service.ProductService;
 import br.com.ragro.service.ReviewService;
+import br.com.ragro.exception.BusinessException;
 import br.com.ragro.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -27,7 +28,16 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 @RestController
@@ -103,18 +113,18 @@ public class ProducerController {
         productService.getActiveProductByProducerIdAndProductId(producerId, productId));
   }
 
-   @GetMapping("/{id}/reviews")
-   @PreAuthorize("hasAnyRole('CUSTOMER', 'FARMER')")
-   @Operation(
-        summary = "List reviews of a producer",
-        description = "Returns a paginated list of reviews for a producer. Restricted to Customers and Farmers.")
-    public ResponseEntity<PaginatedResponse<ReviewResponse>> getProducerReviews(
-        @PathVariable UUID id,
-        @RequestParam(defaultValue = "0") int page,
-        @RequestParam(defaultValue = "20") int size) {
-        return ResponseEntity.ok(
-            reviewService.getReviewsByProducer(id, PageRequest.of(page, size)));
-    }
+  @GetMapping("/{id}/reviews")
+  @PreAuthorize("hasAnyRole('CUSTOMER', 'FARMER')")
+  @Operation(
+      summary = "List reviews of a producer",
+      description =
+          "Returns a paginated list of reviews for a producer. Restricted to Customers and Farmers.")
+  public ResponseEntity<PaginatedResponse<ReviewResponse>> getProducerReviews(
+      @PathVariable UUID id,
+      @RequestParam(defaultValue = "0") int page,
+      @RequestParam(defaultValue = "20") int size) {
+    return ResponseEntity.ok(reviewService.getReviewsByProducer(id, PageRequest.of(page, size)));
+  }
 
   @GetMapping("/me/dashboard")
   @PreAuthorize("hasRole('FARMER')")
@@ -128,15 +138,15 @@ public class ProducerController {
       @RequestParam(required = false) Integer month,
       @RequestParam(required = false) Integer year) {
     if ((month == null) ^ (year == null)) {
-      throw new br.com.ragro.exception.BusinessException("Both 'month' and 'year' must be provided together");
+      throw new BusinessException("Both 'month' and 'year' must be provided together");
     }
 
     if (month != null) {
       if (month < 1 || month > 12) {
-        throw new br.com.ragro.exception.BusinessException("'month' must be between 1 and 12");
+        throw new BusinessException("'month' must be between 1 and 12");
       }
       if (year < 1900 || year > 2100) {
-        throw new br.com.ragro.exception.BusinessException("'year' is out of allowed range");
+        throw new BusinessException("'year' is out of allowed range");
       }
     }
 

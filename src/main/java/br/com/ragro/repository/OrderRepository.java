@@ -66,21 +66,6 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
       FROM Order o
       WHERE o.farmer.id = :farmerId
         AND o.status = br.com.ragro.domain.enums.OrderStatus.DELIVERED
-        AND YEAR(o.deliveredAt) = :year
-        AND MONTH(o.deliveredAt) = :month
-      ORDER BY o.deliveredAt ASC
-      """)
-  List<Order> findDeliveredOrdersByMonth(
-      @Param("farmerId") UUID farmerId,
-      @Param("year") int year,
-      @Param("month") int month);
-
-  @Query(
-      """
-      SELECT o
-      FROM Order o
-      WHERE o.farmer.id = :farmerId
-        AND o.status = br.com.ragro.domain.enums.OrderStatus.DELIVERED
         AND o.deliveredAt >= :startDate
         AND o.deliveredAt < :endDate
       ORDER BY o.deliveredAt ASC

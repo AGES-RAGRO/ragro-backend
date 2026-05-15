@@ -22,7 +22,6 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
-import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -87,8 +86,8 @@ class DashboardServiceTest {
     assertThat(response).isNotNull();
     assertThat(response.getMonth()).isEqualTo(currentMonth);
     assertThat(response.getYear()).isEqualTo(currentYear);
-    assertThat(response.getDeliveredOrdersCount()).isEqualTo(5L);
-    assertThat(response.getTotalSales()).isEqualByComparingTo("150.00");
+    assertThat(response.getOrdersMetric().getCurrentValue()).isEqualByComparingTo("5");
+    assertThat(response.getSalesMetric().getCurrentValue()).isEqualByComparingTo("150.00");
   }
 
   @Test
@@ -112,8 +111,8 @@ class DashboardServiceTest {
     assertThat(response).isNotNull();
     assertThat(response.getMonth()).isEqualTo(month);
     assertThat(response.getYear()).isEqualTo(year);
-    assertThat(response.getDeliveredOrdersCount()).isEqualTo(10L);
-    assertThat(response.getTotalSales()).isEqualByComparingTo("500.00");
+    assertThat(response.getOrdersMetric().getCurrentValue()).isEqualByComparingTo("10");
+    assertThat(response.getSalesMetric().getCurrentValue()).isEqualByComparingTo("500.00");
   }
 
   @Test
@@ -297,7 +296,6 @@ class DashboardServiceTest {
 
     ProducerDashboardResponse response = dashboardService.getProducerDashboard(producerId, 3, 2024);
 
-    assertThat(response.getTotalSales()).isEqualByComparingTo("0.00");
     assertThat(response.getSalesMetric().getCurrentValue()).isEqualByComparingTo("0.00");
   }
 

@@ -86,9 +86,7 @@ public class DashboardService {
     return ProducerDashboardResponse.builder()
         .month(selectedMonthValue)
         .year(selectedYear)
-        .totalSales(currentSalesAmount != null ? currentSalesAmount : BigDecimal.ZERO)
         .salesMetric(salesMetric)
-        .deliveredOrdersCount(currentDeliveredOrders)
         .ordersMetric(ordersMetric)
         .stockSoldPercentage(stockSoldPercentage)
         .stockMetric(stockMetric)
@@ -101,16 +99,16 @@ public class DashboardService {
     LocalDate sevenDaysAgo = today.minusDays(6);
 
     OffsetDateTime startDateTime = sevenDaysAgo.atStartOfDay()
-        .atZone(ZoneId.systemDefault()).toOffsetDateTime();
+        .atZone(ZoneId.of("America/Sao_Paulo")).toOffsetDateTime();
     OffsetDateTime endDateTime = today.plusDays(1).atStartOfDay()
-        .atZone(ZoneId.systemDefault()).toOffsetDateTime();
+        .atZone(ZoneId.of("America/Sao_Paulo")).toOffsetDateTime();
 
     List<Order> orders =
         orderRepository.findDeliveredOrdersBetweenDates(producerId, startDateTime, endDateTime);
 
     Map<LocalDate, List<Order>> ordersByDay = orders.stream()
         .collect(Collectors.groupingBy(order -> order.getDeliveredAt()
-            .atZoneSameInstant(ZoneId.systemDefault())
+            .atZoneSameInstant(ZoneId.of("America/Sao_Paulo"))
             .toLocalDate()));
 
     List<DailySalesResponse> dailySales = new ArrayList<>();
@@ -125,7 +123,7 @@ public class DashboardService {
           .reduce(BigDecimal.ZERO, BigDecimal::add);
 
       String dayOfWeek = date.format(
-          DateTimeFormatter.ofPattern("EEEE", Locale.US));
+          DateTimeFormatter.ofPattern("EEEE", Locale.forLanguageTag("pt-BR")));
       String formattedDate = date.format(DateTimeFormatter.ofPattern("dd/MM"));
 
       dailySales.add(DailySalesResponse.builder()
