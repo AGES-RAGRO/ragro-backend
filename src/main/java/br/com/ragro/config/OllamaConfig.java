@@ -1,6 +1,5 @@
 package br.com.ragro.config;
 
-import java.time.Duration;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -16,8 +15,8 @@ public class OllamaConfig {
   @Bean
   public RestClient ollamaRestClient() {
     SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-    factory.setConnectTimeout((int) Duration.ofMillis(properties.getTimeoutMs()).toMillis());
-    factory.setReadTimeout((int) Duration.ofMillis(properties.getTimeoutMs()).toMillis());
+    factory.setConnectTimeout(properties.getConnectTimeoutMs());
+    factory.setReadTimeout(properties.getReadTimeoutMs());
     return RestClient.builder()
         .baseUrl(properties.getBaseUrl())
         .requestFactory(factory)
