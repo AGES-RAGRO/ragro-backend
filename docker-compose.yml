@@ -105,6 +105,8 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+      ollama:
+        condition: service_started
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/gearheads
       SPRING_DATASOURCE_USERNAME: postgres
