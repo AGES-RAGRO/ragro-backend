@@ -18,6 +18,7 @@ import br.com.ragro.controller.response.DashboardWeeklyResponse;
 import br.com.ragro.controller.response.ProducerDashboardResponse;
 import br.com.ragro.controller.response.ProducerGetResponse;
 import br.com.ragro.controller.response.ProducerPublicProfileResponse;
+import br.com.ragro.controller.response.ProducerWeeklySalesResponse;
 import br.com.ragro.controller.response.ProductResponse;
 import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.TypeUser;
@@ -825,6 +826,72 @@ class ProducerControllerTest {
         .andExpect(jsonPath("$.dailySales[0].salesAmount").value(50.00))
         .andExpect(jsonPath("$.dailySales[1].orderCount").value(1))
         .andExpect(jsonPath("$.dailySales[1].salesAmount").value(25.00));
+  }
+
+  @Test
+  void getWeeklySales_shouldReturn200WithSevenPositions() throws Exception {
+    String sub = "keycloak-sub-farmer";
+    User farmer = buildUser(sub, true);
+    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(farmer));
+    when(userService.getAuthenticatedUser(any())).thenReturn(farmer);
+
+    LocalDate today = LocalDate.now();
+    List<ProducerWeeklySalesResponse> weeklySales =
+        List.of(
+            ProducerWeeklySalesResponse.builder()
+                .date(today.minusDays(6))
+                .dayLabel("seg.")
+                .salesCount(2)
+                .build(),
+            ProducerWeeklySalesResponse.builder()
+                .date(today.minusDays(5))
+                .dayLabel("ter.")
+                .salesCount(0)
+                .build(),
+            ProducerWeeklySalesResponse.builder()
+                .date(today.minusDays(4))
+                .dayLabel("qua.")
+                .salesCount(1)
+                .build(),
+            ProducerWeeklySalesResponse.builder()
+                .date(today.minusDays(3))
+                .dayLabel("qui.")
+                .salesCount(0)
+                .build(),
+            ProducerWeeklySalesResponse.builder()
+                .date(today.minusDays(2))
+                .dayLabel("sex.")
+                .salesCount(0)
+                .build(),
+            ProducerWeeklySalesResponse.builder()
+                .date(today.minusDays(1))
+                .dayLabel("sáb.")
+                .salesCount(3)
+                .build(),
+            ProducerWeeklySalesResponse.builder()
+                .date(today)
+                .dayLabel("dom.")
+                .salesCount(0)
+                .build());
+
+    when(dashboardService.getWeeklySales(any())).thenReturn(weeklySales);
+
+    mockMvc
+        .perform(
+            get("/producers/me/dashboard/weekly-sales")
+                .with(
+                    SecurityMockMvcRequestPostProcessors.jwt()
+                        .jwt(jwt -> jwt.claim("sub", sub).claim("email", "farmer@test.com"))
+                        .authorities(new SimpleGrantedAuthority("ROLE_FARMER"))))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$").isArray())
+        .andExpect(jsonPath("$.length()").value(7))
+        .andExpect(jsonPath("$[0].date").value(today.minusDays(6).toString()))
+        .andExpect(jsonPath("$[0].dayLabel").value("seg."))
+        .andExpect(jsonPath("$[0].salesCount").value(2))
+        .andExpect(jsonPath("$[1].salesCount").value(0))
+        .andExpect(jsonPath("$[6].date").value(today.toString()))
+        .andExpect(jsonPath("$[6].salesCount").value(0));
   }
 
   @Test

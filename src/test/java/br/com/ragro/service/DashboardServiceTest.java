@@ -11,6 +11,7 @@ import br.com.ragro.controller.response.DailySalesResponse;
 import br.com.ragro.controller.response.DashboardMetricResponse;
 import br.com.ragro.controller.response.DashboardWeeklyResponse;
 import br.com.ragro.controller.response.ProducerDashboardResponse;
+import br.com.ragro.controller.response.ProducerWeeklySalesResponse;
 import br.com.ragro.domain.Order;
 import br.com.ragro.domain.OrderItem;
 import br.com.ragro.domain.Producer;
@@ -431,6 +432,35 @@ class DashboardServiceTest {
 
     DailySalesResponse firstDay = response.getDailySales().get(0);
     assertThat(firstDay.getSalesAmount()).isEqualByComparingTo("80.00");
+  }
+
+  // ========== getWeeklySales Tests ==========
+
+  @Test
+  void shouldReturnWeeklySales_withExactly7DaysAndZeroesWhenNoSales() {
+    LocalDate today = LocalDate.now();
+    LocalDate sevenDaysAgo = today.minusDays(6);
+
+    List<Order> orders = new ArrayList<>();
+    orders.add(createOrderWithDate(sevenDaysAgo, BigDecimal.ZERO));
+    orders.add(createOrderWithDate(sevenDaysAgo, BigDecimal.ZERO));
+    orders.add(createOrderWithDate(sevenDaysAgo.plusDays(2), BigDecimal.ZERO));
+
+    when(orderRepository.findDeliveredOrdersBetweenDates(any(), any(), any()))
+        .thenReturn(orders);
+
+    List<ProducerWeeklySalesResponse> response = dashboardService.getWeeklySales(producerId);
+
+    assertThat(response).hasSize(7);
+    assertThat(response.get(0).getDate()).isEqualTo(sevenDaysAgo);
+    assertThat(response.get(0).getSalesCount()).isEqualTo(2);
+    assertThat(response.get(1).getDate()).isEqualTo(sevenDaysAgo.plusDays(1));
+    assertThat(response.get(1).getSalesCount()).isZero();
+    assertThat(response.get(2).getDate()).isEqualTo(sevenDaysAgo.plusDays(2));
+    assertThat(response.get(2).getSalesCount()).isEqualTo(1);
+    assertThat(response.get(6).getDate()).isEqualTo(today);
+    assertThat(response.get(6).getSalesCount()).isZero();
+    assertThat(response).allSatisfy(day -> assertThat(day.getDayLabel()).isNotBlank());
   }
 
   // ========== Helper Methods ==========

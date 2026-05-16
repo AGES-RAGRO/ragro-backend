@@ -8,6 +8,7 @@ import br.com.ragro.controller.response.PaginatedResponse;
 import br.com.ragro.controller.response.ProducerDashboardResponse;
 import br.com.ragro.controller.response.ProducerGetResponse;
 import br.com.ragro.controller.response.ProducerPublicProfileResponse;
+import br.com.ragro.controller.response.ProducerWeeklySalesResponse;
 import br.com.ragro.controller.response.ProductResponse;
 import br.com.ragro.controller.response.ReviewResponse;
 import br.com.ragro.service.DashboardService;
@@ -164,6 +165,18 @@ public class ProducerController {
       @AuthenticationPrincipal Jwt jwt) {
     UUID producerId = userService.getAuthenticatedUser(jwt).getId();
     return ResponseEntity.ok(dashboardService.getWeeklyDashboard(producerId));
+  }
+
+  @GetMapping("/me/dashboard/weekly-sales")
+  @PreAuthorize("hasRole('FARMER')")
+  @Operation(
+      summary = "Get authenticated producer's weekly sales count",
+      description = "Returns sales count per day for the last 7 days, including today. "
+          + "Only DELIVERED orders are counted.")
+  public ResponseEntity<List<ProducerWeeklySalesResponse>> getWeeklySales(
+      @AuthenticationPrincipal Jwt jwt) {
+    UUID producerId = userService.getAuthenticatedUser(jwt).getId();
+    return ResponseEntity.ok(dashboardService.getWeeklySales(producerId));
   }
 
   @PutMapping("/{id}")

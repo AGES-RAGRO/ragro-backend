@@ -4,6 +4,7 @@ import br.com.ragro.controller.response.DailySalesResponse;
 import br.com.ragro.controller.response.DashboardMetricResponse;
 import br.com.ragro.controller.response.DashboardWeeklyResponse;
 import br.com.ragro.controller.response.ProducerDashboardResponse;
+import br.com.ragro.controller.response.ProducerWeeklySalesResponse;
 import br.com.ragro.domain.Order;
 import br.com.ragro.domain.Product;
 import br.com.ragro.repository.OrderRepository;
@@ -91,6 +92,41 @@ public class DashboardService {
         .stockSoldPercentage(stockSoldPercentage)
         .stockMetric(stockMetric)
         .build();
+  }
+
+  @Transactional(readOnly = true)
+  public List<ProducerWeeklySalesResponse> getWeeklySales(UUID producerId) {
+    ZoneId zoneId = ZoneId.systemDefault();
+    LocalDate today = LocalDate.now();
+    LocalDate sevenDaysAgo = today.minusDays(6);
+
+    OffsetDateTime startDateTime = sevenDaysAgo.atStartOfDay()
+        .atZone(zoneId).toOffsetDateTime();
+    OffsetDateTime endDateTime = today.plusDays(1).atStartOfDay()
+        .atZone(zoneId).toOffsetDateTime();
+
+    List<Order> orders =
+        orderRepository.findDeliveredOrdersBetweenDates(producerId, startDateTime, endDateTime);
+
+    Map<LocalDate, Long> salesCountByDay = orders.stream()
+        .collect(Collectors.groupingBy(
+            order -> order.getDeliveredAt().atZoneSameInstant(zoneId).toLocalDate(),
+            Collectors.counting()));
+
+    List<ProducerWeeklySalesResponse> weeklySales = new ArrayList<>();
+    DateTimeFormatter dayLabelFormatter =
+        DateTimeFormatter.ofPattern("EEE", Locale.forLanguageTag("pt-BR"));
+
+    for (int i = 0; i < 7; i++) {
+      LocalDate date = sevenDaysAgo.plusDays(i);
+      weeklySales.add(ProducerWeeklySalesResponse.builder()
+          .date(date)
+          .dayLabel(date.format(dayLabelFormatter))
+          .salesCount(salesCountByDay.getOrDefault(date, 0L))
+          .build());
+    }
+
+    return weeklySales;
   }
 
   @Transactional(readOnly = true)
