@@ -32,6 +32,5 @@ public class Co2OptionsResponse {
   public static class FuelOption {
     private FuelType type;
     private String description;
-    private Double defaultConsumption;
   }
 }

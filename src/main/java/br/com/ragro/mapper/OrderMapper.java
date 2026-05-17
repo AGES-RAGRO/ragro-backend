@@ -60,7 +60,7 @@ public class OrderMapper {
    * produtor e foto de cada item.
    */
   public static CustomerOrderResponse toCustomerOrderResponse(
-      Order order, MinioStorageService storage) {
+      Order order, MinioStorageService storage, boolean reviewed) {
     if (order == null) {
       return null;
     }
@@ -78,6 +78,7 @@ public class OrderMapper {
         .producerPicture(resolveUrl(storage, resolveProducerPicture(order)))
         .producerPhone(order.getFarmer().getUser().getPhone())
         .status(order.getStatus())
+        .reviewed(reviewed)
         .createdAt(order.getCreatedAt())
         .deliveryAddress(order.getDeliveryAddressSnapshot())
         .items(order.getItems().stream()

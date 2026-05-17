@@ -23,9 +23,8 @@ public class OrderResponse {
   private OrderStatus status;
   private UUID paymentMethodId;
   private PaymentStatus paymentStatus;
-  private String notes;
+  private String notes; 
   private BigDecimal totalAmount;
   private OffsetDateTime createdAt;
   private List<OrderItemResponse> items;
-
 }

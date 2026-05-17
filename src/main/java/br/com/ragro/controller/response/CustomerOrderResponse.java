@@ -18,6 +18,7 @@ public class CustomerOrderResponse {
   private String producerName;
   private String producerPicture;
   private OrderStatus status;
+  private boolean reviewed;
 
   // Campos adicionais consumidos pela tela de detalhe (GET /orders/customer/{id}).
   // A lista (GET /orders/consumer) preenche apenas os campos acima — os abaixo

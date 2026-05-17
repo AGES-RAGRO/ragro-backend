@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 
 public interface ReviewRepository extends JpaRepository<Review, UUID> {
     Optional<Review> findByOrderId(UUID orderId);
+    boolean existsByOrderId(UUID orderId);
     Page<Review> findAllByFarmerId(UUID farmerId, Pageable pageable);
     long countByFarmer_Id(UUID farmerId);
 
