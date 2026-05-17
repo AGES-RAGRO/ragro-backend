@@ -13,12 +13,12 @@ import lombok.ToString;
 public class RankedItem {
 
   private UUID productId;
-  private double score;
+  private Double score;
   private String reason;
   private Candidate candidate;
 
-  public void setScore(double score) {
-    if (score < 0.0 || score > 1.0) {
+  public void setScore(Double score) {
+    if (score == null || score < 0.0 || score > 1.0) {
       throw new IllegalArgumentException("Score must be between 0 and 1, got: " + score);
     }
     this.score = score;
