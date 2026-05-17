@@ -56,6 +56,12 @@ springdoc:
     tags-sorter: alpha
     use-root-path: true
 
+ollama:
+  base-url: ${OLLAMA_BASE_URL:http://ollama:11434}
+  model: ${OLLAMA_MODEL:gemma2:2b}
+  connect-timeout-ms: ${OLLAMA_CONNECT_TIMEOUT_MS:2000}
+  read-timeout-ms: ${OLLAMA_READ_TIMEOUT_MS:30000}
+
 server:
   error:
     include-message: never
