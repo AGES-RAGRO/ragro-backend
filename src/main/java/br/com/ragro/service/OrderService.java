@@ -282,6 +282,28 @@ public class OrderService {
     return toCustomerOrderResponse(order);
   }
 
+  @Transactional
+  public OrderResponse markOrderAsSeen(UUID orderId, Jwt jwt) {
+    User user = userService.getAuthenticatedUser(jwt);
+    if (user.getType() != TypeUser.FARMER) {
+      throw new ForbiddenException("Apenas produtores podem marcar pedidos como vistos");
+    }
+
+    Order order = orderRepository.findById(orderId)
+        .orElseThrow(() -> new NotFoundException("Pedido não encontrado"));
+
+    if (!order.getFarmer().getId().equals(user.getId())) {
+      throw new ForbiddenException("Você não tem permissão para atualizar este pedido");
+    }
+
+    if (!order.isSeenByFarmer()) {
+      order.setSeenByFarmer(true);
+      order = orderRepository.saveAndFlush(order);
+    }
+
+    return OrderMapper.toResponse(order, storageService);
+  }
+
   private CustomerOrderResponse toCustomerOrderResponse(Order order) {
     boolean reviewed = reviewRepository.existsByOrderId(order.getId());
     return OrderMapper.toCustomerOrderResponse(order, storageService, reviewed);
