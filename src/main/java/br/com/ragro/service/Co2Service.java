@@ -108,6 +108,11 @@ public class Co2Service {
         .toList();
   }
 
+  @Transactional(readOnly = true)
+  public double getTotalCo2Saved() {
+      return co2SavingRepository.sumAllCo2Saved();
+  }
+
   @Transactional
   public void recordSaving(RecordCo2SavingRequest request, Jwt jwt) {
     User user = userService.getAuthenticatedUser(jwt);
