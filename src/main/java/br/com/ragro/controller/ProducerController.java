@@ -8,6 +8,7 @@ import br.com.ragro.controller.response.PaginatedResponse;
 import br.com.ragro.controller.response.ProducerDashboardResponse;
 import br.com.ragro.controller.response.ProducerGetResponse;
 import br.com.ragro.controller.response.ProducerPublicProfileResponse;
+import br.com.ragro.controller.response.LocationResponse;
 import br.com.ragro.controller.response.ProductResponse;
 import br.com.ragro.controller.response.ReviewResponse;
 import br.com.ragro.service.DashboardService;
@@ -51,6 +52,14 @@ public class ProducerController {
   private final ReviewService reviewService;
   private final DashboardService dashboardService;
   private final UserService userService;
+
+  @GetMapping("/locations")
+  @Operation(
+      summary = "List producer locations",
+      description = "Returns a list of all active producer coordinates to be plotted on the map. Accessible to all authenticated users.")
+  public ResponseEntity<List<LocationResponse>> getProducerLocations() {
+    return ResponseEntity.ok(producerService.getProducerLocations());
+  }
 
   @GetMapping
   @PreAuthorize("hasRole('CUSTOMER')")

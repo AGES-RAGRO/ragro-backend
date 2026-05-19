@@ -28,6 +28,9 @@ public interface ProducerRepository extends JpaRepository<Producer, UUID>,
     Page<Producer> findAllActiveSortedByRating(Pageable pageable);
 
     @EntityGraph(attributePaths = {"user", "user.addresses"})
+    List<Producer> findAllByUserActiveTrue();
+
+    @EntityGraph(attributePaths = {"user", "user.addresses"})
     Optional<Producer> findDetailedById(UUID id);
 
     @EntityGraph(attributePaths = {"user"})
