@@ -8,21 +8,29 @@ import br.com.ragro.domain.ProductCategory;
 import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.RecommendationReason;
 import br.com.ragro.domain.enums.TypeUser;
+import br.com.ragro.domain.llm.Candidate;
+import br.com.ragro.domain.llm.CustomerFeatures;
+import br.com.ragro.domain.llm.RankedItem;
 import br.com.ragro.exception.ForbiddenException;
 import br.com.ragro.repository.OrderItemRepository;
 import br.com.ragro.repository.OrderRepository;
 import br.com.ragro.repository.ProductRepository;
+import br.com.ragro.service.api.LlmRerankerPort;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
@@ -31,6 +39,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class RecommendationService {
+
+  private static final Logger log = LoggerFactory.getLogger(RecommendationService.class);
 
   private static final int WEIGHT_PURCHASE_HISTORY = 3;
   private static final int WEIGHT_CO_OCCURRENCE = 2;
@@ -46,6 +56,7 @@ public class RecommendationService {
   private final OrderRepository orderRepository;
   private final OrderItemRepository orderItemRepository;
   private final ProductRepository productRepository;
+  private final LlmRerankerPort llmRerankerPort;
 
   @Transactional(readOnly = true)
   public RecommendationResponse getRecommendations(RecommendationRequest request, Jwt jwt) {
@@ -56,8 +67,7 @@ public class RecommendationService {
 
     UUID customerId = user.getId();
 
-    List<UUID> purchasedIds =
-        orderItemRepository.findDistinctProductIdsByCustomerId(customerId);
+    List<UUID> purchasedIds = orderItemRepository.findDistinctProductIdsByCustomerId(customerId);
     Set<UUID> purchasedSet = Set.copyOf(purchasedIds);
 
     Map<UUID, int[]> scoreMap = new HashMap<>();
@@ -71,18 +81,27 @@ public class RecommendationService {
       for (UUID farmerId : farmerIds) {
         List<Product> products = productRepository.findAllByFarmerIdAndActiveTrue(farmerId);
         for (Product p : products) {
-          accumulate(p, WEIGHT_PURCHASE_HISTORY, RecommendationReason.PURCHASE_HISTORY,
-              scoreMap, reasonMap, productCache);
+          accumulate(
+              p,
+              WEIGHT_PURCHASE_HISTORY,
+              RecommendationReason.PURCHASE_HISTORY,
+              scoreMap,
+              reasonMap,
+              productCache);
         }
       }
 
-      List<UUID> coIds =
-          orderItemRepository.findCoOccurringProductIds(customerId, purchasedIds);
+      List<UUID> coIds = orderItemRepository.findCoOccurringProductIds(customerId, purchasedIds);
       if (!coIds.isEmpty()) {
         List<Product> coProducts = productRepository.findAllById(coIds);
         for (Product p : coProducts) {
-          accumulate(p, WEIGHT_CO_OCCURRENCE, RecommendationReason.CO_OCCURRENCE,
-              scoreMap, reasonMap, productCache);
+          accumulate(
+              p,
+              WEIGHT_CO_OCCURRENCE,
+              RecommendationReason.CO_OCCURRENCE,
+              scoreMap,
+              reasonMap,
+              productCache);
         }
       }
 
@@ -91,52 +110,156 @@ public class RecommendationService {
         List<Product> categoryProducts =
             productRepository.findActiveProductsByCategoryIds(preferredCategoryIds);
         for (Product p : categoryProducts) {
-          accumulate(p, WEIGHT_CATEGORY_PREFERENCE, RecommendationReason.CATEGORY_PREFERENCE,
-              scoreMap, reasonMap, productCache);
+          accumulate(
+              p,
+              WEIGHT_CATEGORY_PREFERENCE,
+              RecommendationReason.CATEGORY_PREFERENCE,
+              scoreMap,
+              reasonMap,
+              productCache);
         }
       }
     }
 
     OffsetDateTime trendingSince = OffsetDateTime.now().minusDays(TRENDING_DAYS);
     List<Product> trending =
-        productRepository.findTrendingProducts(
-            trendingSince, PageRequest.of(0, CANDIDATE_PAGE_SIZE)).getContent();
+        productRepository
+            .findTrendingProducts(trendingSince, PageRequest.of(0, CANDIDATE_PAGE_SIZE))
+            .getContent();
     for (Product p : trending) {
-      accumulate(p, WEIGHT_TRENDING, RecommendationReason.TRENDING,
-          scoreMap, reasonMap, productCache);
+      accumulate(
+          p, WEIGHT_TRENDING, RecommendationReason.TRENDING, scoreMap, reasonMap, productCache);
     }
 
     List<Product> recent =
-        productRepository.findRecentActiveProducts(
-            PageRequest.of(0, CANDIDATE_PAGE_SIZE)).getContent();
+        productRepository
+            .findRecentActiveProducts(PageRequest.of(0, CANDIDATE_PAGE_SIZE))
+            .getContent();
     for (Product p : recent) {
       if (p.getCreatedAt() != null
           && p.getCreatedAt().isAfter(OffsetDateTime.now().minusDays(FRESHNESS_DAYS))) {
-        accumulate(p, WEIGHT_FRESHNESS, RecommendationReason.FRESHNESS,
-            scoreMap, reasonMap, productCache);
+        accumulate(
+            p, WEIGHT_FRESHNESS, RecommendationReason.FRESHNESS, scoreMap, reasonMap, productCache);
       }
     }
 
     Set<UUID> excludeSet = resolveExcludeSet(request, purchasedSet);
     excludeSet.forEach(scoreMap::remove);
 
-    List<Map.Entry<UUID, int[]>> ranked = new ArrayList<>(scoreMap.entrySet());
-    ranked.sort((a, b) -> Integer.compare(b.getValue()[0], a.getValue()[0]));
-
     int limit = request.getLimit();
-    List<RecommendationProductResponse> recommendations = ranked.stream()
-        .limit(limit)
-        .map(entry -> {
-          UUID pid = entry.getKey();
-          Product product = productCache.get(pid);
-          return toResponse(product, scoreMap.get(pid)[0], reasonMap.get(pid));
-        })
-        .collect(Collectors.toList());
+    List<RecommendationProductResponse> recommendations =
+        buildRecommendations(scoreMap, productCache, reasonMap, limit);
 
     return RecommendationResponse.builder()
         .recommendations(recommendations)
         .total(recommendations.size())
         .build();
+  }
+
+  private List<RecommendationProductResponse> buildRecommendations(
+      Map<UUID, int[]> scoreMap,
+      Map<UUID, Product> productCache,
+      Map<UUID, RecommendationReason> reasonMap,
+      int limit) {
+
+    List<Candidate> candidates = buildCandidates(scoreMap, productCache, reasonMap);
+    CustomerFeatures features = buildCustomerFeatures(productCache, reasonMap);
+
+    try {
+      List<RankedItem> llmRanked = llmRerankerPort.rerank(candidates, features);
+      if (llmRanked == null || llmRanked.isEmpty()) {
+        return buildHeuristicRecommendations(scoreMap, productCache, reasonMap, limit);
+      }
+      List<RecommendationProductResponse> llmResult =
+          llmRanked.stream()
+              .filter(item -> productCache.containsKey(item.getProductId()))
+              .sorted(Comparator.comparingDouble(RankedItem::getScore).reversed())
+              .limit(limit)
+              .map(item -> toResponseLlm(productCache.get(item.getProductId()), item.getScore()))
+              .collect(Collectors.toList());
+      return llmResult.isEmpty()
+          ? buildHeuristicRecommendations(scoreMap, productCache, reasonMap, limit)
+          : llmResult;
+    } catch (Exception e) {
+      log.warn("LLM reranking failed, using heuristic fallback: {}", e.getMessage());
+      return buildHeuristicRecommendations(scoreMap, productCache, reasonMap, limit);
+    }
+  }
+
+  private List<RecommendationProductResponse> buildHeuristicRecommendations(
+      Map<UUID, int[]> scoreMap,
+      Map<UUID, Product> productCache,
+      Map<UUID, RecommendationReason> reasonMap,
+      int limit) {
+
+    List<Map.Entry<UUID, int[]>> ranked = new ArrayList<>(scoreMap.entrySet());
+    ranked.sort((a, b) -> Integer.compare(b.getValue()[0], a.getValue()[0]));
+
+    return ranked.stream()
+        .limit(limit)
+        .map(
+            entry -> {
+              UUID pid = entry.getKey();
+              Product product = productCache.get(pid);
+              return toResponse(product, scoreMap.get(pid)[0], reasonMap.get(pid));
+            })
+        .collect(Collectors.toList());
+  }
+
+  private List<Candidate> buildCandidates(
+      Map<UUID, int[]> scoreMap,
+      Map<UUID, Product> productCache,
+      Map<UUID, RecommendationReason> reasonMap) {
+
+    return scoreMap.entrySet().stream()
+        .sorted((a, b) -> Integer.compare(b.getValue()[0], a.getValue()[0]))
+        .map(
+            entry -> {
+              Product product = productCache.get(entry.getKey());
+              if (product == null) return null;
+
+              Candidate candidate = new Candidate();
+              candidate.setProductId(product.getId());
+              candidate.setProductName(product.getName());
+              if (product.getFarmer() != null) {
+                candidate.setProducerId(product.getFarmer().getId());
+                candidate.setProducerName(product.getFarmer().getFarmName());
+              }
+              candidate.setCategoryNames(
+                  product.getCategories().stream()
+                      .map(ProductCategory::getName)
+                      .collect(Collectors.toList()));
+              candidate.setUnitPrice(product.getPrice());
+              candidate.setHeuristicScore(entry.getValue()[0]);
+              return candidate;
+            })
+        .filter(c -> c != null)
+        .collect(Collectors.toList());
+  }
+
+  private CustomerFeatures buildCustomerFeatures(
+      Map<UUID, Product> productCache, Map<UUID, RecommendationReason> reasonMap) {
+
+    CustomerFeatures features = new CustomerFeatures();
+    Set<String> categories = new LinkedHashSet<>();
+    Set<String> producers = new LinkedHashSet<>();
+
+    for (Map.Entry<UUID, RecommendationReason> entry : reasonMap.entrySet()) {
+      Product p = productCache.get(entry.getKey());
+      if (p == null) continue;
+
+      p.getCategories().stream().map(ProductCategory::getName).forEach(categories::add);
+
+      if (entry.getValue() == RecommendationReason.PURCHASE_HISTORY
+          && p.getFarmer() != null
+          && p.getFarmer().getFarmName() != null) {
+        producers.add(p.getFarmer().getFarmName());
+      }
+    }
+
+    features.setPreferredCategories(new ArrayList<>(categories));
+    features.setFavoriteProducers(new ArrayList<>(producers));
+    return features;
   }
 
   private void accumulate(
@@ -150,7 +273,7 @@ public class RecommendationService {
     UUID id = product.getId();
     productCache.putIfAbsent(id, product);
 
-    int[] entry = scoreMap.computeIfAbsent(id, k -> new int[]{0, 0});
+    int[] entry = scoreMap.computeIfAbsent(id, k -> new int[] {0, 0});
     entry[0] += weight;
 
     if (weight > entry[1]) {
@@ -178,11 +301,10 @@ public class RecommendationService {
     return combined;
   }
 
-  private RecommendationProductResponse toResponse(Product product, int score,
-      RecommendationReason reason) {
-    List<String> categoryNames = product.getCategories().stream()
-        .map(ProductCategory::getName)
-        .collect(Collectors.toList());
+  private RecommendationProductResponse toResponse(
+      Product product, int score, RecommendationReason reason) {
+    List<String> categoryNames =
+        product.getCategories().stream().map(ProductCategory::getName).collect(Collectors.toList());
 
     return RecommendationProductResponse.builder()
         .id(product.getId())
@@ -195,6 +317,24 @@ public class RecommendationService {
         .categoryNames(categoryNames)
         .score(score)
         .reason(reason)
+        .build();
+  }
+
+  private RecommendationProductResponse toResponseLlm(Product product, Double llmScore) {
+    List<String> categoryNames =
+        product.getCategories().stream().map(ProductCategory::getName).collect(Collectors.toList());
+
+    return RecommendationProductResponse.builder()
+        .id(product.getId())
+        .name(product.getName())
+        .price(product.getPrice())
+        .unityType(product.getUnityType())
+        .imageS3(product.getImageS3())
+        .farmerId(product.getFarmer() != null ? product.getFarmer().getId() : null)
+        .farmName(product.getFarmer() != null ? product.getFarmer().getFarmName() : null)
+        .categoryNames(categoryNames)
+        .score((int) (llmScore * 100))
+        .reason(RecommendationReason.LLM_RERANKED)
         .build();
   }
 }
