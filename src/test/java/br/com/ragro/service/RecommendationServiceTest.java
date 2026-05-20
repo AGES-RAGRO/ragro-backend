@@ -17,10 +17,13 @@ import br.com.ragro.domain.ProductCategory;
 import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.RecommendationReason;
 import br.com.ragro.domain.enums.TypeUser;
+import br.com.ragro.domain.llm.RankedItem;
 import br.com.ragro.exception.ForbiddenException;
+import br.com.ragro.exception.LlmInvalidOutputException;
 import br.com.ragro.repository.OrderItemRepository;
 import br.com.ragro.repository.OrderRepository;
 import br.com.ragro.repository.ProductRepository;
+import br.com.ragro.service.api.LlmRerankerPort;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -45,6 +48,7 @@ class RecommendationServiceTest {
   @Mock private OrderRepository orderRepository;
   @Mock private OrderItemRepository orderItemRepository;
   @Mock private ProductRepository productRepository;
+  @Mock private LlmRerankerPort llmRerankerPort;
 
   @InjectMocks private RecommendationService recommendationService;
 
@@ -54,8 +58,8 @@ class RecommendationServiceTest {
     User customer = buildCustomer();
     UUID farmerId = UUID.randomUUID();
     UUID purchasedId = UUID.randomUUID();
-    Product historyProduct = buildProduct(farmerId);   // sinal 1 → score 3
-    Product trendingProduct = buildProduct(farmerId);  // sinal 4 → score 1
+    Product historyProduct = buildProduct(farmerId); // sinal 1 → score 3
+    Product trendingProduct = buildProduct(farmerId); // sinal 4 → score 1
 
     stubCustomer(customer);
     stubPurchasedIds(customer.getId(), List.of(purchasedId));
@@ -144,8 +148,7 @@ class RecommendationServiceTest {
     when(productRepository.findAllByFarmerIdAndActiveTrue(farmerId))
         .thenReturn(List.of(alreadyBought));
     stubCoOccurrence(customer.getId(), List.of(purchasedId), List.of());
-    when(productRepository.findAllById(List.of(purchasedId)))
-        .thenReturn(List.of(alreadyBought));
+    when(productRepository.findAllById(List.of(purchasedId))).thenReturn(List.of(alreadyBought));
     stubTrending(List.of());
     stubRecentProducts(List.of());
 
@@ -241,8 +244,7 @@ class RecommendationServiceTest {
     farmer.setType(TypeUser.FARMER);
     when(userService.getAuthenticatedUser(any(Jwt.class))).thenReturn(farmer);
 
-    assertThatThrownBy(
-            () -> recommendationService.getRecommendations(defaultRequest(), jwt()))
+    assertThatThrownBy(() -> recommendationService.getRecommendations(defaultRequest(), jwt()))
         .isInstanceOf(ForbiddenException.class)
         .hasMessage("Recomendações disponíveis apenas para consumidores");
   }
@@ -276,8 +278,7 @@ class RecommendationServiceTest {
     stubCustomer(customer);
     stubPurchasedIds(customer.getId(), purchasedIds);
     stubFarmerIds(customer.getId(), List.of(farmerId));
-    when(productRepository.findAllByFarmerIdAndActiveTrue(farmerId))
-        .thenReturn(List.of(p1, p2));
+    when(productRepository.findAllByFarmerIdAndActiveTrue(farmerId)).thenReturn(List.of(p1, p2));
     stubCoOccurrence(customer.getId(), purchasedIds, List.of());
     when(productRepository.findAllById(purchasedIds)).thenReturn(List.of(p1, p2));
     stubTrending(List.of(p1, p2));
@@ -303,8 +304,7 @@ class RecommendationServiceTest {
     // Sinal 2: co-ocorrência retorna o coProduct
     stubCoOccurrence(customer.getId(), List.of(purchasedId), List.of(coProduct.getId()));
     // findAllById é chamado com a lista de IDs co-ocorrentes (sinal 2)
-    when(productRepository.findAllById(List.of(coProduct.getId())))
-        .thenReturn(List.of(coProduct));
+    when(productRepository.findAllById(List.of(coProduct.getId()))).thenReturn(List.of(coProduct));
     // Sinal 3: findAllById com purchasedIds para extrair categorias
     when(productRepository.findAllById(List.of(purchasedId)))
         .thenReturn(List.of(buildProduct(farmerId))); // sem categorias
@@ -342,8 +342,7 @@ class RecommendationServiceTest {
     when(productRepository.findAllByFarmerIdAndActiveTrue(farmerId)).thenReturn(List.of());
     stubCoOccurrence(customer.getId(), List.of(purchasedId), List.of());
     // findAllById para extrair categorias do histórico
-    when(productRepository.findAllById(List.of(purchasedId)))
-        .thenReturn(List.of(purchasedProduct));
+    when(productRepository.findAllById(List.of(purchasedId))).thenReturn(List.of(purchasedProduct));
     when(productRepository.findActiveProductsByCategoryIds(List.of(42)))
         .thenReturn(List.of(categoryProduct));
     stubTrending(List.of());
@@ -357,6 +356,80 @@ class RecommendationServiceTest {
     assertThat(response.getRecommendations().get(0).getReason())
         .isEqualTo(RecommendationReason.CATEGORY_PREFERENCE);
     assertThat(response.getRecommendations().get(0).getScore()).isEqualTo(2);
+  }
+
+  // ─── Cenário 13: LLM responde OK → source = LLM_RERANKED ────────────────────
+  @Test
+  void recommend_llmRespondsOk_sourceIsLlmReranked() {
+    User customer = buildCustomer();
+    UUID farmerId = UUID.randomUUID();
+    Product product = buildProduct(farmerId);
+
+    stubCustomer(customer);
+    stubPurchasedIds(customer.getId(), List.of());
+    stubTrending(List.of(product));
+    stubRecentProducts(List.of());
+
+    RankedItem rankedItem = new RankedItem();
+    rankedItem.setProductId(product.getId());
+    rankedItem.setScore(0.9);
+    rankedItem.setReason("Produto popular na região");
+
+    when(llmRerankerPort.rerank(any(), any())).thenReturn(List.of(rankedItem));
+
+    RecommendationResponse response =
+        recommendationService.getRecommendations(defaultRequest(), jwt());
+
+    assertThat(response.getRecommendations()).hasSize(1);
+    assertThat(response.getRecommendations().get(0).getReason())
+        .isEqualTo(RecommendationReason.LLM_RERANKED);
+    assertThat(response.getRecommendations().get(0).getScore()).isEqualTo(90);
+  }
+
+  // ─── Cenário 14: LLM timeout → fallback heurístico ──────────────────────────
+  @Test
+  void recommend_llmTimeout_fallbackToHeuristic() {
+    User customer = buildCustomer();
+    UUID farmerId = UUID.randomUUID();
+    Product product = buildProduct(farmerId);
+
+    stubCustomer(customer);
+    stubPurchasedIds(customer.getId(), List.of());
+    stubTrending(List.of(product));
+    stubRecentProducts(List.of());
+
+    when(llmRerankerPort.rerank(any(), any()))
+        .thenThrow(new RuntimeException("Connection timed out"));
+
+    RecommendationResponse response =
+        recommendationService.getRecommendations(defaultRequest(), jwt());
+
+    assertThat(response.getRecommendations()).hasSize(1);
+    assertThat(response.getRecommendations().get(0).getReason())
+        .isEqualTo(RecommendationReason.TRENDING);
+  }
+
+  // ─── Cenário 15: LLM retorna JSON malformado → fallback heurístico ──────────
+  @Test
+  void recommend_llmInvalidJson_fallbackToHeuristic() {
+    User customer = buildCustomer();
+    UUID farmerId = UUID.randomUUID();
+    Product product = buildProduct(farmerId);
+
+    stubCustomer(customer);
+    stubPurchasedIds(customer.getId(), List.of());
+    stubTrending(List.of(product));
+    stubRecentProducts(List.of());
+
+    when(llmRerankerPort.rerank(any(), any()))
+        .thenThrow(new LlmInvalidOutputException("Invalid JSON in LLM response"));
+
+    RecommendationResponse response =
+        recommendationService.getRecommendations(defaultRequest(), jwt());
+
+    assertThat(response.getRecommendations()).hasSize(1);
+    assertThat(response.getRecommendations().get(0).getReason())
+        .isEqualTo(RecommendationReason.TRENDING);
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
