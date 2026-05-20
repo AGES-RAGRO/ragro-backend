@@ -145,6 +145,18 @@ public class OrderController {
     return orderService.refuseOrderAsFarmer(id, jwt, request);
   }
 
+  @PatchMapping("/{id}/seen")
+  @ResponseStatus(HttpStatus.OK)
+  @Operation(
+      summary = "Mark order as seen by producer",
+      description = "Marks a received order as seen by the authenticated producer."
+  )
+  public OrderResponse markAsSeen(
+      @PathVariable UUID id,
+      @AuthenticationPrincipal Jwt jwt) {
+    return orderService.markOrderAsSeen(id, jwt);
+  }
+
   @PostMapping("/{id}/repeat")
   @ResponseStatus(HttpStatus.CREATED)
   @Operation(

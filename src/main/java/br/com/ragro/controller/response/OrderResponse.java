@@ -25,6 +25,7 @@ public class OrderResponse {
   private PaymentStatus paymentStatus;
   private String notes; 
   private BigDecimal totalAmount;
+  private Boolean isNew;
   private OffsetDateTime createdAt;
   private List<OrderItemResponse> items;
 }

@@ -6,6 +6,7 @@ import br.com.ragro.controller.response.OrderResponse;
 import br.com.ragro.domain.Order;
 import br.com.ragro.domain.OrderItem;
 import br.com.ragro.domain.Product;
+import br.com.ragro.domain.enums.OrderStatus;
 import br.com.ragro.domain.ProductPhoto;
 import br.com.ragro.service.MinioStorageService;
 import java.math.BigDecimal;
@@ -41,6 +42,7 @@ public class OrderMapper {
         .paymentStatus(order.getPaymentStatus())
         .notes(order.getNotes())
         .totalAmount(totalAmount)
+        .isNew(order.getStatus() == OrderStatus.PENDING && !order.isSeenByFarmer())
         .createdAt(order.getCreatedAt())
         .items(order.getItems().stream()
             .map(item -> toOrderItemResponse(item, storage))

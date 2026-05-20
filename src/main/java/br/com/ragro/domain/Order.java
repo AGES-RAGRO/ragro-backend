@@ -80,6 +80,9 @@ public class Order {
   @Column(name = "updated_at", nullable = false)
   private OffsetDateTime updatedAt;
 
+  @Column(name = "seen_by_farmer", nullable = false)
+  private boolean seenByFarmer = false;
+
   @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
   private List<OrderItem> items = new ArrayList<>();
 
