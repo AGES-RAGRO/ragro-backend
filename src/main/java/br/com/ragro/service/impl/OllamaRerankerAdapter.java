@@ -6,8 +6,10 @@ import br.com.ragro.domain.llm.CustomerFeatures;
 import br.com.ragro.domain.llm.RankedItem;
 import br.com.ragro.exception.LlmInvalidOutputException;
 import br.com.ragro.service.api.LlmRerankerPort;
+import br.com.ragro.service.impl.ollama.OllamaChatResponse;
+import br.com.ragro.service.impl.ollama.OllamaRankedOutput;
+import br.com.ragro.service.impl.ollama.OllamaRankedOutput.OllamaRankedEntry;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -16,7 +18,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
@@ -55,20 +56,23 @@ public class OllamaRerankerAdapter implements LlmRerankerPort {
             : candidates;
 
     String prompt = buildPrompt(limited, features);
-    OllamaChatRequest request =
-        new OllamaChatRequest(
-            properties.getModel(), List.of(new OllamaMessage("user", prompt)), "json", false);
 
-    String rawResponse =
+    Map<String, Object> requestBody = new LinkedHashMap<>();
+    requestBody.put("model", properties.getModel());
+    requestBody.put("messages", List.of(Map.of("role", "user", "content", prompt)));
+    requestBody.put("format", "json");
+    requestBody.put("stream", false);
+
+    OllamaChatResponse response =
         ollamaRestClient
             .post()
             .uri("/api/chat")
             .contentType(MediaType.APPLICATION_JSON)
-            .body(request)
+            .body(requestBody)
             .retrieve()
-            .body(String.class);
+            .body(OllamaChatResponse.class);
 
-    return parseResponse(rawResponse, limited);
+    return parseResponse(response, limited);
   }
 
   private String buildPrompt(List<Candidate> candidates, CustomerFeatures features) {
@@ -153,98 +157,66 @@ public class OllamaRerankerAdapter implements LlmRerankerPort {
     return sb.toString();
   }
 
-  private List<RankedItem> parseResponse(String rawResponse, List<Candidate> candidates) {
+  private List<RankedItem> parseResponse(OllamaChatResponse response, List<Candidate> candidates) {
+    if (response == null || response.getMessage() == null) {
+      throw new LlmInvalidOutputException("Empty or null response from Ollama");
+    }
+
+    String content = response.getMessage().getContent();
+    if (content == null || content.isBlank()) {
+      throw new LlmInvalidOutputException("Empty content in Ollama response");
+    }
+
+    OllamaRankedOutput output;
     try {
-      JsonNode root = objectMapper.readTree(rawResponse);
-
-      JsonNode contentNode = root.path("message").path("content");
-      if (contentNode.isMissingNode()) {
-        throw new LlmInvalidOutputException("Missing 'message.content' in Ollama response");
-      }
-
-      JsonNode contentJson = objectMapper.readTree(contentNode.asText());
-      JsonNode rankedNode = contentJson.path("ranked");
-      if (rankedNode.isMissingNode() || !rankedNode.isArray()) {
-        throw new LlmInvalidOutputException("Missing or invalid 'ranked' array in LLM output");
-      }
-
-      Map<UUID, Candidate> candidateMap =
-          candidates.stream()
-              .collect(Collectors.toMap(Candidate::getProductId, Function.identity()));
-
-      List<RankedItem> result = new ArrayList<>();
-      for (JsonNode item : rankedNode) {
-        String productIdStr = item.path("productId").asText(null);
-        if (productIdStr == null) {
-          throw new LlmInvalidOutputException("Missing 'productId' in ranked item");
-        }
-
-        UUID productId;
-        try {
-          productId = UUID.fromString(productIdStr);
-        } catch (IllegalArgumentException e) {
-          throw new LlmInvalidOutputException("Invalid UUID in LLM output: " + productIdStr, e);
-        }
-
-        Candidate candidate = candidateMap.get(productId);
-        if (candidate == null) {
-          log.warn("LLM returned unknown productId {}, skipping", productId);
-          continue;
-        }
-
-        double scoreValue = item.path("score").asDouble(-1);
-        if (scoreValue < 0 || scoreValue > 1) {
-          throw new LlmInvalidOutputException("Score out of range [0,1]: " + scoreValue);
-        }
-
-        String reason = item.path("reason").asText("");
-
-        RankedItem rankedItem = new RankedItem();
-        rankedItem.setProductId(productId);
-        rankedItem.setScore(scoreValue);
-        rankedItem.setReason(reason);
-        rankedItem.setCandidate(candidate);
-        result.add(rankedItem);
-      }
-
-      if (result.isEmpty()) {
-        throw new LlmInvalidOutputException("LLM returned empty ranked list");
-      }
-
-      return result;
-
-    } catch (LlmInvalidOutputException e) {
-      throw e;
-    } catch (Exception e) {
-      throw new LlmInvalidOutputException("Failed to parse LLM response: " + e.getMessage(), e);
+      output = objectMapper.readValue(content, OllamaRankedOutput.class);
+    } catch (JsonProcessingException e) {
+      throw new LlmInvalidOutputException("Failed to parse LLM JSON output: " + e.getMessage(), e);
     }
-  }
 
-  // ── Ollama API DTOs ───────────────────────────────────────────────────────
-
-  @Getter
-  private static class OllamaChatRequest {
-    private final String model;
-    private final List<OllamaMessage> messages;
-    private final String format;
-    private final boolean stream;
-
-    OllamaChatRequest(String model, List<OllamaMessage> messages, String format, boolean stream) {
-      this.model = model;
-      this.messages = messages;
-      this.format = format;
-      this.stream = stream;
+    if (output.getRanked() == null || output.getRanked().isEmpty()) {
+      throw new LlmInvalidOutputException("LLM returned empty ranked list");
     }
-  }
 
-  @Getter
-  private static class OllamaMessage {
-    private final String role;
-    private final String content;
+    Map<UUID, Candidate> candidateMap =
+        candidates.stream().collect(Collectors.toMap(Candidate::getProductId, Function.identity()));
 
-    OllamaMessage(String role, String content) {
-      this.role = role;
-      this.content = content;
+    List<RankedItem> result = new ArrayList<>();
+    for (OllamaRankedEntry entry : output.getRanked()) {
+      if (entry.getProductId() == null) {
+        throw new LlmInvalidOutputException("Missing productId in ranked entry");
+      }
+
+      UUID productId;
+      try {
+        productId = UUID.fromString(entry.getProductId());
+      } catch (IllegalArgumentException e) {
+        throw new LlmInvalidOutputException(
+            "Invalid UUID in LLM output: " + entry.getProductId(), e);
+      }
+
+      Candidate candidate = candidateMap.get(productId);
+      if (candidate == null) {
+        log.warn("LLM returned unknown productId {}, skipping", productId);
+        continue;
+      }
+
+      if (entry.getScore() == null || entry.getScore() < 0 || entry.getScore() > 1) {
+        throw new LlmInvalidOutputException("Score out of range [0,1]: " + entry.getScore());
+      }
+
+      RankedItem rankedItem = new RankedItem();
+      rankedItem.setProductId(productId);
+      rankedItem.setScore(entry.getScore());
+      rankedItem.setReason(entry.getReason() != null ? entry.getReason() : "");
+      rankedItem.setCandidate(candidate);
+      result.add(rankedItem);
     }
+
+    if (result.isEmpty()) {
+      throw new LlmInvalidOutputException("No valid ranked items after validation");
+    }
+
+    return result;
   }
 }
