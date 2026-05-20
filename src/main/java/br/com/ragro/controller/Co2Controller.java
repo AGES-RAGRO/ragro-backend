@@ -8,6 +8,8 @@ import br.com.ragro.controller.response.Co2OptionsResponse;
 import br.com.ragro.controller.response.VehiclePreferenceResponse;
 import br.com.ragro.service.Co2Service;
 import java.util.List;
+import java.util.Map;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -62,5 +64,11 @@ public class Co2Controller {
   @Operation(summary = "Get CO2 calculation options", description = "Returns all available vehicle types and their allowed fuels.")
   public ResponseEntity<Co2OptionsResponse> getOptions() {
     return ResponseEntity.ok(co2Service.getOptions());
+  }
+
+  @GetMapping("/total-saved")
+  @Operation(summary = "Get total CO2 saved", description = "Returns total CO2 saved in tons across all optimized routes.")
+  public ResponseEntity<Map<String, Double>> getTotalCo2Saved() {
+      return ResponseEntity.ok(Map.of("totalCo2Saved", co2Service.getTotalCo2Saved()));
   }
 }
