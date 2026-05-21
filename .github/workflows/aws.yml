@@ -94,7 +94,10 @@ jobs:
           SPRING_DATASOURCE_URL=${{ secrets.DB_URL }}
           SPRING_DATASOURCE_USERNAME=${{ secrets.DB_USERNAME }}
           SPRING_DATASOURCE_PASSWORD=${{ secrets.DB_PASSWORD }}
-        
+          KEYCLOAK_ISSUER_URI=${{ secrets.KEYCLOAK_ISSUER_URI }}
+          KEYCLOAK_JWK_SET_URI=${{ secrets.KEYCLOAK_JWK_SET_URI }}
+          KEYCLOAK_SERVER_URL=${{ secrets.KEYCLOAK_SERVER_URL }}
+          KEYCLOAK_PUBLIC_URL=${{ secrets.KEYCLOAK_PUBLIC_URL }}
 
     - name: Deploy Amazon ECS task definition
       uses: aws-actions/amazon-ecs-deploy-task-definition@v1
