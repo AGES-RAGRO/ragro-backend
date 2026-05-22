@@ -6,6 +6,7 @@ CREATE TABLE "notifications" (
   "type" varchar(40) NOT NULL,
   "reference_type" varchar(40),
   "reference_id" uuid,
+  "metadata" jsonb,
   "is_read" boolean NOT NULL DEFAULT false,
   "created_at" timestamptz NOT NULL DEFAULT now(),
   "read_at" timestamptz
@@ -15,8 +16,11 @@ ALTER TABLE "notifications"
   ADD CONSTRAINT "notifications_user_id_fkey"
   FOREIGN KEY ("user_id") REFERENCES "users" ("id") DEFERRABLE INITIALLY IMMEDIATE;
 
-CREATE INDEX "idx_notifications_user_created_at"
-  ON "notifications" ("user_id", "created_at" DESC);
+CREATE INDEX "idx_notifications_user_id"
+  ON "notifications" ("user_id");
 
 CREATE INDEX "idx_notifications_user_is_read"
   ON "notifications" ("user_id", "is_read");
+
+CREATE INDEX "idx_notifications_created_at"
+  ON "notifications" ("created_at" DESC);
