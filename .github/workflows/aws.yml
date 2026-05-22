@@ -95,7 +95,8 @@ jobs:
           MINIO_ACCESS_KEY=${{ secrets.MINIO_ACCESS_KEY }}
           MINIO_SECRET_KEY=${{ secrets.MINIO_SECRET_KEY }}
           MINIO_BUCKET=${{ secrets.MINIO_BUCKET }}
-
+          OLLAMA_BASE_URL=${{ secrets.OLLAMA_BASE_URL }}
+          OLLAMA_MODEL=${{ secrets.OLLAMA_MODEL }}
 
     - name: Deploy Amazon ECS task definition
       uses: aws-actions/amazon-ecs-deploy-task-definition@v1
