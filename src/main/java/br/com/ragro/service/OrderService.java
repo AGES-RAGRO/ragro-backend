@@ -146,8 +146,9 @@ public class OrderService {
       throw new ForbiddenException("Você não tem permissão para cancelar este pedido");
     }
 
-    if (order.getStatus() != OrderStatus.PENDING) {
-      throw new BusinessException("Somente pedidos com status PENDING podem ser cancelados");
+    if (!isCancellableStatus(order.getStatus())) {
+      throw new BusinessException(
+          "Somente pedidos com status PENDING, CONFIRMED ou IN_DELIVERY podem ser cancelados");
     }
 
     applyCancellation(order, request, "CUSTOMER_CANCELLED");
@@ -173,8 +174,9 @@ public class OrderService {
       throw new ForbiddenException("Você não tem permissão para recusar este pedido");
     }
 
-    if (order.getStatus() != OrderStatus.PENDING) {
-      throw new BusinessException("Somente pedidos com status PENDING podem ser recusados");
+    if (!isCancellableStatus(order.getStatus())) {
+      throw new BusinessException(
+          "Somente pedidos com status PENDING, CONFIRMED ou IN_DELIVERY podem ser recusados");
     }
 
     applyCancellation(order, request, "REFUSED_BY_FARMER");
@@ -237,6 +239,12 @@ public class OrderService {
     history.setOrder(order);
     history.setStatus(OrderStatus.CANCELLED);
     order.getStatusHistory().add(history);
+  }
+
+  private boolean isCancellableStatus(OrderStatus status) {
+    return status == OrderStatus.PENDING
+        || status == OrderStatus.CONFIRMED
+        || status == OrderStatus.IN_DELIVERY;
   }
 
   @Transactional(readOnly = true)
