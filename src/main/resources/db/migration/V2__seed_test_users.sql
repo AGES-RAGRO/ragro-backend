@@ -71,8 +71,8 @@ VALUES (
   'Porto Alegre',
   'RS',
   '90110000',
-  0.0000000,
-  0.0000000,
+  -30.0346000,
+  -51.2177000,
   true
 ) ON CONFLICT (id) DO NOTHING;
 
@@ -106,7 +106,7 @@ VALUES (
   'Canoas',
   'RS',
   '92410600',
-  0.0000000,
-  0.0000000,
+  -29.9192000,
+  -51.1825000,
   true
 ) ON CONFLICT (id) DO NOTHING;
