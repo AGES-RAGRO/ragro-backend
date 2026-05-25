@@ -57,6 +57,5 @@ springdoc:
     use-root-path: true
 
 server:
-  forward-headers-strategy: framework
   error:
     include-message: never
