@@ -68,6 +68,7 @@ class OrderServiceTest {
   @Mock private OrderStatusHistoryRepository orderStatusHistoryRepository;
   @Mock private ReviewRepository reviewRepository;
   @Mock private MinioStorageService storageService;
+  @Mock private NotificationService notificationService;
 
   @InjectMocks private OrderService orderService;
 
@@ -472,6 +473,7 @@ class OrderServiceTest {
     assertThat(response.getStatus()).isEqualTo(OrderStatus.CANCELLED);
     assertThat(order.getCancellationReason()).isEqualTo("REFUSED_BY_FARMER");
     verify(stockMovementService, never()).registerCancelledSale(any(), any(), anyString());
+    verify(notificationService).createCustomerOrderRefusedNotification(order);
   }
 
   @Test
@@ -566,6 +568,7 @@ class OrderServiceTest {
     assertThat(response.getStatus()).isEqualTo(OrderStatus.DELIVERED);
     assertThat(order.getStatusHistory()).hasSize(1);
     assertThat(order.getStatusHistory().get(0).getStatus()).isEqualTo(OrderStatus.DELIVERED);
+    verify(notificationService).createCustomerOrderDeliveredNotification(order);
   }
 
   @Test
@@ -631,6 +634,7 @@ class OrderServiceTest {
 
     assertThat(response.getStatus()).isEqualTo(OrderStatus.IN_DELIVERY);
     verify(orderStatusHistoryRepository).save(any(OrderStatusHistory.class));
+    verify(notificationService).createCustomerOrderInDeliveryNotification(order);
   }
 
   @Test
@@ -770,6 +774,7 @@ class OrderServiceTest {
     assertThat(response.getStatus()).isEqualTo(OrderStatus.CONFIRMED);
     verify(stockMovementService).registerSale(eq(product), eq(new BigDecimal("2.00")), anyString());
     verify(orderStatusHistoryRepository).save(any(OrderStatusHistory.class));
+    verify(notificationService).createCustomerOrderAcceptedNotification(order);
   }
 
   @Test

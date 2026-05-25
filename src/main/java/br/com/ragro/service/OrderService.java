@@ -55,6 +55,7 @@ public class OrderService {
   private final OrderStatusHistoryRepository orderStatusHistoryRepository;
   private final ReviewRepository reviewRepository;
   private final MinioStorageService storageService;
+  private final NotificationService notificationService;
 
   @Transactional
   public OrderResponse createOrderFromCart(Jwt jwt) {
@@ -181,6 +182,7 @@ public class OrderService {
 
     applyCancellation(order, request, "REFUSED_BY_FARMER");
     Order savedOrder = orderRepository.saveAndFlush(order);
+    notificationService.createCustomerOrderRefusedNotification(savedOrder);
     return OrderMapper.toResponse(savedOrder, storageService);
   }
 
@@ -213,6 +215,7 @@ public class OrderService {
     order.getStatusHistory().add(history);
 
     Order savedOrder = orderRepository.saveAndFlush(order);
+    notificationService.createCustomerOrderDeliveredNotification(savedOrder);
     return OrderMapper.toResponse(savedOrder, storageService);
   }
 
@@ -339,6 +342,8 @@ public class OrderService {
     history.setStatus(newStatus);
     orderStatusHistoryRepository.save(history);
 
+    notifyCustomerOnStatusChange(updatedOrder, newStatus);
+
     return OrderMapper.toResponse(updatedOrder, storageService);
   }
 
@@ -372,7 +377,21 @@ public class OrderService {
     history.setStatus(OrderStatus.CONFIRMED);
     orderStatusHistoryRepository.save(history);
 
+    notificationService.createCustomerOrderAcceptedNotification(updatedOrder);
+
     return OrderMapper.toResponse(updatedOrder, storageService);
+  }
+
+  private void notifyCustomerOnStatusChange(Order order, OrderStatus status) {
+    switch (status) {
+      case CONFIRMED -> notificationService.createCustomerOrderAcceptedNotification(order);
+      case IN_DELIVERY -> notificationService.createCustomerOrderInDeliveryNotification(order);
+      case DELIVERED -> notificationService.createCustomerOrderDeliveredNotification(order);
+      case CANCELLED -> notificationService.createCustomerOrderRefusedNotification(order);
+      default -> {
+        // No customer notification for this status transition.
+      }
+    }
   }
 
   private Address getDeliveryAddress(Customer customer) {
