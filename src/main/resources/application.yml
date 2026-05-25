@@ -63,5 +63,6 @@ ollama:
   read-timeout-ms: ${OLLAMA_READ_TIMEOUT_MS:30000}
 
 server:
+  forward-headers-strategy: framework
   error:
     include-message: never
