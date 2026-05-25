@@ -38,7 +38,7 @@ INSERT INTO customers (id, fiscal_number)
 VALUES (
   'a0000000-0000-0000-0000-000000000002',
   '00000000000'
-) ON CONFLICT (id) DO NOTHING;
+) ON CONFLICT DO NOTHING;
 
 -- Farmer user
 INSERT INTO users (id, name, email, phone, type, active, auth_sub)
@@ -59,7 +59,7 @@ VALUES (
   'cnpj',
   'Sítio Boa Vista',
   'Produção familiar de hortaliças orgânicas'
-) ON CONFLICT (id) DO NOTHING;
+) ON CONFLICT DO NOTHING;
 
 INSERT INTO addresses (user_id, street, number, complement, neighborhood, city, state, zip_code, latitude, longitude, is_primary)
 VALUES (
@@ -74,7 +74,7 @@ VALUES (
   -30.0346000,
   -51.2177000,
   true
-) ON CONFLICT (id) DO NOTHING;
+) ON CONFLICT DO NOTHING;
 
 INSERT INTO users (id, name, email, phone, type, active, auth_sub)
 VALUES (
@@ -94,7 +94,7 @@ VALUES (
   'cnpj',
   'Sítio Boa Vista',
   'Produção familiar de hortaliças orgânicas'
-) ON CONFLICT (id) DO NOTHING;
+) ON CONFLICT DO NOTHING;
 
 INSERT INTO addresses (user_id, street, number, complement, neighborhood, city, state, zip_code, latitude, longitude, is_primary)
 VALUES (
@@ -109,4 +109,4 @@ VALUES (
   -29.9192000,
   -51.1825000,
   true
-) ON CONFLICT (id) DO NOTHING;
+) ON CONFLICT DO NOTHING;
