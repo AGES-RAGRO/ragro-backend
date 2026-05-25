@@ -83,6 +83,33 @@ public class ProducerService {
   }
 
   @Transactional(readOnly = true)
+  public List<br.com.ragro.controller.response.LocationResponse> getProducerLocations() {
+    return producerRepository.findAllByUserActiveTrue().stream()
+        .map(producer -> {
+            Address primaryAddress = producer.getUser().getAddresses().stream()
+                .filter(Address::isPrimary)
+                .findFirst()
+                .orElse(null);
+            
+            BigDecimal lat = null;
+            BigDecimal lng = null;
+            if (primaryAddress != null) {
+                lat = primaryAddress.getLatitude();
+                lng = primaryAddress.getLongitude();
+            }
+
+            return br.com.ragro.controller.response.LocationResponse.builder()
+                .id(producer.getId())
+                .farmName(producer.getFarmName())
+                .latitude(lat)
+                .longitude(lng)
+                .build();
+        })
+        .filter(loc -> loc.getLatitude() != null && loc.getLongitude() != null)
+        .toList();
+  }
+
+  @Transactional(readOnly = true)
   public ProducerGetResponse getProducerProfileById(UUID id) {
     return getProducerProfileById(id, null);
   }
