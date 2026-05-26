@@ -17,6 +17,7 @@ public class OrderResponse {
   private UUID id;
   private UUID customerId;
   private String customerName;
+  private String customerPhone;
   private UUID farmerId;
   private String farmerName;
   private AddressSnapshot deliveryAddress;

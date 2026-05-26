@@ -34,6 +34,7 @@ public class OrderMapper {
         .id(order.getId())
         .customerId(order.getCustomer().getId())
         .customerName(order.getCustomer().getUser().getName())
+        .customerPhone(order.getCustomer().getUser().getPhone())
         .farmerId(order.getFarmer().getId())
         .farmerName(order.getFarmer().getFarmName())
         .deliveryAddress(order.getDeliveryAddressSnapshot())
