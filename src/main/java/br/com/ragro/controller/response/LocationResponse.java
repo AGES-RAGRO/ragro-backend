@@ -28,4 +28,7 @@ public class LocationResponse {
 
   @Schema(description = "Longitude", example = "-46.633308")
   private BigDecimal longitude;
+
+  @Schema(description = "Profile Picture URL", example = "http://localhost:9000/ragro/avatar.jpg")
+  private String avatarUrl;
 }

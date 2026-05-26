@@ -103,6 +103,7 @@ public class ProducerService {
                 .farmName(producer.getFarmName())
                 .latitude(lat)
                 .longitude(lng)
+                .avatarUrl(minioStorageService.composePublicUrl(producer.getAvatarS3()))
                 .build();
         })
         .filter(loc -> loc.getLatitude() != null && loc.getLongitude() != null)
