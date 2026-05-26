@@ -28,4 +28,6 @@ public class OrderResponse {
   private Boolean isNew;
   private OffsetDateTime createdAt;
   private List<OrderItemResponse> items;
+  private String cancellationReason;
+  private String cancellationDetails;
 }

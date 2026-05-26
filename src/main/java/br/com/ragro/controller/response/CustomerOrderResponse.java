@@ -29,4 +29,6 @@ public class CustomerOrderResponse {
   private OffsetDateTime createdAt;
   private AddressSnapshot deliveryAddress;
   private List<OrderItemResponse> items;
+  private String cancellationReason;
+  private String cancellationDetails;
 }

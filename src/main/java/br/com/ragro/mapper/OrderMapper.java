@@ -47,6 +47,8 @@ public class OrderMapper {
         .items(order.getItems().stream()
             .map(item -> toOrderItemResponse(item, storage))
             .collect(Collectors.toList()))
+        .cancellationReason(order.getCancellationReason())
+        .cancellationDetails(order.getCancellationDetails())
         .build();
   }
 
@@ -86,6 +88,8 @@ public class OrderMapper {
         .items(order.getItems().stream()
             .map(item -> toOrderItemResponse(item, storage))
             .collect(Collectors.toList()))
+        .cancellationReason(order.getCancellationReason())
+        .cancellationDetails(order.getCancellationDetails())
         .build();
   }
 
