@@ -31,4 +31,7 @@ public class LocationResponse {
 
   @Schema(description = "Profile Picture URL", example = "http://localhost:9000/ragro/avatar.jpg")
   private String avatarUrl;
+
+  @Schema(description = "Cover Picture URL", example = "http://localhost:9000/ragro/cover.jpg")
+  private String coverUrl;
 }
