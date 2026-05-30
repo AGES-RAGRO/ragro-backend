@@ -40,11 +40,13 @@ keycloak:
     password: ${KEYCLOAK_ADMIN_PASSWORD:admin}
 
 minio:
-  endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
-  public-url: ${MINIO_PUBLIC_URL:http://localhost:9000}
-  access-key: ${MINIO_ACCESS_KEY:minioadmin}
-  secret-key: ${MINIO_SECRET_KEY:minioadmin}
-  bucket: ${MINIO_BUCKET:ragro-media}
+  endpoint: ${STORAGE_ENDPOINT:http://localhost:9000}
+  public-url: ${STORAGE_PUBLIC_URL:}
+  region: ${STORAGE_REGION:us-east-1}
+  access-key: ${STORAGE_ACCESS_KEY:minioadmin}
+  secret-key: ${STORAGE_SECRET_KEY:minioadmin}
+  bucket: ${STORAGE_BUCKET:ragro-media}
+  presigned-expiry-seconds: ${STORAGE_PRESIGNED_EXPIRY_SECONDS:3600}
 
 springdoc:
   api-docs:

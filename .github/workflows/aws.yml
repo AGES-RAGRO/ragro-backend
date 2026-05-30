@@ -90,11 +90,11 @@ jobs:
           KEYCLOAK_JWK_SET_URI=${{ secrets.KEYCLOAK_JWK_SET_URI }}
           KEYCLOAK_SERVER_URL=${{ secrets.KEYCLOAK_SERVER_URL }}
           KEYCLOAK_PUBLIC_URL=${{ secrets.KEYCLOAK_PUBLIC_URL }}
-          MINIO_ENDPOINT=${{ secrets.MINIO_ENDPOINT }}
-          MINIO_PUBLIC_URL=${{ secrets.MINIO_PUBLIC_URL }}
-          MINIO_ACCESS_KEY=${{ secrets.MINIO_ACCESS_KEY }}
-          MINIO_SECRET_KEY=${{ secrets.MINIO_SECRET_KEY }}
-          MINIO_BUCKET=${{ secrets.MINIO_BUCKET }}
+          STORAGE_ENDPOINT=${{ secrets.STORAGE_ENDPOINT }}
+          STORAGE_REGION=${{ secrets.STORAGE_REGION }}
+          STORAGE_ACCESS_KEY=${{ secrets.STORAGE_ACCESS_KEY }}
+          STORAGE_SECRET_KEY=${{ secrets.STORAGE_SECRET_KEY }}
+          STORAGE_BUCKET=${{ secrets.STORAGE_BUCKET }}
           OLLAMA_BASE_URL=${{ secrets.OLLAMA_BASE_URL }}
           OLLAMA_MODEL=${{ secrets.OLLAMA_MODEL }}
 

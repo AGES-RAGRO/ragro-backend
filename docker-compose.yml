@@ -116,11 +116,11 @@ services:
       KEYCLOAK_PUBLIC_URL: http://localhost:8180
       KEYCLOAK_ISSUER_URI: http://localhost:8180/realms/ragro
       KEYCLOAK_JWK_SET_URI: http://keycloak:8180/realms/ragro/protocol/openid-connect/certs
-      MINIO_ENDPOINT: http://minio:9000
-      MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL:-http://localhost:9000}
-      MINIO_ACCESS_KEY: minioadmin
-      MINIO_SECRET_KEY: minioadmin
-      MINIO_BUCKET: ragro-media
+      STORAGE_ENDPOINT: http://minio:9000
+      STORAGE_PUBLIC_URL: ${STORAGE_PUBLIC_URL:-http://localhost:9000}
+      STORAGE_ACCESS_KEY: minioadmin
+      STORAGE_SECRET_KEY: minioadmin
+      STORAGE_BUCKET: ragro-media
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma2:2b}
       OLLAMA_CONNECT_TIMEOUT_MS: ${OLLAMA_CONNECT_TIMEOUT_MS:-2000}
