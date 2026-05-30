@@ -98,6 +98,7 @@ jobs:
           OLLAMA_BASE_URL=${{ secrets.OLLAMA_BASE_URL }}
           OLLAMA_MODEL=${{ secrets.OLLAMA_MODEL }}
           SWAGGER_PRODUCTION_URL=${{ secrets.SWAGGER_PRODUCTION_URL }}
+          CORS_ALLOWED_ORIGIN_PATTERNS=${{ secrets.CORS_ALLOWED_ORIGIN_PATTERNS }}
 
     - name: Deploy Amazon ECS task definition
       uses: aws-actions/amazon-ecs-deploy-task-definition@v1
