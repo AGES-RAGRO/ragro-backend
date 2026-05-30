@@ -14,6 +14,7 @@ import br.com.ragro.controller.request.AvailabilityRequest;
 import br.com.ragro.controller.request.PaymentMethodRequest;
 import br.com.ragro.controller.request.ProducerFilter;
 import br.com.ragro.controller.request.ProducerUpdateRequest;
+import br.com.ragro.controller.response.LocationResponse;
 import br.com.ragro.controller.response.MarketplaceProducerResponse;
 import br.com.ragro.controller.response.ProducerGetResponse;
 import br.com.ragro.controller.response.ProducerPublicProfileResponse;
@@ -86,6 +87,77 @@ class ProducerServiceTest {
             minioStorageService,
             producerMapper,
             reviewRepository);
+  }
+
+  // ─── getProducerLocations ────────────────────────────────────────────────────
+
+  @Test
+  void getProducerLocations_shouldComposeAvatarAndCoverUrlsFromStorageKeys() {
+    UUID id = UUID.randomUUID();
+    Producer producer =
+        buildLocatableProducer(id, new BigDecimal("-30.0346"), new BigDecimal("-51.2177"));
+    producer.setAvatarS3("avatar-key.jpg");
+    producer.setDisplayPhotoS3("cover-key.jpg");
+
+    when(producerRepository.findAllByUserActiveTrue()).thenReturn(List.of(producer));
+    when(minioStorageService.composePublicUrl("avatar-key.jpg"))
+        .thenReturn("http://localhost:9000/ragro/avatar-key.jpg");
+    when(minioStorageService.composePublicUrl("cover-key.jpg"))
+        .thenReturn("http://localhost:9000/ragro/cover-key.jpg");
+
+    List<LocationResponse> result = producerService.getProducerLocations();
+
+    assertThat(result).hasSize(1);
+    LocationResponse location = result.get(0);
+    assertThat(location.getId()).isEqualTo(id);
+    assertThat(location.getLatitude()).isEqualByComparingTo("-30.0346");
+    assertThat(location.getLongitude()).isEqualByComparingTo("-51.2177");
+    assertThat(location.getAvatarUrl()).isEqualTo("http://localhost:9000/ragro/avatar-key.jpg");
+    assertThat(location.getCoverUrl()).isEqualTo("http://localhost:9000/ragro/cover-key.jpg");
+  }
+
+  @Test
+  void getProducerLocations_shouldReturnNullUrlsWhenProducerHasNoPhotos() {
+    UUID id = UUID.randomUUID();
+    Producer producer =
+        buildLocatableProducer(id, new BigDecimal("-30.0346"), new BigDecimal("-51.2177"));
+    producer.setAvatarS3(null);
+    producer.setDisplayPhotoS3(null);
+
+    when(producerRepository.findAllByUserActiveTrue()).thenReturn(List.of(producer));
+    when(minioStorageService.composePublicUrl(null)).thenReturn(null);
+
+    List<LocationResponse> result = producerService.getProducerLocations();
+
+    assertThat(result).hasSize(1);
+    assertThat(result.get(0).getAvatarUrl()).isNull();
+    assertThat(result.get(0).getCoverUrl()).isNull();
+  }
+
+  @Test
+  void getProducerLocations_shouldFilterOutProducersWithoutCoordinates() {
+    UUID withCoords = UUID.randomUUID();
+    UUID noPrimaryAddress = UUID.randomUUID();
+    UUID nullCoords = UUID.randomUUID();
+
+    Producer located =
+        buildLocatableProducer(withCoords, new BigDecimal("-30.0346"), new BigDecimal("-51.2177"));
+
+    // sem endereço primário → lat/lng nulos → filtrado
+    Producer withoutPrimary =
+        buildProducerEntity(
+            noPrimaryAddress, buildUser(noPrimaryAddress, TypeUser.FARMER, "Sem Primario"));
+
+    // endereço primário porém sem coordenadas → filtrado
+    Producer withoutCoords = buildLocatableProducer(nullCoords, null, null);
+
+    when(producerRepository.findAllByUserActiveTrue())
+        .thenReturn(List.of(located, withoutPrimary, withoutCoords));
+
+    List<LocationResponse> result = producerService.getProducerLocations();
+
+    assertThat(result).hasSize(1);
+    assertThat(result.get(0).getId()).isEqualTo(withCoords);
   }
 
   // ─── getAllProducers ─────────────────────────────────────────────────────────
@@ -987,6 +1059,15 @@ class ProducerServiceTest {
     address.setZipCode("90010120");
     address.setPrimary(true);
     return address;
+  }
+
+  private Producer buildLocatableProducer(UUID id, BigDecimal latitude, BigDecimal longitude) {
+    User user = buildUser(id, TypeUser.FARMER, "Produtor " + id);
+    Address address = buildAddress(user);
+    address.setLatitude(latitude);
+    address.setLongitude(longitude);
+    user.getAddresses().add(address);
+    return buildProducerEntity(id, user);
   }
 
   private FarmerAvailability buildAvailability(
