@@ -76,7 +76,7 @@ public class CartService {
     updateOrAddItem(cart, product, request);
 
     Cart savedCart = cartRepository.saveAndFlush(cart);
-    return CartMapper.toResponse(savedCart, findPrimaryPaymentMethod(savedCart.getFarmer()));
+    return CartMapper.toResponse(savedCart, findActivePaymentMethods(savedCart.getFarmer()));
   }
 
   @Transactional(readOnly = true)
@@ -87,7 +87,7 @@ public class CartService {
     }
 
     return cartRepository.findByCustomerIdAndActiveTrue(user.getId())
-        .map(cart -> CartMapper.toResponse(cart, findPrimaryPaymentMethod(cart.getFarmer())))
+        .map(cart -> CartMapper.toResponse(cart, findActivePaymentMethods(cart.getFarmer())))
         .orElseThrow(() -> new NotFoundException("Carrinho não encontrado ou vazio"));
   }
 
@@ -121,7 +121,7 @@ public class CartService {
     cartItemRepository.save(item);
 
     Cart savedCart = cartRepository.saveAndFlush(item.getCart());
-    return CartMapper.toResponse(savedCart, findPrimaryPaymentMethod(savedCart.getFarmer()));
+    return CartMapper.toResponse(savedCart, findActivePaymentMethods(savedCart.getFarmer()));
   }
 
   @Transactional
@@ -137,7 +137,7 @@ public class CartService {
     cart.setActive(false);
     cart.getItems().forEach(item -> item.setActive(false));
 
-    CartResponse response = CartMapper.toResponse(cart, findPrimaryPaymentMethod(cart.getFarmer()));
+    CartResponse response = CartMapper.toResponse(cart, findActivePaymentMethods(cart.getFarmer()));
 
     cartRepository.delete(cart);
     cartRepository.flush();
@@ -218,21 +218,20 @@ public class CartService {
 
     if (!hasActiveItems) {
       cart.setActive(false);
-      CartResponse response = CartMapper.toResponse(cart, findPrimaryPaymentMethod(cart.getFarmer()));
+      CartResponse response = CartMapper.toResponse(cart, findActivePaymentMethods(cart.getFarmer()));
       cartRepository.delete(cart);
       cartRepository.flush();
       return response;
     }
 
     Cart savedCart = cartRepository.saveAndFlush(cart);
-    return CartMapper.toResponse(savedCart, findPrimaryPaymentMethod(savedCart.getFarmer()));
+    return CartMapper.toResponse(savedCart, findActivePaymentMethods(savedCart.getFarmer()));
   }
 
-  private PaymentMethod findPrimaryPaymentMethod(Producer farmer) {
+  private List<PaymentMethod> findActivePaymentMethods(Producer farmer) {
     if (farmer == null) {
-      return null;
+      return List.of();
     }
-    List<PaymentMethod> methods = paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(farmer.getId());
-    return methods.isEmpty() ? null : methods.get(0);
+    return paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(farmer.getId());
   }
 }

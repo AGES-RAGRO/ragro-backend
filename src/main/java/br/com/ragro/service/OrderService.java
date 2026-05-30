@@ -494,15 +494,13 @@ public class OrderService {
     }
 
     Cart savedCart = cartRepository.saveAndFlush(cart);
-    return CartMapper.toResponse(savedCart, findPrimaryPaymentMethod(savedCart.getFarmer()));
+    return CartMapper.toResponse(savedCart, findActivePaymentMethods(savedCart.getFarmer()));
   }
 
-  private PaymentMethod findPrimaryPaymentMethod(Producer farmer) {
+  private List<PaymentMethod> findActivePaymentMethods(Producer farmer) {
     if (farmer == null) {
-      return null;
+      return List.of();
     }
-    List<PaymentMethod> methods =
-        paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(farmer.getId());
-    return methods.isEmpty() ? null : methods.get(0);
+    return paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(farmer.getId());
   }
 }

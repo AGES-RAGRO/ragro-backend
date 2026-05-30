@@ -9,14 +9,15 @@ import br.com.ragro.domain.PaymentMethod;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.springframework.util.StringUtils;
 
 public class CartMapper {
 
   public static CartResponse toResponse(Cart cart) {
-    return toResponse(cart, null);
+    return toResponse(cart, List.of());
   }
 
-  public static CartResponse toResponse(Cart cart, PaymentMethod paymentMethod) {
+  public static CartResponse toResponse(Cart cart, List<PaymentMethod> paymentMethods) {
     List<CartItemResponse> itemResponses = cart.getItems().stream()
         .filter(CartItem::isActive)
         .map(CartMapper::toItemResponse)
@@ -32,7 +33,7 @@ public class CartMapper {
         .farmName(cart.getFarmer().getFarmName())
         .items(itemResponses)
         .totalAmount(total)
-        .bankInfo(toBankInfo(paymentMethod))
+        .bankInfo(toBankInfo(paymentMethods))
         .build();
   }
 
@@ -51,19 +52,37 @@ public class CartMapper {
         .build();
   }
 
-  private static BankInfoResponse toBankInfo(PaymentMethod paymentMethod) {
-    if (paymentMethod == null) {
+  private static BankInfoResponse toBankInfo(List<PaymentMethod> methods) {
+    if (methods == null || methods.isEmpty()) {
       return null;
     }
+    String bankName = null, bankCode = null, agency = null, account = null,
+        accountType = null, pixKey = null, pixType = null, holderName = null;
+
+    for (PaymentMethod pm : methods) {
+      if (!StringUtils.hasText(bankName))    bankName    = pm.getBankName();
+      if (!StringUtils.hasText(bankCode))    bankCode    = pm.getBankCode();
+      if (!StringUtils.hasText(agency))      agency      = pm.getAgency();
+      if (!StringUtils.hasText(account))     account     = pm.getAccountNumber();
+      if (!StringUtils.hasText(accountType)) accountType = pm.getAccountType();
+      if (!StringUtils.hasText(pixKey))      pixKey      = pm.getPixKey();
+      if (!StringUtils.hasText(pixType))     pixType     = pm.getPixKeyType();
+      if (!StringUtils.hasText(holderName))  holderName  = pm.getHolderName();
+    }
+
+    if (!StringUtils.hasText(bankName) && !StringUtils.hasText(pixKey) && !StringUtils.hasText(account)) {
+      return null;
+    }
+
     return BankInfoResponse.builder()
-        .bankName(paymentMethod.getBankName())
-        .bankCode(paymentMethod.getBankCode())
-        .agency(paymentMethod.getAgency())
-        .account(paymentMethod.getAccountNumber())
-        .accountType(paymentMethod.getAccountType())
-        .pixKey(paymentMethod.getPixKey())
-        .pixType(paymentMethod.getPixKeyType())
-        .holderName(paymentMethod.getHolderName())
+        .bankName(bankName)
+        .bankCode(bankCode)
+        .agency(agency)
+        .account(account)
+        .accountType(accountType)
+        .pixKey(pixKey)
+        .pixType(pixType)
+        .holderName(holderName)
         .build();
   }
 }

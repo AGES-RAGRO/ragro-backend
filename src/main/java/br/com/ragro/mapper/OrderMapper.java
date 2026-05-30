@@ -1,10 +1,13 @@
 package br.com.ragro.mapper;
 
+import br.com.ragro.controller.response.BankInfoResponse;
 import br.com.ragro.controller.response.CustomerOrderResponse;
+import br.com.ragro.controller.response.OrderActionsResponse;
 import br.com.ragro.controller.response.OrderItemResponse;
 import br.com.ragro.controller.response.OrderResponse;
 import br.com.ragro.domain.Order;
 import br.com.ragro.domain.OrderItem;
+import br.com.ragro.domain.PaymentMethod;
 import br.com.ragro.domain.Product;
 import br.com.ragro.domain.enums.OrderStatus;
 import br.com.ragro.domain.ProductPhoto;
@@ -74,6 +77,29 @@ public class OrderMapper {
         .map(OrderItem::getSubtotal)
         .reduce(BigDecimal.ZERO, BigDecimal::add);
 
+    PaymentMethod pm = order.getPaymentMethod();
+    BankInfoResponse bankInfo = pm == null ? null : BankInfoResponse.builder()
+        .bankName(pm.getBankName())
+        .bankCode(pm.getBankCode())
+        .agency(pm.getAgency())
+        .account(pm.getAccountNumber())
+        .accountType(pm.getAccountType())
+        .pixKey(pm.getPixKey())
+        .pixType(pm.getPixKeyType())
+        .holderName(pm.getHolderName())
+        .build();
+
+    String producerPhone = order.getFarmer().getUser().getPhone();
+    OrderStatus status = order.getStatus();
+    OrderActionsResponse actions = OrderActionsResponse.builder()
+        .canConfirmDelivery(status == OrderStatus.IN_DELIVERY)
+        .canCancel(status == OrderStatus.PENDING || status == OrderStatus.CONFIRMED)
+        .canContactProducer(
+            producerPhone != null && !producerPhone.isBlank()
+            && status != OrderStatus.DELIVERED
+            && status != OrderStatus.CANCELLED)
+        .build();
+
     return CustomerOrderResponse.builder()
         .id(order.getId())
         .price(totalAmount)
@@ -91,6 +117,8 @@ public class OrderMapper {
             .collect(Collectors.toList()))
         .cancellationReason(order.getCancellationReason())
         .cancellationDetails(order.getCancellationDetails())
+        .bankInfo(bankInfo)
+        .actions(actions)
         .build();
   }
 

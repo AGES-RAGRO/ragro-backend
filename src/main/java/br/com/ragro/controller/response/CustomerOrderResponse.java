@@ -31,4 +31,6 @@ public class CustomerOrderResponse {
   private List<OrderItemResponse> items;
   private String cancellationReason;
   private String cancellationDetails;
+  private BankInfoResponse bankInfo;
+  private OrderActionsResponse actions;
 }
