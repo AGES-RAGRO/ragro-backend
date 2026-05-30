@@ -30,7 +30,6 @@ import br.com.ragro.service.ProducerService;
 import br.com.ragro.service.ProductService;
 import br.com.ragro.service.ReviewService;
 import br.com.ragro.service.UserService;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -609,8 +608,7 @@ class ProducerControllerTest {
                     .build())
             .build();
 
-    when(dashboardService.getProducerDashboard(any(), any(), any()))
-        .thenReturn(dashboardResponse);
+    when(dashboardService.getProducerDashboard(any(), any(), any())).thenReturn(dashboardResponse);
 
     mockMvc
         .perform(
@@ -889,5 +887,4 @@ class ProducerControllerTest {
     user.setUpdatedAt(OffsetDateTime.now());
     return user;
   }
-
 }

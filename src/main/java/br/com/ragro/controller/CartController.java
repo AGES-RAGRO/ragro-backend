@@ -7,14 +7,12 @@ import br.com.ragro.service.CartService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/customers/carts")
@@ -27,10 +25,10 @@ public class CartController {
   @PostMapping("/items")
   @Operation(
       summary = "Add or update item in cart",
-      description = "Automatically creates a cart if none exists. Blocks if adding items from multiple farmers.")
+      description =
+          "Automatically creates a cart if none exists. Blocks if adding items from multiple farmers.")
   public ResponseEntity<CartResponse> addItem(
-      @Valid @RequestBody AddToCartRequest request,
-      @AuthenticationPrincipal Jwt jwt) {
+      @Valid @RequestBody AddToCartRequest request, @AuthenticationPrincipal Jwt jwt) {
     return ResponseEntity.ok(cartService.addItem(jwt, request));
   }
 
@@ -41,17 +39,16 @@ public class CartController {
   public ResponseEntity<CartResponse> getCart(@AuthenticationPrincipal Jwt jwt) {
     return ResponseEntity.ok(cartService.getCart(jwt));
   }
-  
+
   @DeleteMapping("/items/{id}")
   @Operation(
-          summary = "Remove item from cart",
-          description = "Removes an item from the authenticated consumer's active cart. If it is the last item, the cart is deactivated.")
+      summary = "Remove item from cart",
+      description =
+          "Removes an item from the authenticated consumer's active cart. If it is the last item, the cart is deactivated.")
   public ResponseEntity<CartResponse> removeItem(
-          @PathVariable UUID id,
-          @AuthenticationPrincipal Jwt jwt) {
+      @PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
     return ResponseEntity.ok(cartService.removeItem(jwt, id));
   }
-
 
   @PatchMapping("/items/{id}")
   @Operation(
@@ -72,4 +69,3 @@ public class CartController {
     return ResponseEntity.ok(cartService.clearActiveCart(jwt));
   }
 }
-

@@ -1,7 +1,7 @@
 package br.com.ragro.service;
 
-import br.com.ragro.controller.request.StockExitRequest;
 import br.com.ragro.controller.request.StockEntryRequest;
+import br.com.ragro.controller.request.StockExitRequest;
 import br.com.ragro.controller.request.StockMovementFilter;
 import br.com.ragro.controller.response.PaginatedResponse;
 import br.com.ragro.controller.response.StockMovementResponse;
@@ -21,8 +21,8 @@ import br.com.ragro.mapper.StockMovementMapper;
 import br.com.ragro.repository.ProducerRepository;
 import br.com.ragro.repository.ProductRepository;
 import br.com.ragro.repository.StockMovementRepository;
-import java.util.UUID;
 import java.math.BigDecimal;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -35,7 +35,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class StockMovementService {
 
   private static final java.util.Set<StockMovementReason> EXIT_REASONS =
-      java.util.Set.of(StockMovementReason.SALE, StockMovementReason.LOSS, StockMovementReason.DISPOSAL);
+      java.util.Set.of(
+          StockMovementReason.SALE, StockMovementReason.LOSS, StockMovementReason.DISPOSAL);
 
   private final StockMovementRepository stockMovementRepository;
   private final ProducerRepository producerRepository;
@@ -115,7 +116,8 @@ public class StockMovementService {
   @Transactional
   public void registerSale(Product product, BigDecimal quantity, String orderIdNotes) {
     if (product.getStockQuantity().compareTo(quantity) < 0) {
-      throw new BusinessException("Saldo insuficiente no estoque para o produto " + product.getName());
+      throw new BusinessException(
+          "Saldo insuficiente no estoque para o produto " + product.getName());
     }
 
     product.setStockQuantity(product.getStockQuantity().subtract(quantity));

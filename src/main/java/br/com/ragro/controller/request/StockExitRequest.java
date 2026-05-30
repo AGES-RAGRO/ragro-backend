@@ -16,16 +16,14 @@ import lombok.Setter;
 @Schema(description = "Payload to register a stock exit")
 public class StockExitRequest {
 
-  @NotNull
-  private UUID productId;
+  @NotNull private UUID productId;
 
   @NotNull
   @DecimalMin("0.001")
   @Digits(integer = 9, fraction = 3)
   private BigDecimal quantity;
 
-  @NotNull
-  private StockMovementReason reason;
+  @NotNull private StockMovementReason reason;
 
   @Size(max = 500)
   private String notes;

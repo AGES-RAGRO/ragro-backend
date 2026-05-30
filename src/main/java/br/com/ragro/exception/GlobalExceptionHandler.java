@@ -19,18 +19,26 @@ public class GlobalExceptionHandler {
   public ResponseEntity<ErrorResponse> handleValidation(
       MethodArgumentNotValidException ex, HttpServletRequest request) {
     return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-        .body(buildValidationErrorResponse(ex.getBindingResult().getFieldErrors().stream()
-            .map(fieldError -> fieldError.getField() + ": " + fieldError.getDefaultMessage())
-            .collect(Collectors.joining("; ")), request));
+        .body(
+            buildValidationErrorResponse(
+                ex.getBindingResult().getFieldErrors().stream()
+                    .map(
+                        fieldError -> fieldError.getField() + ": " + fieldError.getDefaultMessage())
+                    .collect(Collectors.joining("; ")),
+                request));
   }
 
   @ExceptionHandler(BindException.class)
   public ResponseEntity<ErrorResponse> handleBindException(
       BindException ex, HttpServletRequest request) {
     return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-        .body(buildValidationErrorResponse(ex.getBindingResult().getFieldErrors().stream()
-            .map(fieldError -> fieldError.getField() + ": " + fieldError.getDefaultMessage())
-            .collect(Collectors.joining("; ")), request));
+        .body(
+            buildValidationErrorResponse(
+                ex.getBindingResult().getFieldErrors().stream()
+                    .map(
+                        fieldError -> fieldError.getField() + ": " + fieldError.getDefaultMessage())
+                    .collect(Collectors.joining("; ")),
+                request));
   }
 
   private ErrorResponse buildValidationErrorResponse(

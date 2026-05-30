@@ -9,7 +9,6 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface Co2SavingRepository extends JpaRepository<Co2Saving, UUID> {
 
-    @Query("SELECT COALESCE(SUM(c.co2Saved), 0) FROM Co2Saving c")
-Double sumAllCo2Saved();
+  @Query("SELECT COALESCE(SUM(c.co2Saved), 0) FROM Co2Saving c")
+  Double sumAllCo2Saved();
 }
-

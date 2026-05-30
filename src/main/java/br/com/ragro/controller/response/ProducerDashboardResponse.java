@@ -34,4 +34,3 @@ public class ProducerDashboardResponse {
   @Schema(description = "Stock sold percentage with comparison to previous month")
   private DashboardMetricResponse stockMetric;
 }
-

@@ -79,7 +79,7 @@ class ActiveUserFilterTest {
     verify(filterChain, never()).doFilter(request, response);
     assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_UNAUTHORIZED);
     assertThat(response.getContentAsString())
-      .contains("Conta desativada ou usuário não encontrado");
+        .contains("Conta desativada ou usuário não encontrado");
   }
 
   @Test
@@ -94,7 +94,7 @@ class ActiveUserFilterTest {
     verify(filterChain, never()).doFilter(request, response);
     assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_UNAUTHORIZED);
     assertThat(response.getContentAsString())
-      .contains("Conta desativada ou usuário não encontrado");
+        .contains("Conta desativada ou usuário não encontrado");
   }
 
   @Test

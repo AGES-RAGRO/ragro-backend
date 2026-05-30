@@ -1,9 +1,9 @@
 package br.com.ragro.domain.specification;
 
 import br.com.ragro.controller.request.ProducerFilter;
+import br.com.ragro.domain.Producer;
 import br.com.ragro.domain.Product;
 import br.com.ragro.domain.ProductCategory;
-import br.com.ragro.domain.Producer;
 import br.com.ragro.domain.User;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.JoinType;
@@ -20,7 +20,6 @@ public class ProducerSpecification {
 
   public static Specification<Producer> withFilter(ProducerFilter filter) {
     return (root, query, cb) -> {
-
       query.distinct(true);
       Join<Producer, User> userJoin;
 
@@ -28,8 +27,8 @@ public class ProducerSpecification {
         userJoin = root.join("user", JoinType.INNER);
       } else {
         @SuppressWarnings("unchecked")
-        Join<Producer, User> fetchUser = (Join<Producer, User>) (Object)
-                root.fetch("user", JoinType.INNER);
+        Join<Producer, User> fetchUser =
+            (Join<Producer, User>) (Object) root.fetch("user", JoinType.INNER);
         userJoin = fetchUser;
       }
 
@@ -41,31 +40,29 @@ public class ProducerSpecification {
 
         var productSub = query.subquery(UUID.class);
         var product = productSub.from(Product.class);
-        productSub.select(product.get("farmer").get("id"))
-                .where(cb.like(cb.lower(product.get("name")), term));
+        productSub
+            .select(product.get("farmer").get("id"))
+            .where(cb.like(cb.lower(product.get("name")), term));
 
         var categorySub = query.subquery(UUID.class);
         var catProduct = categorySub.from(Product.class);
-        Join<Product, ProductCategory> categoryJoin =
-                catProduct.join("categories", JoinType.INNER);
-        categorySub.select(catProduct.get("farmer").get("id"))
-                .where(cb.like(cb.lower(categoryJoin.get("name")), term));
+        Join<Product, ProductCategory> categoryJoin = catProduct.join("categories", JoinType.INNER);
+        categorySub
+            .select(catProduct.get("farmer").get("id"))
+            .where(cb.like(cb.lower(categoryJoin.get("name")), term));
 
         predicates.add(
-                cb.or(
-                        cb.like(cb.lower(root.get("farmName")), term),
-                        cb.like(cb.lower(userJoin.get("name")), term),
-                        root.get("id").in(productSub),
-                        root.get("id").in(categorySub)
-                )
-        );
+            cb.or(
+                cb.like(cb.lower(root.get("farmName")), term),
+                cb.like(cb.lower(userJoin.get("name")), term),
+                root.get("id").in(productSub),
+                root.get("id").in(categorySub)));
       }
 
       if (filter.getMinRating() != null) {
         predicates.add(
-                cb.greaterThanOrEqualTo(
-                        root.get("averageRating"),
-                        BigDecimal.valueOf(filter.getMinRating())));
+            cb.greaterThanOrEqualTo(
+                root.get("averageRating"), BigDecimal.valueOf(filter.getMinRating())));
       }
 
       String sortBy = filter.getSortBy();

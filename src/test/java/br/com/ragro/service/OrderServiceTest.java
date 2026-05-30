@@ -68,6 +68,7 @@ class OrderServiceTest {
   @Mock private OrderStatusHistoryRepository orderStatusHistoryRepository;
   @Mock private ReviewRepository reviewRepository;
   @Mock private MinioStorageService storageService;
+  @Mock private NotificationService notificationService;
 
   @InjectMocks private OrderService orderService;
 
@@ -160,7 +161,8 @@ class OrderServiceTest {
   void shouldThrowBusinessException_whenCartIsEmptyOrNotFound() {
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
     when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
-    when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId())).thenReturn(Optional.empty());
+    when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId()))
+        .thenReturn(Optional.empty());
 
     assertThatThrownBy(() -> orderService.createOrderFromCart(jwt()))
         .isInstanceOf(BusinessException.class)
@@ -172,7 +174,8 @@ class OrderServiceTest {
     cartItem.setActive(false);
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
     when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
-    when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId())).thenReturn(Optional.of(cart));
+    when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId()))
+        .thenReturn(Optional.of(cart));
 
     assertThatThrownBy(() -> orderService.createOrderFromCart(jwt()))
         .isInstanceOf(BusinessException.class)
@@ -183,8 +186,10 @@ class OrderServiceTest {
   void shouldThrowBusinessException_whenPrimaryAddressNotFound() {
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
     when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
-    when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId())).thenReturn(Optional.of(cart));
-    when(addressRepository.findByUserIdAndIsPrimaryTrue(customer.getId())).thenReturn(Optional.empty());
+    when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId()))
+        .thenReturn(Optional.of(cart));
+    when(addressRepository.findByUserIdAndIsPrimaryTrue(customer.getId()))
+        .thenReturn(Optional.empty());
 
     assertThatThrownBy(() -> orderService.createOrderFromCart(jwt()))
         .isInstanceOf(BusinessException.class)
@@ -195,9 +200,12 @@ class OrderServiceTest {
   void shouldThrowBusinessException_whenFarmerHasNoPaymentMethods() {
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
     when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
-    when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId())).thenReturn(Optional.of(cart));
-    when(addressRepository.findByUserIdAndIsPrimaryTrue(customer.getId())).thenReturn(Optional.of(address));
-    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(farmer.getId())).thenReturn(List.of());
+    when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId()))
+        .thenReturn(Optional.of(cart));
+    when(addressRepository.findByUserIdAndIsPrimaryTrue(customer.getId()))
+        .thenReturn(Optional.of(address));
+    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(farmer.getId()))
+        .thenReturn(List.of());
 
     assertThatThrownBy(() -> orderService.createOrderFromCart(jwt()))
         .isInstanceOf(BusinessException.class)
@@ -208,10 +216,14 @@ class OrderServiceTest {
   void shouldCreateOrderAndClearCart_whenValidData() {
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
     when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
-    when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId())).thenReturn(Optional.of(cart));
-    when(addressRepository.findByUserIdAndIsPrimaryTrue(customer.getId())).thenReturn(Optional.of(address));
-    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(farmer.getId())).thenReturn(List.of(paymentMethod));
-    when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+    when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId()))
+        .thenReturn(Optional.of(cart));
+    when(addressRepository.findByUserIdAndIsPrimaryTrue(customer.getId()))
+        .thenReturn(Optional.of(address));
+    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(farmer.getId()))
+        .thenReturn(List.of(paymentMethod));
+    when(orderRepository.saveAndFlush(any(Order.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
 
     OrderResponse response = orderService.createOrderFromCart(jwt());
 
@@ -284,11 +296,11 @@ class OrderServiceTest {
   }
 
   @Test
-  void shouldThrowBusinessException_whenOrderIsNotPending() {
+  void shouldThrowBusinessException_whenOrderIsNotCancellable() {
     Order order = new Order();
     order.setId(UUID.randomUUID());
     order.setCustomer(customer);
-    order.setStatus(OrderStatus.CONFIRMED);
+    order.setStatus(OrderStatus.DELIVERED);
 
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
     when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
@@ -389,6 +401,25 @@ class OrderServiceTest {
   }
 
   @Test
+  void shouldCancelOrderAsCustomer_whenStatusIsConfirmed() {
+    Order order = new Order();
+    order.setId(UUID.randomUUID());
+    order.setCustomer(customer);
+    order.setFarmer(farmer);
+    order.setStatus(OrderStatus.CONFIRMED);
+    order.setDeliveryAddressSnapshot(AddressSnapshot.builder().city("Test City").build());
+    order.setPaymentMethod(paymentMethod);
+
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+    when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    OrderResponse response = orderService.cancelOrderAsCustomer(order.getId(), jwt(), null);
+
+    assertThat(response.getStatus()).isEqualTo(OrderStatus.CANCELLED);
+  }
+
+  @Test
   void shouldThrowForbidden_whenNonCustomerCallsCustomerCancel() {
     user.setType(TypeUser.FARMER);
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
@@ -415,18 +446,18 @@ class OrderServiceTest {
   }
 
   @Test
-  void shouldThrowBusinessException_whenCustomerCancelsNonPendingOrder() {
+  void shouldThrowBusinessException_whenCustomerCancelsNonCancellableOrder() {
     Order order = new Order();
     order.setId(UUID.randomUUID());
     order.setCustomer(customer);
-    order.setStatus(OrderStatus.IN_DELIVERY);
+    order.setStatus(OrderStatus.DELIVERED);
 
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
     when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
 
     assertThatThrownBy(() -> orderService.cancelOrderAsCustomer(order.getId(), jwt(), null))
         .isInstanceOf(BusinessException.class)
-        .hasMessageContaining("PENDING");
+        .hasMessageContaining("PENDING, CONFIRMED ou IN_DELIVERY");
   }
 
   // ---------- refuseOrderAsFarmer ----------
@@ -453,6 +484,29 @@ class OrderServiceTest {
     assertThat(response.getStatus()).isEqualTo(OrderStatus.CANCELLED);
     assertThat(order.getCancellationReason()).isEqualTo("REFUSED_BY_FARMER");
     verify(stockMovementService, never()).registerCancelledSale(any(), any(), anyString());
+    verify(notificationService).createCustomerOrderRefusedNotification(order);
+  }
+
+  @Test
+  void shouldRefuseOrderAsFarmer_whenStatusIsInDelivery() {
+    user.setType(TypeUser.FARMER);
+    farmer.setId(user.getId());
+
+    Order order = new Order();
+    order.setId(UUID.randomUUID());
+    order.setCustomer(customer);
+    order.setFarmer(farmer);
+    order.setStatus(OrderStatus.IN_DELIVERY);
+    order.setDeliveryAddressSnapshot(AddressSnapshot.builder().city("Test City").build());
+    order.setPaymentMethod(paymentMethod);
+
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+    when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    OrderResponse response = orderService.refuseOrderAsFarmer(order.getId(), jwt(), null);
+
+    assertThat(response.getStatus()).isEqualTo(OrderStatus.CANCELLED);
   }
 
   @Test
@@ -486,7 +540,7 @@ class OrderServiceTest {
   }
 
   @Test
-  void shouldThrowBusinessException_whenFarmerRefusesNonPendingOrder() {
+  void shouldThrowBusinessException_whenFarmerRefusesNonCancellableOrder() {
     user.setType(TypeUser.FARMER);
     farmer.setId(user.getId());
 
@@ -494,14 +548,14 @@ class OrderServiceTest {
     order.setId(UUID.randomUUID());
     order.setCustomer(customer);
     order.setFarmer(farmer);
-    order.setStatus(OrderStatus.CONFIRMED);
+    order.setStatus(OrderStatus.DELIVERED);
 
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
     when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
 
     assertThatThrownBy(() -> orderService.refuseOrderAsFarmer(order.getId(), jwt(), null))
         .isInstanceOf(BusinessException.class)
-        .hasMessageContaining("PENDING");
+        .hasMessageContaining("PENDING, CONFIRMED ou IN_DELIVERY");
   }
 
   // ---------- confirmDelivery ----------
@@ -525,6 +579,7 @@ class OrderServiceTest {
     assertThat(response.getStatus()).isEqualTo(OrderStatus.DELIVERED);
     assertThat(order.getStatusHistory()).hasSize(1);
     assertThat(order.getStatusHistory().get(0).getStatus()).isEqualTo(OrderStatus.DELIVERED);
+    verify(notificationService).createCustomerOrderDeliveredNotification(order);
   }
 
   @Test
@@ -586,10 +641,12 @@ class OrderServiceTest {
     when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
     when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
-    OrderResponse response = orderService.updateOrderStatus(orderId, OrderStatus.IN_DELIVERY, jwt());
+    OrderResponse response =
+        orderService.updateOrderStatus(orderId, OrderStatus.IN_DELIVERY, jwt());
 
     assertThat(response.getStatus()).isEqualTo(OrderStatus.IN_DELIVERY);
     verify(orderStatusHistoryRepository).save(any(OrderStatusHistory.class));
+    verify(notificationService).createCustomerOrderInDeliveryNotification(order);
   }
 
   @Test
@@ -665,7 +722,8 @@ class OrderServiceTest {
 
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
     when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
-    when(orderRepository.findByIdAndCustomerId(orderId, user.getId())).thenReturn(Optional.of(order));
+    when(orderRepository.findByIdAndCustomerId(orderId, user.getId()))
+        .thenReturn(Optional.of(order));
     when(reviewRepository.existsByOrderId(orderId)).thenReturn(true);
 
     CustomerOrderResponse response = orderService.getMyOrderById(orderId, jwt());
@@ -729,6 +787,7 @@ class OrderServiceTest {
     assertThat(response.getStatus()).isEqualTo(OrderStatus.CONFIRMED);
     verify(stockMovementService).registerSale(eq(product), eq(new BigDecimal("2.00")), anyString());
     verify(orderStatusHistoryRepository).save(any(OrderStatusHistory.class));
+    verify(notificationService).createCustomerOrderAcceptedNotification(order);
   }
 
   @Test
@@ -810,7 +869,8 @@ class OrderServiceTest {
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
     when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
     when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
-    when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId())).thenReturn(Optional.empty());
+    when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId()))
+        .thenReturn(Optional.empty());
     when(cartRepository.saveAndFlush(any(Cart.class))).thenAnswer(inv -> inv.getArgument(0));
 
     CartResponse response = orderService.repeatOrder(orderId, jwt());
@@ -850,12 +910,15 @@ class OrderServiceTest {
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
     when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
     when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
-    when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId())).thenReturn(Optional.of(cart));
-    when(cartRepository.saveAndFlush(any(Cart.class))).thenAnswer(inv -> {
-      Cart savedCart = inv.getArgument(0);
-      savedCart.setId(UUID.randomUUID());
-      return savedCart;
-    });
+    when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId()))
+        .thenReturn(Optional.of(cart));
+    when(cartRepository.saveAndFlush(any(Cart.class)))
+        .thenAnswer(
+            inv -> {
+              Cart savedCart = inv.getArgument(0);
+              savedCart.setId(UUID.randomUUID());
+              return savedCart;
+            });
 
     CartResponse response = orderService.repeatOrder(orderId, jwt());
 
@@ -884,7 +947,8 @@ class OrderServiceTest {
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
     when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
     when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
-    when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId())).thenReturn(Optional.empty());
+    when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId()))
+        .thenReturn(Optional.empty());
     when(cartRepository.saveAndFlush(any(Cart.class))).thenAnswer(inv -> inv.getArgument(0));
 
     CartResponse response = orderService.repeatOrder(orderId, jwt());
@@ -912,7 +976,8 @@ class OrderServiceTest {
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
     when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
     when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
-    when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId())).thenReturn(Optional.empty());
+    when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId()))
+        .thenReturn(Optional.empty());
 
     assertThatThrownBy(() -> orderService.repeatOrder(orderId, jwt()))
         .isInstanceOf(BusinessException.class)
@@ -920,7 +985,11 @@ class OrderServiceTest {
   }
 
   private Jwt jwt() {
-    return new Jwt("token", Instant.now(), Instant.now().plusSeconds(300),
-        Map.of("alg", "none"), Map.of("sub", "sub"));
+    return new Jwt(
+        "token",
+        Instant.now(),
+        Instant.now().plusSeconds(300),
+        Map.of("alg", "none"),
+        Map.of("sub", "sub"));
   }
 }

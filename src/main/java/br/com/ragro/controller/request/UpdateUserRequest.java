@@ -19,6 +19,8 @@ public class UpdateUserRequest {
   private String name;
 
   @Pattern(regexp = "^\\d{11}$", message = "Phone must contain 11 digits (DDD + number)")
-  @Schema(description = "Brazilian phone number: 2-digit area code + 9 digits (numbers only)", example = "51987654321")
+  @Schema(
+      description = "Brazilian phone number: 2-digit area code + 9 digits (numbers only)",
+      example = "51987654321")
   private String phone;
 }

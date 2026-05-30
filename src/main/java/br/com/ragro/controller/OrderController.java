@@ -36,8 +36,8 @@ public class OrderController {
   @ResponseStatus(HttpStatus.CREATED)
   @Operation(
       summary = "Create an order",
-      description = "Creates a new order from the active cart. Automatically selects the primary delivery address and the farmer's default payment method if not provided."
-  )
+      description =
+          "Creates a new order from the active cart. Automatically selects the primary delivery address and the farmer's default payment method if not provided.")
   public OrderResponse createOrder(@AuthenticationPrincipal Jwt jwt) {
     return orderService.createOrderFromCart(jwt);
   }
@@ -66,8 +66,7 @@ public class OrderController {
       summary = "Get my order by id",
       description = "Returns one order by id for the authenticated customer.")
   public CustomerOrderResponse getMyOrderById(
-      @PathVariable UUID id,
-      @AuthenticationPrincipal Jwt jwt) {
+      @PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
     return orderService.getMyOrderById(id, jwt);
   }
 
@@ -88,9 +87,7 @@ public class OrderController {
   @Operation(
       summary = "Confirm order",
       description = "Allows a producer to confirm an owned order and register stock output.")
-  public OrderResponse confirmOrder(
-      @PathVariable UUID id,
-      @AuthenticationPrincipal Jwt jwt) {
+  public OrderResponse confirmOrder(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
     return orderService.confirmOrder(id, jwt);
   }
 
@@ -98,8 +95,8 @@ public class OrderController {
   @ResponseStatus(HttpStatus.OK)
   @Operation(
       summary = "Cancel an order (legacy)",
-      description = "Cancels a PENDING order. Routes by role: a customer cancels their own order, a producer refuses one of their incoming orders. Optional body carries reason/details for audit. Prefer /orders/customer/{id}/cancel or /orders/{id}/refuse."
-  )
+      description =
+          "Cancels an order with status PENDING, CONFIRMED or IN_DELIVERY. Routes by role: a customer cancels their own order, a producer refuses one of their incoming orders. Optional body carries reason/details for audit. Prefer /orders/customer/{id}/cancel or /orders/{id}/refuse.")
   public OrderResponse cancelOrder(
       @PathVariable UUID id,
       @Valid @RequestBody(required = false) CancelOrderRequest request,
@@ -111,8 +108,8 @@ public class OrderController {
   @ResponseStatus(HttpStatus.OK)
   @Operation(
       summary = "Customer cancels own order",
-      description = "Allows a customer to cancel their own PENDING order. Optional body carries reason and details that are persisted for audit."
-  )
+      description =
+          "Allows a customer to cancel their own order when status is PENDING, CONFIRMED or IN_DELIVERY. Optional body carries reason and details that are persisted for audit.")
   public OrderResponse cancelOrderAsCustomer(
       @PathVariable UUID id,
       @Valid @RequestBody(required = false) CancelOrderRequest request,
@@ -124,11 +121,9 @@ public class OrderController {
   @ResponseStatus(HttpStatus.OK)
   @Operation(
       summary = "Customer confirms delivery",
-      description = "Allows a customer to confirm that an IN_DELIVERY order was received. Transitions the order to DELIVERED."
-  )
-  public OrderResponse confirmDelivery(
-      @PathVariable UUID id,
-      @AuthenticationPrincipal Jwt jwt) {
+      description =
+          "Allows a customer to confirm that an IN_DELIVERY order was received. Transitions the order to DELIVERED.")
+  public OrderResponse confirmDelivery(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
     return orderService.confirmDelivery(id, jwt);
   }
 
@@ -136,8 +131,8 @@ public class OrderController {
   @ResponseStatus(HttpStatus.OK)
   @Operation(
       summary = "Producer refuses an order",
-      description = "Allows the owning producer to refuse a PENDING order. Cancels with reason REFUSED_BY_FARMER unless overridden in the body."
-  )
+      description =
+          "Allows the owning producer to refuse an order when status is PENDING, CONFIRMED or IN_DELIVERY. Cancels with reason REFUSED_BY_FARMER unless overridden in the body.")
   public OrderResponse refuseOrder(
       @PathVariable UUID id,
       @Valid @RequestBody(required = false) CancelOrderRequest request,
@@ -149,11 +144,8 @@ public class OrderController {
   @ResponseStatus(HttpStatus.OK)
   @Operation(
       summary = "Mark order as seen by producer",
-      description = "Marks a received order as seen by the authenticated producer."
-  )
-  public OrderResponse markAsSeen(
-      @PathVariable UUID id,
-      @AuthenticationPrincipal Jwt jwt) {
+      description = "Marks a received order as seen by the authenticated producer.")
+  public OrderResponse markAsSeen(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
     return orderService.markOrderAsSeen(id, jwt);
   }
 
@@ -161,11 +153,9 @@ public class OrderController {
   @ResponseStatus(HttpStatus.CREATED)
   @Operation(
       summary = "Repeat an order",
-      description = "Creates or updates a cart with the items from a previous order. Clears the current cart if it belongs to a different producer."
-  )
-  public CartResponse repeatOrder(
-      @PathVariable UUID id,
-      @AuthenticationPrincipal Jwt jwt) {
+      description =
+          "Creates or updates a cart with the items from a previous order. Clears the current cart if it belongs to a different producer.")
+  public CartResponse repeatOrder(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
     return orderService.repeatOrder(id, jwt);
   }
 }

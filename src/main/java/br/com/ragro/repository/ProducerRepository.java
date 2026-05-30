@@ -12,27 +12,30 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-public interface ProducerRepository extends JpaRepository<Producer, UUID>,
-    JpaSpecificationExecutor<Producer> {
+public interface ProducerRepository
+    extends JpaRepository<Producer, UUID>, JpaSpecificationExecutor<Producer> {
 
-    Optional<Producer> findByFiscalNumber(String fiscalNumber);
+  Optional<Producer> findByFiscalNumber(String fiscalNumber);
 
-    boolean existsByFiscalNumber(String fiscalNumber);
+  boolean existsByFiscalNumber(String fiscalNumber);
 
-    @EntityGraph(attributePaths = {"user", "user.addresses"})
-    @Query("SELECT p FROM Producer p ORDER BY p.averageRating DESC")
-    Page<Producer> findAllUsersSortedByRating(Pageable pageable);
+  @EntityGraph(attributePaths = {"user", "user.addresses"})
+  @Query("SELECT p FROM Producer p ORDER BY p.averageRating DESC")
+  Page<Producer> findAllUsersSortedByRating(Pageable pageable);
 
-    @EntityGraph(attributePaths = {"user", "user.addresses"})
-    @Query("SELECT p FROM Producer p WHERE p.user.active = true ORDER BY p.averageRating DESC")
-    Page<Producer> findAllActiveSortedByRating(Pageable pageable);
+  @EntityGraph(attributePaths = {"user", "user.addresses"})
+  @Query("SELECT p FROM Producer p WHERE p.user.active = true ORDER BY p.averageRating DESC")
+  Page<Producer> findAllActiveSortedByRating(Pageable pageable);
 
-    @EntityGraph(attributePaths = {"user", "user.addresses"})
-    Optional<Producer> findDetailedById(UUID id);
+  @EntityGraph(attributePaths = {"user", "user.addresses"})
+  List<Producer> findAllByUserActiveTrue();
 
-    @EntityGraph(attributePaths = {"user"})
-    @Query(
-        """
+  @EntityGraph(attributePaths = {"user", "user.addresses"})
+  Optional<Producer> findDetailedById(UUID id);
+
+  @EntityGraph(attributePaths = {"user"})
+  @Query(
+      """
         SELECT DISTINCT producer
         FROM Producer producer
         JOIN producer.user user
@@ -64,6 +67,6 @@ public interface ProducerRepository extends JpaRepository<Producer, UUID>,
           )
         ORDER BY producer.averageRating DESC
         """)
-    List<Producer> searchMarketplace(
-        @Param("query") String query, @Param("category") String category);
+  List<Producer> searchMarketplace(
+      @Param("query") String query, @Param("category") String category);
 }

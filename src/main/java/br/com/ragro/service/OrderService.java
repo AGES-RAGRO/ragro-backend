@@ -55,6 +55,7 @@ public class OrderService {
   private final OrderStatusHistoryRepository orderStatusHistoryRepository;
   private final ReviewRepository reviewRepository;
   private final MinioStorageService storageService;
+  private final NotificationService notificationService;
 
   @Transactional
   public OrderResponse createOrderFromCart(Jwt jwt) {
@@ -63,11 +64,15 @@ public class OrderService {
       throw new ForbiddenException("Apenas consumidores podem criar pedidos");
     }
 
-    Customer customer = customerRepository.findById(user.getId())
-        .orElseThrow(() -> new NotFoundException("Dados do consumidor não encontrados"));
+    Customer customer =
+        customerRepository
+            .findById(user.getId())
+            .orElseThrow(() -> new NotFoundException("Dados do consumidor não encontrados"));
 
-    Cart cart = cartRepository.findByCustomerIdAndActiveTrue(customer.getId())
-        .orElseThrow(() -> new BusinessException("Carrinho vazio ou não encontrado"));
+    Cart cart =
+        cartRepository
+            .findByCustomerIdAndActiveTrue(customer.getId())
+            .orElseThrow(() -> new BusinessException("Carrinho vazio ou não encontrado"));
 
     if (cart.getItems().stream().noneMatch(CartItem::isActive)) {
       throw new BusinessException("Seu carrinho não possui itens ativos");
@@ -86,19 +91,22 @@ public class OrderService {
     order.setPaymentStatus(PaymentStatus.PENDING);
     order.setNotes(null);
 
-    cart.getItems().stream().filter(CartItem::isActive).forEach(cartItem -> {
-      Product product = cartItem.getProduct();
+    cart.getItems().stream()
+        .filter(CartItem::isActive)
+        .forEach(
+            cartItem -> {
+              Product product = cartItem.getProduct();
 
-      OrderItem orderItem = new OrderItem();
-      orderItem.setOrder(order);
-      orderItem.setProduct(product);
-      orderItem.setProductNameSnapshot(product.getName());
-      orderItem.setUnitPriceSnapshot(product.getPrice());
-      orderItem.setUnityTypeSnapshot(product.getUnityType());
-      orderItem.setQuantity(cartItem.getQuantity());
-      orderItem.setSubtotal(product.getPrice().multiply(cartItem.getQuantity()));
-      order.getItems().add(orderItem);
-    });
+              OrderItem orderItem = new OrderItem();
+              orderItem.setOrder(order);
+              orderItem.setProduct(product);
+              orderItem.setProductNameSnapshot(product.getName());
+              orderItem.setUnitPriceSnapshot(product.getPrice());
+              orderItem.setUnityTypeSnapshot(product.getUnityType());
+              orderItem.setQuantity(cartItem.getQuantity());
+              orderItem.setSubtotal(product.getPrice().multiply(cartItem.getQuantity()));
+              order.getItems().add(orderItem);
+            });
 
     OrderStatusHistory history = new OrderStatusHistory();
     history.setOrder(order);
@@ -111,11 +119,10 @@ public class OrderService {
   }
 
   /**
-   * Legacy cancel entry-point (backward compatible with the existing {@code PATCH /orders/{id}/cancel}).
-   * Routes to the role-specific flow:
-   *  - CUSTOMER → cancel own PENDING order (no stock movement).
-   *  - FARMER  → refuse own PENDING order (no stock movement).
-   * See decision D26: PENDING orders never debit stock, so cancelling one must NOT credit it back.
+   * Legacy cancel entry-point (backward compatible with the existing {@code PATCH
+   * /orders/{id}/cancel}). Routes to the role-specific flow: - CUSTOMER → cancel own PENDING order
+   * (no stock movement). - FARMER → refuse own PENDING order (no stock movement). See decision D26:
+   * PENDING orders never debit stock, so cancelling one must NOT credit it back.
    */
   @Transactional
   public OrderResponse cancelOrder(UUID orderId, Jwt jwt, CancelOrderRequest request) {
@@ -129,9 +136,7 @@ public class OrderService {
     throw new ForbiddenException("Apenas consumidores ou produtores podem cancelar pedidos");
   }
 
-  /**
-   * Customer cancels their own PENDING order. Does not touch stock (D26).
-   */
+  /** Customer cancels their own PENDING order. Does not touch stock (D26). */
   @Transactional
   public OrderResponse cancelOrderAsCustomer(UUID orderId, Jwt jwt, CancelOrderRequest request) {
     User user = userService.getAuthenticatedUser(jwt);
@@ -139,15 +144,18 @@ public class OrderService {
       throw new ForbiddenException("Apenas consumidores podem cancelar seus pedidos");
     }
 
-    Order order = orderRepository.findById(orderId)
-        .orElseThrow(() -> new NotFoundException("Pedido não encontrado"));
+    Order order =
+        orderRepository
+            .findById(orderId)
+            .orElseThrow(() -> new NotFoundException("Pedido não encontrado"));
 
     if (!order.getCustomer().getId().equals(user.getId())) {
       throw new ForbiddenException("Você não tem permissão para cancelar este pedido");
     }
 
-    if (order.getStatus() != OrderStatus.PENDING) {
-      throw new BusinessException("Somente pedidos com status PENDING podem ser cancelados");
+    if (!isCancellableStatus(order.getStatus())) {
+      throw new BusinessException(
+          "Somente pedidos com status PENDING, CONFIRMED ou IN_DELIVERY podem ser cancelados");
     }
 
     applyCancellation(order, request, "CUSTOMER_CANCELLED");
@@ -166,19 +174,23 @@ public class OrderService {
       throw new ForbiddenException("Apenas produtores podem recusar pedidos");
     }
 
-    Order order = orderRepository.findById(orderId)
-        .orElseThrow(() -> new NotFoundException("Pedido não encontrado"));
+    Order order =
+        orderRepository
+            .findById(orderId)
+            .orElseThrow(() -> new NotFoundException("Pedido não encontrado"));
 
     if (!order.getFarmer().getId().equals(user.getId())) {
       throw new ForbiddenException("Você não tem permissão para recusar este pedido");
     }
 
-    if (order.getStatus() != OrderStatus.PENDING) {
-      throw new BusinessException("Somente pedidos com status PENDING podem ser recusados");
+    if (!isCancellableStatus(order.getStatus())) {
+      throw new BusinessException(
+          "Somente pedidos com status PENDING, CONFIRMED ou IN_DELIVERY podem ser recusados");
     }
 
     applyCancellation(order, request, "REFUSED_BY_FARMER");
     Order savedOrder = orderRepository.saveAndFlush(order);
+    notificationService.createCustomerOrderRefusedNotification(savedOrder);
     return OrderMapper.toResponse(savedOrder, storageService);
   }
 
@@ -192,15 +204,18 @@ public class OrderService {
       throw new ForbiddenException("Apenas consumidores podem confirmar a entrega");
     }
 
-    Order order = orderRepository.findById(orderId)
-        .orElseThrow(() -> new NotFoundException("Pedido não encontrado"));
+    Order order =
+        orderRepository
+            .findById(orderId)
+            .orElseThrow(() -> new NotFoundException("Pedido não encontrado"));
 
     if (!order.getCustomer().getId().equals(user.getId())) {
       throw new ForbiddenException("Você não tem permissão para confirmar este pedido");
     }
 
     if (order.getStatus() != OrderStatus.IN_DELIVERY) {
-      throw new BusinessException("Somente pedidos em entrega podem ser confirmados como entregues");
+      throw new BusinessException(
+          "Somente pedidos em entrega podem ser confirmados como entregues");
     }
 
     order.setStatus(OrderStatus.DELIVERED);
@@ -211,6 +226,7 @@ public class OrderService {
     order.getStatusHistory().add(history);
 
     Order savedOrder = orderRepository.saveAndFlush(order);
+    notificationService.createCustomerOrderDeliveredNotification(savedOrder);
     return OrderMapper.toResponse(savedOrder, storageService);
   }
 
@@ -239,6 +255,12 @@ public class OrderService {
     order.getStatusHistory().add(history);
   }
 
+  private boolean isCancellableStatus(OrderStatus status) {
+    return status == OrderStatus.PENDING
+        || status == OrderStatus.CONFIRMED
+        || status == OrderStatus.IN_DELIVERY;
+  }
+
   @Transactional(readOnly = true)
   public List<CustomerOrderResponse> getMyOrders(Jwt jwt) {
     User user = userService.getAuthenticatedUser(jwt);
@@ -246,7 +268,8 @@ public class OrderService {
       throw new ForbiddenException("Apenas consumidores podem visualizar seus pedidos");
     }
 
-    customerRepository.findById(user.getId())
+    customerRepository
+        .findById(user.getId())
         .orElseThrow(() -> new NotFoundException("Dados do consumidor não encontrados"));
 
     return orderRepository.findByCustomerIdOrderByCreatedAtDesc(user.getId()).stream()
@@ -273,11 +296,14 @@ public class OrderService {
       throw new ForbiddenException("Apenas consumidores podem visualizar seus pedidos");
     }
 
-    customerRepository.findById(user.getId())
+    customerRepository
+        .findById(user.getId())
         .orElseThrow(() -> new NotFoundException("Dados do consumidor não encontrados"));
 
-    Order order = orderRepository.findByIdAndCustomerId(orderId, user.getId())
-        .orElseThrow(() -> new NotFoundException("Pedido não encontrado para este consumidor"));
+    Order order =
+        orderRepository
+            .findByIdAndCustomerId(orderId, user.getId())
+            .orElseThrow(() -> new NotFoundException("Pedido não encontrado para este consumidor"));
 
     return toCustomerOrderResponse(order);
   }
@@ -289,8 +315,10 @@ public class OrderService {
       throw new ForbiddenException("Apenas produtores podem marcar pedidos como vistos");
     }
 
-    Order order = orderRepository.findById(orderId)
-        .orElseThrow(() -> new NotFoundException("Pedido não encontrado"));
+    Order order =
+        orderRepository
+            .findById(orderId)
+            .orElseThrow(() -> new NotFoundException("Pedido não encontrado"));
 
     if (!order.getFarmer().getId().equals(user.getId())) {
       throw new ForbiddenException("Você não tem permissão para atualizar este pedido");
@@ -316,8 +344,10 @@ public class OrderService {
       throw new ForbiddenException("Apenas produtores podem atualizar o status do pedido");
     }
 
-    Order order = orderRepository.findById(orderId)
-        .orElseThrow(() -> new NotFoundException("Pedido não encontrado"));
+    Order order =
+        orderRepository
+            .findById(orderId)
+            .orElseThrow(() -> new NotFoundException("Pedido não encontrado"));
 
     if (!order.getFarmer().getId().equals(user.getId())) {
       throw new ForbiddenException("Você não tem permissão para atualizar este pedido");
@@ -331,6 +361,8 @@ public class OrderService {
     history.setStatus(newStatus);
     orderStatusHistoryRepository.save(history);
 
+    notifyCustomerOnStatusChange(updatedOrder, newStatus);
+
     return OrderMapper.toResponse(updatedOrder, storageService);
   }
 
@@ -341,8 +373,10 @@ public class OrderService {
       throw new ForbiddenException("Apenas produtores podem confirmar pedidos");
     }
 
-    Order order = orderRepository.findById(orderId)
-        .orElseThrow(() -> new NotFoundException("Pedido não encontrado"));
+    Order order =
+        orderRepository
+            .findById(orderId)
+            .orElseThrow(() -> new NotFoundException("Pedido não encontrado"));
 
     if (!order.getFarmer().getId().equals(user.getId())) {
       throw new ForbiddenException("Você não tem permissão para confirmar este pedido");
@@ -352,9 +386,12 @@ public class OrderService {
       throw new BusinessException("Somente pedidos com status PENDING podem ser confirmados");
     }
 
-    order.getItems().forEach(
-        item -> stockMovementService.registerSale(
-            item.getProduct(), item.getQuantity(), "Pedido confirmado"));
+    order
+        .getItems()
+        .forEach(
+            item ->
+                stockMovementService.registerSale(
+                    item.getProduct(), item.getQuantity(), "Pedido confirmado"));
 
     order.setStatus(OrderStatus.CONFIRMED);
     Order updatedOrder = orderRepository.saveAndFlush(order);
@@ -364,16 +401,33 @@ public class OrderService {
     history.setStatus(OrderStatus.CONFIRMED);
     orderStatusHistoryRepository.save(history);
 
+    notificationService.createCustomerOrderAcceptedNotification(updatedOrder);
+
     return OrderMapper.toResponse(updatedOrder, storageService);
   }
 
+  private void notifyCustomerOnStatusChange(Order order, OrderStatus status) {
+    switch (status) {
+      case CONFIRMED -> notificationService.createCustomerOrderAcceptedNotification(order);
+      case IN_DELIVERY -> notificationService.createCustomerOrderInDeliveryNotification(order);
+      case DELIVERED -> notificationService.createCustomerOrderDeliveredNotification(order);
+      case CANCELLED -> notificationService.createCustomerOrderRefusedNotification(order);
+      default -> {
+        // No customer notification for this status transition.
+      }
+    }
+  }
+
   private Address getDeliveryAddress(Customer customer) {
-    return addressRepository.findByUserIdAndIsPrimaryTrue(customer.getId())
-        .orElseThrow(() -> new BusinessException("Nenhum endereço principal cadastrado para o cliente"));
+    return addressRepository
+        .findByUserIdAndIsPrimaryTrue(customer.getId())
+        .orElseThrow(
+            () -> new BusinessException("Nenhum endereço principal cadastrado para o cliente"));
   }
 
   private PaymentMethod getPaymentMethod(Producer farmer) {
-    List<PaymentMethod> methods = paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(farmer.getId());
+    List<PaymentMethod> methods =
+        paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(farmer.getId());
     if (methods.isEmpty()) {
       throw new BusinessException("O produtor não possui nenhum método de pagamento ativo");
     }
@@ -401,18 +455,21 @@ public class OrderService {
       throw new ForbiddenException("Apenas consumidores podem repetir pedidos");
     }
 
-    Customer customer = customerRepository.findById(user.getId())
-        .orElseThrow(() -> new NotFoundException("Dados do consumidor não encontrados"));
+    Customer customer =
+        customerRepository
+            .findById(user.getId())
+            .orElseThrow(() -> new NotFoundException("Dados do consumidor não encontrados"));
 
-    Order order = orderRepository.findById(orderId)
-        .orElseThrow(() -> new NotFoundException("Pedido não encontrado"));
+    Order order =
+        orderRepository
+            .findById(orderId)
+            .orElseThrow(() -> new NotFoundException("Pedido não encontrado"));
 
     if (!order.getCustomer().getId().equals(user.getId())) {
       throw new ForbiddenException("Você não tem permissão para repetir este pedido");
     }
 
-    Cart cart = cartRepository.findByCustomerIdAndActiveTrue(customer.getId())
-        .orElse(null);
+    Cart cart = cartRepository.findByCustomerIdAndActiveTrue(customer.getId()).orElse(null);
 
     if (cart != null && !cart.getFarmer().getId().equals(order.getFarmer().getId())) {
       cartService.clearCart(customer);
@@ -433,9 +490,11 @@ public class OrderService {
         BigDecimal quantityToAdd = orderItem.getQuantity();
         BigDecimal currentQuantityInCart = BigDecimal.ZERO;
 
-        Optional<CartItem> existingItemOpt = cart.getItems().stream()
-            .filter(item -> item.isActive() && item.getProduct().getId().equals(product.getId()))
-            .findFirst();
+        Optional<CartItem> existingItemOpt =
+            cart.getItems().stream()
+                .filter(
+                    item -> item.isActive() && item.getProduct().getId().equals(product.getId()))
+                .findFirst();
 
         if (existingItemOpt.isPresent()) {
           currentQuantityInCart = existingItemOpt.get().getQuantity();

@@ -19,9 +19,7 @@ public class RecommendationMapper {
         .imageS3(product.getImageS3())
         .farmerId(product.getFarmer() != null ? product.getFarmer().getId() : null)
         .farmName(product.getFarmer() != null ? product.getFarmer().getFarmName() : null)
-        .categoryNames(product.getCategories().stream()
-            .map(ProductCategory::getName)
-            .toList())
+        .categoryNames(product.getCategories().stream().map(ProductCategory::getName).toList())
         .score(score)
         .reason(reason)
         .build();

@@ -21,16 +21,18 @@ public class FiscalNumberValidator
 
     String digits = fiscalNumber.replaceAll("\\D", "");
 
-    boolean valid = switch (fiscalNumberType.toUpperCase()) {
-      case "CPF" -> CpfValidator.isValidCpf(digits);
-      case "CNPJ" -> CnpjValidator.isValidCnpj(digits);
-      default -> true;
-    };
+    boolean valid =
+        switch (fiscalNumberType.toUpperCase()) {
+          case "CPF" -> CpfValidator.isValidCpf(digits);
+          case "CNPJ" -> CnpjValidator.isValidCnpj(digits);
+          default -> true;
+        };
 
     if (!valid) {
       context.disableDefaultConstraintViolation();
-      context.buildConstraintViolationWithTemplate(
-          "fiscalNumber: Invalid " + fiscalNumberType.toUpperCase())
+      context
+          .buildConstraintViolationWithTemplate(
+              "fiscalNumber: Invalid " + fiscalNumberType.toUpperCase())
           .addPropertyNode("fiscalNumber")
           .addConstraintViolation();
     }
