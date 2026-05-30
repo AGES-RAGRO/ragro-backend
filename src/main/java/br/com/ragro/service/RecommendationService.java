@@ -12,6 +12,8 @@ import br.com.ragro.domain.llm.Candidate;
 import br.com.ragro.domain.llm.CustomerFeatures;
 import br.com.ragro.domain.llm.RankedItem;
 import br.com.ragro.exception.ForbiddenException;
+import br.com.ragro.exception.LlmInvalidOutputException;
+import br.com.ragro.mapper.RecommendationMapper;
 import br.com.ragro.repository.OrderItemRepository;
 import br.com.ragro.repository.OrderRepository;
 import br.com.ragro.repository.ProductRepository;
@@ -148,7 +150,7 @@ public class RecommendationService {
 
     int limit = request.getLimit();
     List<RecommendationProductResponse> recommendations =
-        buildRecommendations(scoreMap, productCache, reasonMap, limit);
+        buildRecommendations(scoreMap, productCache, reasonMap, limit, customerId);
 
     return RecommendationResponse.builder()
         .recommendations(recommendations)
@@ -160,7 +162,8 @@ public class RecommendationService {
       Map<UUID, int[]> scoreMap,
       Map<UUID, Product> productCache,
       Map<UUID, RecommendationReason> reasonMap,
-      int limit) {
+      int limit,
+      UUID customerId) {
 
     List<Candidate> candidates = buildCandidates(scoreMap, productCache, reasonMap);
     CustomerFeatures features = buildCustomerFeatures(productCache, reasonMap);
@@ -175,11 +178,19 @@ public class RecommendationService {
               .filter(item -> productCache.containsKey(item.getProductId()))
               .sorted(Comparator.comparingDouble(RankedItem::getScore).reversed())
               .limit(limit)
-              .map(item -> toResponseLlm(productCache.get(item.getProductId()), item.getScore()))
+              .map(
+                  item ->
+                      RecommendationMapper.toResponse(
+                          productCache.get(item.getProductId()),
+                          (int) (item.getScore() * 100),
+                          RecommendationReason.LLM_RERANKED))
               .collect(Collectors.toList());
       return llmResult.isEmpty()
           ? buildHeuristicRecommendations(scoreMap, productCache, reasonMap, limit)
           : llmResult;
+    } catch (LlmInvalidOutputException e) {
+      log.warn("LLM returned invalid output for customer {}: {}", customerId, e.getMessage());
+      return buildHeuristicRecommendations(scoreMap, productCache, reasonMap, limit);
     } catch (Exception e) {
       log.warn("LLM reranking failed, using heuristic fallback: {}", e.getMessage());
       return buildHeuristicRecommendations(scoreMap, productCache, reasonMap, limit);
@@ -201,7 +212,8 @@ public class RecommendationService {
             entry -> {
               UUID pid = entry.getKey();
               Product product = productCache.get(pid);
-              return toResponse(product, scoreMap.get(pid)[0], reasonMap.get(pid));
+              return RecommendationMapper.toResponse(
+                  product, scoreMap.get(pid)[0], reasonMap.get(pid));
             })
         .collect(Collectors.toList());
   }
@@ -299,42 +311,5 @@ public class RecommendationService {
       combined.addAll(request.getExcludeProductIds());
     }
     return combined;
-  }
-
-  private RecommendationProductResponse toResponse(
-      Product product, int score, RecommendationReason reason) {
-    List<String> categoryNames =
-        product.getCategories().stream().map(ProductCategory::getName).collect(Collectors.toList());
-
-    return RecommendationProductResponse.builder()
-        .id(product.getId())
-        .name(product.getName())
-        .price(product.getPrice())
-        .unityType(product.getUnityType())
-        .imageS3(product.getImageS3())
-        .farmerId(product.getFarmer() != null ? product.getFarmer().getId() : null)
-        .farmName(product.getFarmer() != null ? product.getFarmer().getFarmName() : null)
-        .categoryNames(categoryNames)
-        .score(score)
-        .reason(reason)
-        .build();
-  }
-
-  private RecommendationProductResponse toResponseLlm(Product product, Double llmScore) {
-    List<String> categoryNames =
-        product.getCategories().stream().map(ProductCategory::getName).collect(Collectors.toList());
-
-    return RecommendationProductResponse.builder()
-        .id(product.getId())
-        .name(product.getName())
-        .price(product.getPrice())
-        .unityType(product.getUnityType())
-        .imageS3(product.getImageS3())
-        .farmerId(product.getFarmer() != null ? product.getFarmer().getId() : null)
-        .farmName(product.getFarmer() != null ? product.getFarmer().getFarmName() : null)
-        .categoryNames(categoryNames)
-        .score((int) (llmScore * 100))
-        .reason(RecommendationReason.LLM_RERANKED)
-        .build();
   }
 }
