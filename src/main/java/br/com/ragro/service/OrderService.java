@@ -55,6 +55,7 @@ public class OrderService {
   private final OrderStatusHistoryRepository orderStatusHistoryRepository;
   private final ReviewRepository reviewRepository;
   private final MinioStorageService storageService;
+  private final NotificationService notificationService;
 
   @Transactional
   public OrderResponse createOrderFromCart(Jwt jwt) {
@@ -152,8 +153,9 @@ public class OrderService {
       throw new ForbiddenException("Você não tem permissão para cancelar este pedido");
     }
 
-    if (order.getStatus() != OrderStatus.PENDING) {
-      throw new BusinessException("Somente pedidos com status PENDING podem ser cancelados");
+    if (!isCancellableStatus(order.getStatus())) {
+      throw new BusinessException(
+          "Somente pedidos com status PENDING, CONFIRMED ou IN_DELIVERY podem ser cancelados");
     }
 
     applyCancellation(order, request, "CUSTOMER_CANCELLED");
@@ -181,12 +183,14 @@ public class OrderService {
       throw new ForbiddenException("Você não tem permissão para recusar este pedido");
     }
 
-    if (order.getStatus() != OrderStatus.PENDING) {
-      throw new BusinessException("Somente pedidos com status PENDING podem ser recusados");
+    if (!isCancellableStatus(order.getStatus())) {
+      throw new BusinessException(
+          "Somente pedidos com status PENDING, CONFIRMED ou IN_DELIVERY podem ser recusados");
     }
 
     applyCancellation(order, request, "REFUSED_BY_FARMER");
     Order savedOrder = orderRepository.saveAndFlush(order);
+    notificationService.createCustomerOrderRefusedNotification(savedOrder);
     return OrderMapper.toResponse(savedOrder, storageService);
   }
 
@@ -222,6 +226,7 @@ public class OrderService {
     order.getStatusHistory().add(history);
 
     Order savedOrder = orderRepository.saveAndFlush(order);
+    notificationService.createCustomerOrderDeliveredNotification(savedOrder);
     return OrderMapper.toResponse(savedOrder, storageService);
   }
 
@@ -248,6 +253,12 @@ public class OrderService {
     history.setOrder(order);
     history.setStatus(OrderStatus.CANCELLED);
     order.getStatusHistory().add(history);
+  }
+
+  private boolean isCancellableStatus(OrderStatus status) {
+    return status == OrderStatus.PENDING
+        || status == OrderStatus.CONFIRMED
+        || status == OrderStatus.IN_DELIVERY;
   }
 
   @Transactional(readOnly = true)
@@ -350,6 +361,8 @@ public class OrderService {
     history.setStatus(newStatus);
     orderStatusHistoryRepository.save(history);
 
+    notifyCustomerOnStatusChange(updatedOrder, newStatus);
+
     return OrderMapper.toResponse(updatedOrder, storageService);
   }
 
@@ -388,7 +401,21 @@ public class OrderService {
     history.setStatus(OrderStatus.CONFIRMED);
     orderStatusHistoryRepository.save(history);
 
+    notificationService.createCustomerOrderAcceptedNotification(updatedOrder);
+
     return OrderMapper.toResponse(updatedOrder, storageService);
+  }
+
+  private void notifyCustomerOnStatusChange(Order order, OrderStatus status) {
+    switch (status) {
+      case CONFIRMED -> notificationService.createCustomerOrderAcceptedNotification(order);
+      case IN_DELIVERY -> notificationService.createCustomerOrderInDeliveryNotification(order);
+      case DELIVERED -> notificationService.createCustomerOrderDeliveredNotification(order);
+      case CANCELLED -> notificationService.createCustomerOrderRefusedNotification(order);
+      default -> {
+        // No customer notification for this status transition.
+      }
+    }
   }
 
   private Address getDeliveryAddress(Customer customer) {

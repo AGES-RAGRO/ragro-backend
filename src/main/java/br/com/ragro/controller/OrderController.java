@@ -96,7 +96,7 @@ public class OrderController {
   @Operation(
       summary = "Cancel an order (legacy)",
       description =
-          "Cancels a PENDING order. Routes by role: a customer cancels their own order, a producer refuses one of their incoming orders. Optional body carries reason/details for audit. Prefer /orders/customer/{id}/cancel or /orders/{id}/refuse.")
+          "Cancels an order with status PENDING, CONFIRMED or IN_DELIVERY. Routes by role: a customer cancels their own order, a producer refuses one of their incoming orders. Optional body carries reason/details for audit. Prefer /orders/customer/{id}/cancel or /orders/{id}/refuse.")
   public OrderResponse cancelOrder(
       @PathVariable UUID id,
       @Valid @RequestBody(required = false) CancelOrderRequest request,
@@ -109,7 +109,7 @@ public class OrderController {
   @Operation(
       summary = "Customer cancels own order",
       description =
-          "Allows a customer to cancel their own PENDING order. Optional body carries reason and details that are persisted for audit.")
+          "Allows a customer to cancel their own order when status is PENDING, CONFIRMED or IN_DELIVERY. Optional body carries reason and details that are persisted for audit.")
   public OrderResponse cancelOrderAsCustomer(
       @PathVariable UUID id,
       @Valid @RequestBody(required = false) CancelOrderRequest request,
@@ -132,7 +132,7 @@ public class OrderController {
   @Operation(
       summary = "Producer refuses an order",
       description =
-          "Allows the owning producer to refuse a PENDING order. Cancels with reason REFUSED_BY_FARMER unless overridden in the body.")
+          "Allows the owning producer to refuse an order when status is PENDING, CONFIRMED or IN_DELIVERY. Cancels with reason REFUSED_BY_FARMER unless overridden in the body.")
   public OrderResponse refuseOrder(
       @PathVariable UUID id,
       @Valid @RequestBody(required = false) CancelOrderRequest request,

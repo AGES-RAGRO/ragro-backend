@@ -13,6 +13,8 @@ import br.com.ragro.repository.AddressRepository;
 import br.com.ragro.repository.CustomerRepository;
 import br.com.ragro.repository.UserRepository;
 import br.com.ragro.service.api.IdentityProviderService;
+import com.google.maps.model.LatLng;
+import java.math.BigDecimal;
 import java.util.Locale;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,16 +30,19 @@ public class CustomerRegistrationService {
   private final CustomerRepository customerRepository;
   private final AddressRepository addressRepository;
   private final IdentityProviderService identityProviderService;
+  private final GoogleMapsService googleMapsService;
 
   public CustomerRegistrationService(
       UserRepository userRepository,
       CustomerRepository customerRepository,
       AddressRepository addressRepository,
-      IdentityProviderService identityProviderService) {
+      IdentityProviderService identityProviderService,
+      GoogleMapsService googleMapsService) {
     this.userRepository = userRepository;
     this.customerRepository = customerRepository;
     this.addressRepository = addressRepository;
     this.identityProviderService = identityProviderService;
+    this.googleMapsService = googleMapsService;
   }
 
   @Transactional
@@ -67,6 +72,22 @@ public class CustomerRegistrationService {
       customerRepository.saveAndFlush(CustomerMapper.toEntity(savedUser, normalizedFiscalNumber));
 
       Address address = AddressMapper.toEntity(normalizedAddress, savedUser, true);
+
+      String fullAddress =
+          String.format(
+              "%s, %s - %s, %s - %s, %s",
+              address.getStreet(),
+              address.getNumber(),
+              address.getNeighborhood(),
+              address.getCity(),
+              address.getState(),
+              address.getZipCode());
+      LatLng latLng = googleMapsService.geocodeAddress(fullAddress);
+      if (latLng != null) {
+        address.setLatitude(BigDecimal.valueOf(latLng.lat));
+        address.setLongitude(BigDecimal.valueOf(latLng.lng));
+      }
+
       savedAddress = addressRepository.save(address);
     } catch (Exception original) {
       try {

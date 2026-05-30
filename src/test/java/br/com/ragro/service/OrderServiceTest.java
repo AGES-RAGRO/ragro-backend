@@ -68,6 +68,7 @@ class OrderServiceTest {
   @Mock private OrderStatusHistoryRepository orderStatusHistoryRepository;
   @Mock private ReviewRepository reviewRepository;
   @Mock private MinioStorageService storageService;
+  @Mock private NotificationService notificationService;
 
   @InjectMocks private OrderService orderService;
 
@@ -295,11 +296,11 @@ class OrderServiceTest {
   }
 
   @Test
-  void shouldThrowBusinessException_whenOrderIsNotPending() {
+  void shouldThrowBusinessException_whenOrderIsNotCancellable() {
     Order order = new Order();
     order.setId(UUID.randomUUID());
     order.setCustomer(customer);
-    order.setStatus(OrderStatus.CONFIRMED);
+    order.setStatus(OrderStatus.DELIVERED);
 
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
     when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
@@ -400,6 +401,25 @@ class OrderServiceTest {
   }
 
   @Test
+  void shouldCancelOrderAsCustomer_whenStatusIsConfirmed() {
+    Order order = new Order();
+    order.setId(UUID.randomUUID());
+    order.setCustomer(customer);
+    order.setFarmer(farmer);
+    order.setStatus(OrderStatus.CONFIRMED);
+    order.setDeliveryAddressSnapshot(AddressSnapshot.builder().city("Test City").build());
+    order.setPaymentMethod(paymentMethod);
+
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+    when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    OrderResponse response = orderService.cancelOrderAsCustomer(order.getId(), jwt(), null);
+
+    assertThat(response.getStatus()).isEqualTo(OrderStatus.CANCELLED);
+  }
+
+  @Test
   void shouldThrowForbidden_whenNonCustomerCallsCustomerCancel() {
     user.setType(TypeUser.FARMER);
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
@@ -426,18 +446,18 @@ class OrderServiceTest {
   }
 
   @Test
-  void shouldThrowBusinessException_whenCustomerCancelsNonPendingOrder() {
+  void shouldThrowBusinessException_whenCustomerCancelsNonCancellableOrder() {
     Order order = new Order();
     order.setId(UUID.randomUUID());
     order.setCustomer(customer);
-    order.setStatus(OrderStatus.IN_DELIVERY);
+    order.setStatus(OrderStatus.DELIVERED);
 
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
     when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
 
     assertThatThrownBy(() -> orderService.cancelOrderAsCustomer(order.getId(), jwt(), null))
         .isInstanceOf(BusinessException.class)
-        .hasMessageContaining("PENDING");
+        .hasMessageContaining("PENDING, CONFIRMED ou IN_DELIVERY");
   }
 
   // ---------- refuseOrderAsFarmer ----------
@@ -464,6 +484,29 @@ class OrderServiceTest {
     assertThat(response.getStatus()).isEqualTo(OrderStatus.CANCELLED);
     assertThat(order.getCancellationReason()).isEqualTo("REFUSED_BY_FARMER");
     verify(stockMovementService, never()).registerCancelledSale(any(), any(), anyString());
+    verify(notificationService).createCustomerOrderRefusedNotification(order);
+  }
+
+  @Test
+  void shouldRefuseOrderAsFarmer_whenStatusIsInDelivery() {
+    user.setType(TypeUser.FARMER);
+    farmer.setId(user.getId());
+
+    Order order = new Order();
+    order.setId(UUID.randomUUID());
+    order.setCustomer(customer);
+    order.setFarmer(farmer);
+    order.setStatus(OrderStatus.IN_DELIVERY);
+    order.setDeliveryAddressSnapshot(AddressSnapshot.builder().city("Test City").build());
+    order.setPaymentMethod(paymentMethod);
+
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+    when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    OrderResponse response = orderService.refuseOrderAsFarmer(order.getId(), jwt(), null);
+
+    assertThat(response.getStatus()).isEqualTo(OrderStatus.CANCELLED);
   }
 
   @Test
@@ -497,7 +540,7 @@ class OrderServiceTest {
   }
 
   @Test
-  void shouldThrowBusinessException_whenFarmerRefusesNonPendingOrder() {
+  void shouldThrowBusinessException_whenFarmerRefusesNonCancellableOrder() {
     user.setType(TypeUser.FARMER);
     farmer.setId(user.getId());
 
@@ -505,14 +548,14 @@ class OrderServiceTest {
     order.setId(UUID.randomUUID());
     order.setCustomer(customer);
     order.setFarmer(farmer);
-    order.setStatus(OrderStatus.CONFIRMED);
+    order.setStatus(OrderStatus.DELIVERED);
 
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
     when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
 
     assertThatThrownBy(() -> orderService.refuseOrderAsFarmer(order.getId(), jwt(), null))
         .isInstanceOf(BusinessException.class)
-        .hasMessageContaining("PENDING");
+        .hasMessageContaining("PENDING, CONFIRMED ou IN_DELIVERY");
   }
 
   // ---------- confirmDelivery ----------
@@ -536,6 +579,7 @@ class OrderServiceTest {
     assertThat(response.getStatus()).isEqualTo(OrderStatus.DELIVERED);
     assertThat(order.getStatusHistory()).hasSize(1);
     assertThat(order.getStatusHistory().get(0).getStatus()).isEqualTo(OrderStatus.DELIVERED);
+    verify(notificationService).createCustomerOrderDeliveredNotification(order);
   }
 
   @Test
@@ -602,6 +646,7 @@ class OrderServiceTest {
 
     assertThat(response.getStatus()).isEqualTo(OrderStatus.IN_DELIVERY);
     verify(orderStatusHistoryRepository).save(any(OrderStatusHistory.class));
+    verify(notificationService).createCustomerOrderInDeliveryNotification(order);
   }
 
   @Test
@@ -742,6 +787,7 @@ class OrderServiceTest {
     assertThat(response.getStatus()).isEqualTo(OrderStatus.CONFIRMED);
     verify(stockMovementService).registerSale(eq(product), eq(new BigDecimal("2.00")), anyString());
     verify(orderStatusHistoryRepository).save(any(OrderStatusHistory.class));
+    verify(notificationService).createCustomerOrderAcceptedNotification(order);
   }
 
   @Test
