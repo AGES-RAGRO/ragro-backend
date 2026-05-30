@@ -6,8 +6,8 @@ import lombok.Getter;
 import org.springframework.data.domain.Page;
 
 /**
- * Stable JSON wrapper for paginated results.
- * Replaces PageImpl serialization which Spring Data warns is unstable.
+ * Stable JSON wrapper for paginated results. Replaces PageImpl serialization which Spring Data
+ * warns is unstable.
  */
 @Getter
 @Builder

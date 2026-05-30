@@ -47,11 +47,15 @@ public class CartService {
       throw new ForbiddenException("Apenas consumidores podem gerenciar o carrinho");
     }
 
-    Customer customer = customerRepository.findById(user.getId())
-        .orElseThrow(() -> new NotFoundException("Dados do consumidor não encontrados"));
+    Customer customer =
+        customerRepository
+            .findById(user.getId())
+            .orElseThrow(() -> new NotFoundException("Dados do consumidor não encontrados"));
 
-    Product product = productRepository.findById(request.getProductId())
-        .orElseThrow(() -> new NotFoundException("Produto não encontrado"));
+    Product product =
+        productRepository
+            .findById(request.getProductId())
+            .orElseThrow(() -> new NotFoundException("Produto não encontrado"));
 
     if (!product.isActive()) {
       throw new BusinessException("Produto inativo não pode ser adicionado ao carrinho");
@@ -59,8 +63,10 @@ public class CartService {
 
     validateStock(product, request.getQuantity(), customer.getId());
 
-    Cart cart = cartRepository.findByCustomerIdAndActiveTrue(customer.getId())
-        .orElseGet(() -> createNewCart(customer, product));
+    Cart cart =
+        cartRepository
+            .findByCustomerIdAndActiveTrue(customer.getId())
+            .orElseGet(() -> createNewCart(customer, product));
 
     if (!cart.getFarmer().getId().equals(product.getFarmer().getId())) {
       long activeItemsCount = cart.getItems().stream().filter(CartItem::isActive).count();
@@ -86,7 +92,8 @@ public class CartService {
       throw new ForbiddenException("Apenas consumidores podem visualizar o carrinho");
     }
 
-    return cartRepository.findByCustomerIdAndActiveTrue(user.getId())
+    return cartRepository
+        .findByCustomerIdAndActiveTrue(user.getId())
         .map(cart -> CartMapper.toResponse(cart, findPrimaryPaymentMethod(cart.getFarmer())))
         .orElseThrow(() -> new NotFoundException("Carrinho não encontrado ou vazio"));
   }
@@ -98,8 +105,10 @@ public class CartService {
       throw new ForbiddenException("Apenas consumidores podem gerenciar o carrinho");
     }
 
-    CartItem item = cartItemRepository.findById(itemId)
-        .orElseThrow(() -> new NotFoundException("Item do carrinho não encontrado"));
+    CartItem item =
+        cartItemRepository
+            .findById(itemId)
+            .orElseThrow(() -> new NotFoundException("Item do carrinho não encontrado"));
 
     if (!item.getCart().getCustomer().getId().equals(user.getId())) {
       throw new ForbiddenException("Este item não pertence ao seu carrinho");
@@ -113,8 +122,12 @@ public class CartService {
     BigDecimal newQuantity = request.getQuantity();
 
     if (newQuantity.compareTo(product.getStockQuantity()) > 0) {
-      throw new BusinessException("Quantidade solicitada (" + newQuantity
-          + ") excede o estoque disponível (" + product.getStockQuantity() + ")");
+      throw new BusinessException(
+          "Quantidade solicitada ("
+              + newQuantity
+              + ") excede o estoque disponível ("
+              + product.getStockQuantity()
+              + ")");
     }
 
     item.setQuantity(newQuantity);
@@ -131,8 +144,10 @@ public class CartService {
       throw new ForbiddenException("Apenas consumidores podem gerenciar o carrinho");
     }
 
-    Cart cart = cartRepository.findByCustomerIdAndActiveTrue(user.getId())
-        .orElseThrow(() -> new NotFoundException("Carrinho não encontrado"));
+    Cart cart =
+        cartRepository
+            .findByCustomerIdAndActiveTrue(user.getId())
+            .orElseThrow(() -> new NotFoundException("Carrinho não encontrado"));
 
     cart.setActive(false);
     cart.getItems().forEach(item -> item.setActive(false));
@@ -148,12 +163,14 @@ public class CartService {
   @Transactional
   public void clearCart(Customer customer) {
 
-    cartRepository.findByCustomerIdAndActiveTrue(customer.getId())
-        .ifPresent(cart -> {
-          cart.setActive(false);
-          cart.getItems().forEach(item -> item.setActive(false));
-          cartRepository.save(cart);
-        });
+    cartRepository
+        .findByCustomerIdAndActiveTrue(customer.getId())
+        .ifPresent(
+            cart -> {
+              cart.setActive(false);
+              cart.getItems().forEach(item -> item.setActive(false));
+              cartRepository.save(cart);
+            });
   }
 
   private Cart createNewCart(Customer customer, Product product) {
@@ -165,8 +182,8 @@ public class CartService {
   }
 
   private void updateOrAddItem(Cart cart, Product product, AddToCartRequest request) {
-    Optional<CartItem> existingItem = cartItemRepository
-        .findByCartIdAndProductIdAndActiveTrue(cart.getId(), product.getId());
+    Optional<CartItem> existingItem =
+        cartItemRepository.findByCartIdAndProductIdAndActiveTrue(cart.getId(), product.getId());
 
     if (existingItem.isPresent()) {
       CartItem item = existingItem.get();
@@ -184,18 +201,29 @@ public class CartService {
   }
 
   private void validateStock(Product product, BigDecimal quantityToAdd, UUID customerId) {
-    BigDecimal currentQuantityInCart = cartRepository.findByCustomerIdAndActiveTrue(customerId)
-        .flatMap(cart -> cart.getItems().stream()
-            .filter(item -> item.isActive() && item.getProduct().getId().equals(product.getId()))
-            .findFirst()
-            .map(CartItem::getQuantity))
-        .orElse(BigDecimal.ZERO);
+    BigDecimal currentQuantityInCart =
+        cartRepository
+            .findByCustomerIdAndActiveTrue(customerId)
+            .flatMap(
+                cart ->
+                    cart.getItems().stream()
+                        .filter(
+                            item ->
+                                item.isActive()
+                                    && item.getProduct().getId().equals(product.getId()))
+                        .findFirst()
+                        .map(CartItem::getQuantity))
+            .orElse(BigDecimal.ZERO);
 
     BigDecimal totalTargetQuantity = currentQuantityInCart.add(quantityToAdd);
 
     if (totalTargetQuantity.compareTo(product.getStockQuantity()) > 0) {
-      throw new BusinessException("Quantidade solicitada (" + totalTargetQuantity +
-          ") excede o estoque disponível (" + product.getStockQuantity() + ")");
+      throw new BusinessException(
+          "Quantidade solicitada ("
+              + totalTargetQuantity
+              + ") excede o estoque disponível ("
+              + product.getStockQuantity()
+              + ")");
     }
   }
 
@@ -206,10 +234,14 @@ public class CartService {
       throw new ForbiddenException("Apenas consumidores podem gerenciar o carrinho");
     }
 
-    Cart cart = cartRepository.findByCustomerIdAndActiveTrue(user.getId())
+    Cart cart =
+        cartRepository
+            .findByCustomerIdAndActiveTrue(user.getId())
             .orElseThrow(() -> new NotFoundException("Carrinho não encontrado"));
 
-    CartItem item = cartItemRepository.findByCartIdAndIdAndActiveTrue(cart.getId(), itemId)
+    CartItem item =
+        cartItemRepository
+            .findByCartIdAndIdAndActiveTrue(cart.getId(), itemId)
             .orElseThrow(() -> new NotFoundException("Item do carrinho não encontrado"));
     cart.getItems().remove(item);
     cartItemRepository.delete(item);
@@ -218,7 +250,8 @@ public class CartService {
 
     if (!hasActiveItems) {
       cart.setActive(false);
-      CartResponse response = CartMapper.toResponse(cart, findPrimaryPaymentMethod(cart.getFarmer()));
+      CartResponse response =
+          CartMapper.toResponse(cart, findPrimaryPaymentMethod(cart.getFarmer()));
       cartRepository.delete(cart);
       cartRepository.flush();
       return response;
@@ -232,7 +265,8 @@ public class CartService {
     if (farmer == null) {
       return null;
     }
-    List<PaymentMethod> methods = paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(farmer.getId());
+    List<PaymentMethod> methods =
+        paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(farmer.getId());
     return methods.isEmpty() ? null : methods.get(0);
   }
 }

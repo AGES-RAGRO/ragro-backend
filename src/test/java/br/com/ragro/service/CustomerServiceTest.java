@@ -77,8 +77,7 @@ class CustomerServiceTest {
     updatedUser.setPhone("51988887777");
 
     when(userService.getAuthenticatedUser(jwt)).thenReturn(user);
-    when(addressRepository.findByUserIdAndIsPrimaryTrue(user.getId()))
-        .thenReturn(Optional.empty());
+    when(addressRepository.findByUserIdAndIsPrimaryTrue(user.getId())).thenReturn(Optional.empty());
     when(userRepository.findById(user.getId())).thenReturn(Optional.of(updatedUser));
 
     CustomerUpdateRequest request = buildUpdateRequest("Novo Nome", "51988887777");
@@ -118,8 +117,7 @@ class CustomerServiceTest {
   @Test
   void getCustomerById_shouldThrowNotFoundException_whenCustomerDoesNotExist() {
     UUID unknownId = UUID.randomUUID();
-    when(customerRepository.findDetailedById(unknownId))
-        .thenReturn(Optional.empty());
+    when(customerRepository.findDetailedById(unknownId)).thenReturn(Optional.empty());
 
     assertThatThrownBy(() -> customerService.getCustomerById(unknownId))
         .isInstanceOf(NotFoundException.class)

@@ -55,8 +55,7 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
       GROUP BY oi.product
       ORDER BY COUNT(oi) DESC
       """)
-  Page<Product> findTrendingProducts(
-      @Param("since") OffsetDateTime since, Pageable pageable);
+  Page<Product> findTrendingProducts(@Param("since") OffsetDateTime since, Pageable pageable);
 
   @Query(
       """
@@ -75,6 +74,5 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
       WHERE p.active = true
         AND c.id IN :categoryIds
       """)
-  List<Product> findActiveProductsByCategoryIds(
-      @Param("categoryIds") List<Integer> categoryIds);
+  List<Product> findActiveProductsByCategoryIds(@Param("categoryIds") List<Integer> categoryIds);
 }

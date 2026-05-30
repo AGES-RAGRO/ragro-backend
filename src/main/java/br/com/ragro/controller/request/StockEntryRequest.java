@@ -15,16 +15,13 @@ import lombok.Setter;
 @Schema(description = "Payload to register a stock entry")
 public class StockEntryRequest {
 
-  @NotNull
-  private UUID productId;
+  @NotNull private UUID productId;
 
   @NotNull
   @DecimalMin("0.001")
   @Digits(integer = 9, fraction = 3)
   private BigDecimal quantity;
 
-
   @Size(max = 500)
   private String notes;
 }
-

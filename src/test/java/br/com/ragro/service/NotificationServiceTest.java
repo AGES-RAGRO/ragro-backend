@@ -52,20 +52,18 @@ class NotificationServiceTest {
     customerUser.setType(TypeUser.CUSTOMER);
     customerUser.setName("Customer Test");
 
-    jwt =
-        Jwt.withTokenValue("token")
-            .header("alg", "RS256")
-            .claim("sub", "customer-sub")
-            .build();
+    jwt = Jwt.withTokenValue("token").header("alg", "RS256").claim("sub", "customer-sub").build();
   }
 
   @Test
   void getMyCustomerNotifications_shouldReturnPaginatedNotifications() {
     Notification notification = buildNotification(customerUser, NotificationType.ORDER_CONFIRMED);
-    Page<Notification> page = new PageImpl<>(java.util.List.of(notification), PageRequest.of(0, 20), 1);
+    Page<Notification> page =
+        new PageImpl<>(java.util.List.of(notification), PageRequest.of(0, 20), 1);
 
     when(userService.getAuthenticatedUser(jwt)).thenReturn(customerUser);
-    when(notificationRepository.findByUserIdOrderByCreatedAtDesc(customerUser.getId(), PageRequest.of(0, 20)))
+    when(notificationRepository.findByUserIdOrderByCreatedAtDesc(
+            customerUser.getId(), PageRequest.of(0, 20)))
         .thenReturn(page);
 
     PaginatedResponse<NotificationResponse> result =
@@ -121,8 +119,9 @@ class NotificationServiceTest {
 
     notificationService.markAllMyCustomerNotificationsAsRead(jwt);
 
-    verify(notificationRepository).markAllAsReadByUserId(
-        org.mockito.ArgumentMatchers.eq(customerUser.getId()), any(OffsetDateTime.class));
+    verify(notificationRepository)
+        .markAllAsReadByUserId(
+            org.mockito.ArgumentMatchers.eq(customerUser.getId()), any(OffsetDateTime.class));
   }
 
   @Test
@@ -147,7 +146,8 @@ class NotificationServiceTest {
     farmerUser.setType(TypeUser.FARMER);
     when(userService.getAuthenticatedUser(jwt)).thenReturn(farmerUser);
 
-    assertThatThrownBy(() -> notificationService.getMyCustomerNotifications(jwt, PageRequest.of(0, 20)))
+    assertThatThrownBy(
+            () -> notificationService.getMyCustomerNotifications(jwt, PageRequest.of(0, 20)))
         .isInstanceOf(ForbiddenException.class)
         .hasMessageContaining("consumidores");
   }

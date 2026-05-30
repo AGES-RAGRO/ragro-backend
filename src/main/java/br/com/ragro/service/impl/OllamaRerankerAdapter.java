@@ -167,6 +167,13 @@ public class OllamaRerankerAdapter implements LlmRerankerPort {
       throw new LlmInvalidOutputException("Empty content in Ollama response");
     }
 
+    if (content.startsWith("```")) {
+      int nl = content.indexOf('\n');
+      if (nl != -1) content = content.substring(nl + 1).trim();
+      if (content.endsWith("```"))
+        content = content.substring(0, content.lastIndexOf("```")).trim();
+    }
+
     OllamaRankedOutput output;
     try {
       output = objectMapper.readValue(content, OllamaRankedOutput.class);
@@ -201,13 +208,11 @@ public class OllamaRerankerAdapter implements LlmRerankerPort {
         continue;
       }
 
-      if (entry.getScore() == null || entry.getScore() < 0 || entry.getScore() > 1) {
-        throw new LlmInvalidOutputException("Score out of range [0,1]: " + entry.getScore());
-      }
-
+      double raw = entry.getScore() != null ? entry.getScore() : 0.0;
+      double clamped = Math.max(0.0, Math.min(1.0, raw));
       RankedItem rankedItem = new RankedItem();
       rankedItem.setProductId(productId);
-      rankedItem.setScore(entry.getScore());
+      rankedItem.setScore(clamped);
       rankedItem.setReason(entry.getReason() != null ? entry.getReason() : "");
       rankedItem.setCandidate(candidate);
       result.add(rankedItem);

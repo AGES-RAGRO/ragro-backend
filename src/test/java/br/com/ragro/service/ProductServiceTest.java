@@ -231,10 +231,7 @@ class ProductServiceTest {
   @Test
   void getCategories_shouldReturnAllCategories() {
     when(productCategoryRepository.findAll())
-        .thenReturn(
-            List.of(
-                buildCategory(1, "Fruits"),
-                buildCategory(2, "Vegetables")));
+        .thenReturn(List.of(buildCategory(1, "Fruits"), buildCategory(2, "Vegetables")));
 
     List<ProductCategoryResponse> response = productService.getCategories();
 

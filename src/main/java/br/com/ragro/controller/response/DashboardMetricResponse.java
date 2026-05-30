@@ -25,4 +25,3 @@ public class DashboardMetricResponse {
   @Schema(description = "Previous period value", example = "113.78")
   private BigDecimal previousValue;
 }
-

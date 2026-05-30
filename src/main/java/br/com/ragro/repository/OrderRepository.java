@@ -26,8 +26,7 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
       WHERE o.customer.id = :customerId
         AND o.status <> br.com.ragro.domain.enums.OrderStatus.CANCELLED
       """)
-  List<UUID> findDistinctFarmerIdsByCustomerId(
-      @Param("customerId") UUID customerId);
+  List<UUID> findDistinctFarmerIdsByCustomerId(@Param("customerId") UUID customerId);
 
   // ── Dashboard Queries ────────────────────────────────────────────────
 
@@ -41,9 +40,7 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
         AND MONTH(o.deliveredAt) = :month
       """)
   Long countDeliveredOrdersByMonth(
-      @Param("farmerId") UUID farmerId,
-      @Param("year") int year,
-      @Param("month") int month);
+      @Param("farmerId") UUID farmerId, @Param("year") int year, @Param("month") int month);
 
   @Query(
       """
@@ -56,9 +53,7 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
         AND MONTH(o.deliveredAt) = :month
       """)
   BigDecimal sumDeliveredOrdersAmountByMonth(
-      @Param("farmerId") UUID farmerId,
-      @Param("year") int year,
-      @Param("month") int month);
+      @Param("farmerId") UUID farmerId, @Param("year") int year, @Param("month") int month);
 
   @Query(
       """

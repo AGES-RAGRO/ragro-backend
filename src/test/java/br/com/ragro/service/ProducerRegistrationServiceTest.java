@@ -38,332 +38,341 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class ProducerRegistrationServiceTest {
 
-    @Mock private UserRepository userRepository;
-    @Mock private ProducerRepository producerRepository;
-    @Mock private IdentityProviderService identityProviderService;
-    @Mock private AddressRepository addressRepository;
-    @Mock private FarmerAvailabilityRepository availabilityRepository;
-    @Mock private PaymentMethodRepository paymentMethodRepository;
-    @Mock private MinioStorageService minioStorageService;
-    @Mock private GoogleMapsService googleMapsService;
+  @Mock private UserRepository userRepository;
+  @Mock private ProducerRepository producerRepository;
+  @Mock private IdentityProviderService identityProviderService;
+  @Mock private AddressRepository addressRepository;
+  @Mock private FarmerAvailabilityRepository availabilityRepository;
+  @Mock private PaymentMethodRepository paymentMethodRepository;
+  @Mock private MinioStorageService minioStorageService;
+  @Mock private GoogleMapsService googleMapsService;
 
-    private ProducerRegistrationService producerRegistrationService;
+  private ProducerRegistrationService producerRegistrationService;
 
-    @BeforeEach
-    void setUp() {
-        ProducerMapper producerMapper = new ProducerMapper(minioStorageService);
-        producerRegistrationService =
-                new ProducerRegistrationService(
-                        userRepository,
-                        producerRepository,
-                        identityProviderService,
-                        addressRepository,
-                        availabilityRepository,
-                        paymentMethodRepository,
-                        producerMapper,
-                        googleMapsService);
-    }
+  @BeforeEach
+  void setUp() {
+    ProducerMapper producerMapper = new ProducerMapper(minioStorageService);
+    producerRegistrationService =
+        new ProducerRegistrationService(
+            userRepository,
+            producerRepository,
+            identityProviderService,
+            addressRepository,
+            availabilityRepository,
+            paymentMethodRepository,
+            producerMapper,
+            googleMapsService);
+  }
 
-    private PaymentMethodRequest buildPixMethod() {
-        PaymentMethodRequest pm = new PaymentMethodRequest();
-        pm.setType("pix");
-        pm.setPixKeyType("email");
-        pm.setPixKey("joao@example.com");
-        return pm;
-    }
+  private PaymentMethodRequest buildPixMethod() {
+    PaymentMethodRequest pm = new PaymentMethodRequest();
+    pm.setType("pix");
+    pm.setPixKeyType("email");
+    pm.setPixKey("joao@example.com");
+    return pm;
+  }
 
-    private PaymentMethodRequest buildBankMethod() {
-        PaymentMethodRequest pm = new PaymentMethodRequest();
-        pm.setType("bank_account");
-        pm.setBankName("Banco do Brasil");
-        pm.setAgency("1234");
-        pm.setAccountNumber("56789-0");
-        pm.setAccountType("checking");
-        pm.setHolderName("João Silva");
-        return pm;
-    }
+  private PaymentMethodRequest buildBankMethod() {
+    PaymentMethodRequest pm = new PaymentMethodRequest();
+    pm.setType("bank_account");
+    pm.setBankName("Banco do Brasil");
+    pm.setAgency("1234");
+    pm.setAccountNumber("56789-0");
+    pm.setAccountType("checking");
+    pm.setHolderName("João Silva");
+    return pm;
+  }
 
-    private ProducerRegistrationRequest validRequest() {
-        AddressRequest address = new AddressRequest();
-        address.setStreet("Rua das Flores");
-        address.setNumber("123");
-        address.setCity("Porto Alegre");
-        address.setState("RS");
-        address.setZipCode("90010120");
+  private ProducerRegistrationRequest validRequest() {
+    AddressRequest address = new AddressRequest();
+    address.setStreet("Rua das Flores");
+    address.setNumber("123");
+    address.setCity("Porto Alegre");
+    address.setState("RS");
+    address.setZipCode("90010120");
 
-        AvailabilityRequest availability = new AvailabilityRequest();
-        availability.setWeekday((short) 1);
-        availability.setOpensAt("08:00");
-        availability.setClosesAt("18:00");
+    AvailabilityRequest availability = new AvailabilityRequest();
+    availability.setWeekday((short) 1);
+    availability.setOpensAt("08:00");
+    availability.setClosesAt("18:00");
 
-        ProducerRegistrationRequest request = new ProducerRegistrationRequest();
-        request.setName("João Silva");
-        request.setPhone("51988888888");
-        request.setEmail("joao@example.com");
-        request.setPassword("Senha@123");
-        request.setFiscalNumber("12345678901");
-        request.setFiscalNumberType("CPF");
-        request.setFarmName("Fazenda São João");
-        request.setDescription("Produção orgânica");
-        request.setAddress(address);
-        request.setPaymentMethods(List.of(buildPixMethod(), buildBankMethod()));
-        request.setAvailability(List.of(availability));
-        return request;
-    }
+    ProducerRegistrationRequest request = new ProducerRegistrationRequest();
+    request.setName("João Silva");
+    request.setPhone("51988888888");
+    request.setEmail("joao@example.com");
+    request.setPassword("Senha@123");
+    request.setFiscalNumber("12345678901");
+    request.setFiscalNumberType("CPF");
+    request.setFarmName("Fazenda São João");
+    request.setDescription("Produção orgânica");
+    request.setAddress(address);
+    request.setPaymentMethods(List.of(buildPixMethod(), buildBankMethod()));
+    request.setAvailability(List.of(availability));
+    return request;
+  }
 
-    private User buildSavedUser(UUID id) {
-        User user = new User();
-        user.setId(id);
-        user.setName("João Silva");
-        user.setEmail("joao@example.com");
-        user.setPhone("51988888888");
-        user.setType(TypeUser.FARMER);
-        user.setActive(true);
-        user.setAuthSub("auth-sub-" + id);
-        user.setCreatedAt(OffsetDateTime.now());
-        user.setUpdatedAt(OffsetDateTime.now());
-        return user;
-    }
+  private User buildSavedUser(UUID id) {
+    User user = new User();
+    user.setId(id);
+    user.setName("João Silva");
+    user.setEmail("joao@example.com");
+    user.setPhone("51988888888");
+    user.setType(TypeUser.FARMER);
+    user.setActive(true);
+    user.setAuthSub("auth-sub-" + id);
+    user.setCreatedAt(OffsetDateTime.now());
+    user.setUpdatedAt(OffsetDateTime.now());
+    return user;
+  }
 
-    private Producer buildSavedProducer(User user) {
-        Producer producer = new Producer();
-        producer.setId(user.getId());
-        producer.setUser(user);
-        producer.setFiscalNumber("12345678901");
-        producer.setFiscalNumberType("CPF");
-        producer.setFarmName("Fazenda São João");
-        producer.setDescription("Produção orgânica");
-        producer.setTotalReviews(0);
-        producer.setAverageRating(BigDecimal.ZERO);
-        producer.setTotalOrders(0);
-        producer.setTotalSalesAmount(BigDecimal.ZERO);
-        return producer;
-    }
+  private Producer buildSavedProducer(User user) {
+    Producer producer = new Producer();
+    producer.setId(user.getId());
+    producer.setUser(user);
+    producer.setFiscalNumber("12345678901");
+    producer.setFiscalNumberType("CPF");
+    producer.setFarmName("Fazenda São João");
+    producer.setDescription("Produção orgânica");
+    producer.setTotalReviews(0);
+    producer.setAverageRating(BigDecimal.ZERO);
+    producer.setTotalOrders(0);
+    producer.setTotalSalesAmount(BigDecimal.ZERO);
+    return producer;
+  }
 
-    @Test
-    void register_shouldReturnResponse_whenRequestIsValid() {
-        UUID id = UUID.randomUUID();
-        User savedUser = buildSavedUser(id);
-        Producer savedProducer = buildSavedProducer(savedUser);
+  @Test
+  void register_shouldReturnResponse_whenRequestIsValid() {
+    UUID id = UUID.randomUUID();
+    User savedUser = buildSavedUser(id);
+    Producer savedProducer = buildSavedProducer(savedUser);
 
-        when(userRepository.existsByEmail("joao@example.com")).thenReturn(false);
-        when(producerRepository.existsByFiscalNumber("12345678901")).thenReturn(false);
-        when(identityProviderService.registerProducer(anyString(), anyString())).thenReturn("auth-sub-" + id);
-        when(userRepository.saveAndFlush(any())).thenReturn(savedUser);
-        when(producerRepository.saveAndFlush(any())).thenReturn(savedProducer);
+    when(userRepository.existsByEmail("joao@example.com")).thenReturn(false);
+    when(producerRepository.existsByFiscalNumber("12345678901")).thenReturn(false);
+    when(identityProviderService.registerProducer(anyString(), anyString()))
+        .thenReturn("auth-sub-" + id);
+    when(userRepository.saveAndFlush(any())).thenReturn(savedUser);
+    when(producerRepository.saveAndFlush(any())).thenReturn(savedProducer);
 
-        ProducerRegistrationResponse response = producerRegistrationService.register(validRequest());
+    ProducerRegistrationResponse response = producerRegistrationService.register(validRequest());
 
-        assertThat(response).isNotNull();
-        assertThat(response.getId()).isEqualTo(id);
-        assertThat(response.getName()).isEqualTo("João Silva");
-        assertThat(response.getEmail()).isEqualTo("joao@example.com");
-        assertThat(response.getPhone()).isEqualTo("51988888888");
-        assertThat(response.getType()).isEqualTo("farmer");
-        assertThat(response.isActive()).isTrue();
-        assertThat(response.getFiscalNumber()).isEqualTo("12345678901");
-        assertThat(response.getFiscalNumberType()).isEqualTo("CPF");
-        assertThat(response.getFarmName()).isEqualTo("Fazenda São João");
-        assertThat(response.getTotalReviews()).isEqualTo(0);
-        assertThat(response.getTotalOrders()).isEqualTo(0);
-        assertThat(response.getAverageRating()).isEqualByComparingTo(BigDecimal.ZERO);
-        assertThat(response.getTotalSalesAmount()).isEqualByComparingTo(BigDecimal.ZERO);
-    }
+    assertThat(response).isNotNull();
+    assertThat(response.getId()).isEqualTo(id);
+    assertThat(response.getName()).isEqualTo("João Silva");
+    assertThat(response.getEmail()).isEqualTo("joao@example.com");
+    assertThat(response.getPhone()).isEqualTo("51988888888");
+    assertThat(response.getType()).isEqualTo("farmer");
+    assertThat(response.isActive()).isTrue();
+    assertThat(response.getFiscalNumber()).isEqualTo("12345678901");
+    assertThat(response.getFiscalNumberType()).isEqualTo("CPF");
+    assertThat(response.getFarmName()).isEqualTo("Fazenda São João");
+    assertThat(response.getTotalReviews()).isEqualTo(0);
+    assertThat(response.getTotalOrders()).isEqualTo(0);
+    assertThat(response.getAverageRating()).isEqualByComparingTo(BigDecimal.ZERO);
+    assertThat(response.getTotalSalesAmount()).isEqualByComparingTo(BigDecimal.ZERO);
+  }
 
-    @Test
-    void register_shouldNormalizeEmail_beforeSaving() {
-        UUID id = UUID.randomUUID();
-        User savedUser = buildSavedUser(id);
-        Producer savedProducer = buildSavedProducer(savedUser);
+  @Test
+  void register_shouldNormalizeEmail_beforeSaving() {
+    UUID id = UUID.randomUUID();
+    User savedUser = buildSavedUser(id);
+    Producer savedProducer = buildSavedProducer(savedUser);
 
-        ProducerRegistrationRequest request = validRequest();
-        request.setEmail("  JOAO@EXAMPLE.COM  ");
+    ProducerRegistrationRequest request = validRequest();
+    request.setEmail("  JOAO@EXAMPLE.COM  ");
 
-        when(userRepository.existsByEmail("joao@example.com")).thenReturn(false);
-        when(producerRepository.existsByFiscalNumber(anyString())).thenReturn(false);
-        when(identityProviderService.registerProducer(anyString(), anyString())).thenReturn("auth-sub");
-        when(userRepository.saveAndFlush(any())).thenReturn(savedUser);
-        when(producerRepository.saveAndFlush(any())).thenReturn(savedProducer);
+    when(userRepository.existsByEmail("joao@example.com")).thenReturn(false);
+    when(producerRepository.existsByFiscalNumber(anyString())).thenReturn(false);
+    when(identityProviderService.registerProducer(anyString(), anyString())).thenReturn("auth-sub");
+    when(userRepository.saveAndFlush(any())).thenReturn(savedUser);
+    when(producerRepository.saveAndFlush(any())).thenReturn(savedProducer);
 
-        producerRegistrationService.register(request);
+    producerRegistrationService.register(request);
 
-        verify(identityProviderService).registerProducer("joao@example.com", "Senha@123");
-    }
+    verify(identityProviderService).registerProducer("joao@example.com", "Senha@123");
+  }
 
-    @Test
-    void register_shouldNormalizeFiscalNumber_removingNonDigits() {
-        UUID id = UUID.randomUUID();
-        User savedUser = buildSavedUser(id);
-        Producer savedProducer = buildSavedProducer(savedUser);
+  @Test
+  void register_shouldNormalizeFiscalNumber_removingNonDigits() {
+    UUID id = UUID.randomUUID();
+    User savedUser = buildSavedUser(id);
+    Producer savedProducer = buildSavedProducer(savedUser);
 
-        ProducerRegistrationRequest request = validRequest();
-        request.setFiscalNumber("123.456.789-01");
+    ProducerRegistrationRequest request = validRequest();
+    request.setFiscalNumber("123.456.789-01");
 
-        when(userRepository.existsByEmail(anyString())).thenReturn(false);
-        when(producerRepository.existsByFiscalNumber("12345678901")).thenReturn(false);
-        when(identityProviderService.registerProducer(anyString(), anyString())).thenReturn("auth-sub");
-        when(userRepository.saveAndFlush(any())).thenReturn(savedUser);
-        when(producerRepository.saveAndFlush(any())).thenReturn(savedProducer);
+    when(userRepository.existsByEmail(anyString())).thenReturn(false);
+    when(producerRepository.existsByFiscalNumber("12345678901")).thenReturn(false);
+    when(identityProviderService.registerProducer(anyString(), anyString())).thenReturn("auth-sub");
+    when(userRepository.saveAndFlush(any())).thenReturn(savedUser);
+    when(producerRepository.saveAndFlush(any())).thenReturn(savedProducer);
 
-        ProducerRegistrationResponse response = producerRegistrationService.register(request);
+    ProducerRegistrationResponse response = producerRegistrationService.register(request);
 
-        assertThat(response.getFiscalNumber()).isEqualTo("12345678901");
-    }
+    assertThat(response.getFiscalNumber()).isEqualTo("12345678901");
+  }
 
-    @Test
-    void register_shouldThrowConflictException_whenEmailAlreadyRegistered() {
-        when(userRepository.existsByEmail("joao@example.com")).thenReturn(true);
+  @Test
+  void register_shouldThrowConflictException_whenEmailAlreadyRegistered() {
+    when(userRepository.existsByEmail("joao@example.com")).thenReturn(true);
 
-        assertThatThrownBy(() -> producerRegistrationService.register(validRequest()))
-                .isInstanceOf(ConflictException.class)
-                .hasMessage("E-mail already registered");
+    assertThatThrownBy(() -> producerRegistrationService.register(validRequest()))
+        .isInstanceOf(ConflictException.class)
+        .hasMessage("E-mail already registered");
 
-        verify(identityProviderService, never()).registerProducer(anyString(), anyString());
-        verify(userRepository, never()).saveAndFlush(any());
-        verify(producerRepository, never()).saveAndFlush(any());
-    }
+    verify(identityProviderService, never()).registerProducer(anyString(), anyString());
+    verify(userRepository, never()).saveAndFlush(any());
+    verify(producerRepository, never()).saveAndFlush(any());
+  }
 
-    @Test
-    void register_shouldThrowConflictException_whenFiscalNumberAlreadyRegistered() {
-        when(userRepository.existsByEmail(anyString())).thenReturn(false);
-        when(producerRepository.existsByFiscalNumber("12345678901")).thenReturn(true);
+  @Test
+  void register_shouldThrowConflictException_whenFiscalNumberAlreadyRegistered() {
+    when(userRepository.existsByEmail(anyString())).thenReturn(false);
+    when(producerRepository.existsByFiscalNumber("12345678901")).thenReturn(true);
 
-        assertThatThrownBy(() -> producerRegistrationService.register(validRequest()))
-                .isInstanceOf(ConflictException.class)
-                .hasMessage("Fiscal number already registered");
+    assertThatThrownBy(() -> producerRegistrationService.register(validRequest()))
+        .isInstanceOf(ConflictException.class)
+        .hasMessage("Fiscal number already registered");
 
-        verify(identityProviderService, never()).registerProducer(anyString(), anyString());
-        verify(userRepository, never()).saveAndFlush(any());
-        verify(producerRepository, never()).saveAndFlush(any());
-    }
+    verify(identityProviderService, never()).registerProducer(anyString(), anyString());
+    verify(userRepository, never()).saveAndFlush(any());
+    verify(producerRepository, never()).saveAndFlush(any());
+  }
 
-    @Test
-    void register_shouldDeleteKeycloakUser_whenSavingUserFails() {
-        when(userRepository.existsByEmail(anyString())).thenReturn(false);
-        when(producerRepository.existsByFiscalNumber(anyString())).thenReturn(false);
-        when(identityProviderService.registerProducer(anyString(), anyString())).thenReturn("auth-sub-123");
-        when(userRepository.saveAndFlush(any())).thenThrow(new RuntimeException("DB error"));
+  @Test
+  void register_shouldDeleteKeycloakUser_whenSavingUserFails() {
+    when(userRepository.existsByEmail(anyString())).thenReturn(false);
+    when(producerRepository.existsByFiscalNumber(anyString())).thenReturn(false);
+    when(identityProviderService.registerProducer(anyString(), anyString()))
+        .thenReturn("auth-sub-123");
+    when(userRepository.saveAndFlush(any())).thenThrow(new RuntimeException("DB error"));
 
-        assertThatThrownBy(() -> producerRegistrationService.register(validRequest()))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessage("DB error");
+    assertThatThrownBy(() -> producerRegistrationService.register(validRequest()))
+        .isInstanceOf(RuntimeException.class)
+        .hasMessage("DB error");
 
-        verify(identityProviderService).deleteUser("auth-sub-123");
-    }
+    verify(identityProviderService).deleteUser("auth-sub-123");
+  }
 
-    @Test
-    void register_shouldDeleteKeycloakUser_whenSavingProducerFails() {
-        UUID id = UUID.randomUUID();
-        User savedUser = buildSavedUser(id);
+  @Test
+  void register_shouldDeleteKeycloakUser_whenSavingProducerFails() {
+    UUID id = UUID.randomUUID();
+    User savedUser = buildSavedUser(id);
 
-        when(userRepository.existsByEmail(anyString())).thenReturn(false);
-        when(producerRepository.existsByFiscalNumber(anyString())).thenReturn(false);
-        when(identityProviderService.registerProducer(anyString(), anyString())).thenReturn("auth-sub-123");
-        when(userRepository.saveAndFlush(any())).thenReturn(savedUser);
-        when(producerRepository.saveAndFlush(any())).thenThrow(new RuntimeException("DB error"));
+    when(userRepository.existsByEmail(anyString())).thenReturn(false);
+    when(producerRepository.existsByFiscalNumber(anyString())).thenReturn(false);
+    when(identityProviderService.registerProducer(anyString(), anyString()))
+        .thenReturn("auth-sub-123");
+    when(userRepository.saveAndFlush(any())).thenReturn(savedUser);
+    when(producerRepository.saveAndFlush(any())).thenThrow(new RuntimeException("DB error"));
 
-        assertThatThrownBy(() -> producerRegistrationService.register(validRequest()))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessage("DB error");
+    assertThatThrownBy(() -> producerRegistrationService.register(validRequest()))
+        .isInstanceOf(RuntimeException.class)
+        .hasMessage("DB error");
 
-        verify(identityProviderService).deleteUser("auth-sub-123");
-    }
+    verify(identityProviderService).deleteUser("auth-sub-123");
+  }
 
-    @Test
-    void register_shouldSaveUserWithCorrectType() {
-        UUID id = UUID.randomUUID();
-        User savedUser = buildSavedUser(id);
-        Producer savedProducer = buildSavedProducer(savedUser);
+  @Test
+  void register_shouldSaveUserWithCorrectType() {
+    UUID id = UUID.randomUUID();
+    User savedUser = buildSavedUser(id);
+    Producer savedProducer = buildSavedProducer(savedUser);
 
-        when(userRepository.existsByEmail(anyString())).thenReturn(false);
-        when(producerRepository.existsByFiscalNumber(anyString())).thenReturn(false);
-        when(identityProviderService.registerProducer(anyString(), anyString())).thenReturn("auth-sub");
-        when(userRepository.saveAndFlush(any())).thenReturn(savedUser);
-        when(producerRepository.saveAndFlush(any())).thenReturn(savedProducer);
+    when(userRepository.existsByEmail(anyString())).thenReturn(false);
+    when(producerRepository.existsByFiscalNumber(anyString())).thenReturn(false);
+    when(identityProviderService.registerProducer(anyString(), anyString())).thenReturn("auth-sub");
+    when(userRepository.saveAndFlush(any())).thenReturn(savedUser);
+    when(producerRepository.saveAndFlush(any())).thenReturn(savedProducer);
 
-        ProducerRegistrationResponse response = producerRegistrationService.register(validRequest());
+    ProducerRegistrationResponse response = producerRegistrationService.register(validRequest());
 
-        assertThat(response.getType()).isEqualTo("farmer");
-    }
+    assertThat(response.getType()).isEqualTo("farmer");
+  }
 
-    @Test
-    void register_shouldPersistBothPaymentMethods_whenListContainsPixAndBankAccount() {
-        UUID id = UUID.randomUUID();
-        User savedUser = buildSavedUser(id);
-        Producer savedProducer = buildSavedProducer(savedUser);
+  @Test
+  void register_shouldPersistBothPaymentMethods_whenListContainsPixAndBankAccount() {
+    UUID id = UUID.randomUUID();
+    User savedUser = buildSavedUser(id);
+    Producer savedProducer = buildSavedProducer(savedUser);
 
-        when(userRepository.existsByEmail("joao@example.com")).thenReturn(false);
-        when(producerRepository.existsByFiscalNumber("12345678901")).thenReturn(false);
-        when(identityProviderService.registerProducer(anyString(), anyString())).thenReturn("auth-sub");
-        when(userRepository.saveAndFlush(any())).thenReturn(savedUser);
-        when(producerRepository.saveAndFlush(any())).thenReturn(savedProducer);
+    when(userRepository.existsByEmail("joao@example.com")).thenReturn(false);
+    when(producerRepository.existsByFiscalNumber("12345678901")).thenReturn(false);
+    when(identityProviderService.registerProducer(anyString(), anyString())).thenReturn("auth-sub");
+    when(userRepository.saveAndFlush(any())).thenReturn(savedUser);
+    when(producerRepository.saveAndFlush(any())).thenReturn(savedProducer);
 
-        producerRegistrationService.register(validRequest());
+    producerRegistrationService.register(validRequest());
 
-        verify(paymentMethodRepository, org.mockito.Mockito.times(2)).save(any());
-    }
+    verify(paymentMethodRepository, org.mockito.Mockito.times(2)).save(any());
+  }
 
-    @Test
-    void register_shouldThrowBusinessException_whenOnlyPixProvided() {
-        ProducerRegistrationRequest request = validRequest();
-        request.setPaymentMethods(List.of(buildPixMethod()));
+  @Test
+  void register_shouldThrowBusinessException_whenOnlyPixProvided() {
+    ProducerRegistrationRequest request = validRequest();
+    request.setPaymentMethods(List.of(buildPixMethod()));
 
-        when(userRepository.existsByEmail(anyString())).thenReturn(false);
-        when(producerRepository.existsByFiscalNumber(anyString())).thenReturn(false);
-        when(identityProviderService.registerProducer(anyString(), anyString())).thenReturn("auth-sub-pix-only");
-        when(userRepository.saveAndFlush(any())).thenReturn(buildSavedUser(UUID.randomUUID()));
-        when(producerRepository.saveAndFlush(any())).thenReturn(buildSavedProducer(buildSavedUser(UUID.randomUUID())));
+    when(userRepository.existsByEmail(anyString())).thenReturn(false);
+    when(producerRepository.existsByFiscalNumber(anyString())).thenReturn(false);
+    when(identityProviderService.registerProducer(anyString(), anyString()))
+        .thenReturn("auth-sub-pix-only");
+    when(userRepository.saveAndFlush(any())).thenReturn(buildSavedUser(UUID.randomUUID()));
+    when(producerRepository.saveAndFlush(any()))
+        .thenReturn(buildSavedProducer(buildSavedUser(UUID.randomUUID())));
 
-        assertThatThrownBy(() -> producerRegistrationService.register(request))
-                .isInstanceOf(BusinessException.class)
-                .hasMessage("Both pix and bank_account payment methods are required");
+    assertThatThrownBy(() -> producerRegistrationService.register(request))
+        .isInstanceOf(BusinessException.class)
+        .hasMessage("Both pix and bank_account payment methods are required");
 
-        verify(identityProviderService).deleteUser("auth-sub-pix-only");
-    }
+    verify(identityProviderService).deleteUser("auth-sub-pix-only");
+  }
 
-    @Test
-    void register_shouldThrowBusinessException_whenOnlyBankAccountProvided() {
-        ProducerRegistrationRequest request = validRequest();
-        request.setPaymentMethods(List.of(buildBankMethod()));
+  @Test
+  void register_shouldThrowBusinessException_whenOnlyBankAccountProvided() {
+    ProducerRegistrationRequest request = validRequest();
+    request.setPaymentMethods(List.of(buildBankMethod()));
 
-        when(userRepository.existsByEmail(anyString())).thenReturn(false);
-        when(producerRepository.existsByFiscalNumber(anyString())).thenReturn(false);
-        when(identityProviderService.registerProducer(anyString(), anyString())).thenReturn("auth-sub-bank-only");
-        when(userRepository.saveAndFlush(any())).thenReturn(buildSavedUser(UUID.randomUUID()));
-        when(producerRepository.saveAndFlush(any())).thenReturn(buildSavedProducer(buildSavedUser(UUID.randomUUID())));
+    when(userRepository.existsByEmail(anyString())).thenReturn(false);
+    when(producerRepository.existsByFiscalNumber(anyString())).thenReturn(false);
+    when(identityProviderService.registerProducer(anyString(), anyString()))
+        .thenReturn("auth-sub-bank-only");
+    when(userRepository.saveAndFlush(any())).thenReturn(buildSavedUser(UUID.randomUUID()));
+    when(producerRepository.saveAndFlush(any()))
+        .thenReturn(buildSavedProducer(buildSavedUser(UUID.randomUUID())));
 
-        assertThatThrownBy(() -> producerRegistrationService.register(request))
-                .isInstanceOf(BusinessException.class)
-                .hasMessage("Both pix and bank_account payment methods are required");
+    assertThatThrownBy(() -> producerRegistrationService.register(request))
+        .isInstanceOf(BusinessException.class)
+        .hasMessage("Both pix and bank_account payment methods are required");
 
-        verify(identityProviderService).deleteUser("auth-sub-bank-only");
-    }
+    verify(identityProviderService).deleteUser("auth-sub-bank-only");
+  }
 
-    @Test
-    void register_shouldThrowBusinessException_whenDuplicatePaymentMethodTypes() {
-        PaymentMethodRequest pix1 = new PaymentMethodRequest();
-        pix1.setType("pix");
-        pix1.setPixKeyType("email");
-        pix1.setPixKey("a@example.com");
+  @Test
+  void register_shouldThrowBusinessException_whenDuplicatePaymentMethodTypes() {
+    PaymentMethodRequest pix1 = new PaymentMethodRequest();
+    pix1.setType("pix");
+    pix1.setPixKeyType("email");
+    pix1.setPixKey("a@example.com");
 
-        PaymentMethodRequest pix2 = new PaymentMethodRequest();
-        pix2.setType("pix");
-        pix2.setPixKeyType("phone");
-        pix2.setPixKey("51999999999");
+    PaymentMethodRequest pix2 = new PaymentMethodRequest();
+    pix2.setType("pix");
+    pix2.setPixKeyType("phone");
+    pix2.setPixKey("51999999999");
 
-        ProducerRegistrationRequest request = validRequest();
-        request.setPaymentMethods(List.of(pix1, pix2));
+    ProducerRegistrationRequest request = validRequest();
+    request.setPaymentMethods(List.of(pix1, pix2));
 
-        when(userRepository.existsByEmail(anyString())).thenReturn(false);
-        when(producerRepository.existsByFiscalNumber(anyString())).thenReturn(false);
-        when(identityProviderService.registerProducer(anyString(), anyString())).thenReturn("auth-sub-dup");
-        when(userRepository.saveAndFlush(any())).thenReturn(buildSavedUser(UUID.randomUUID()));
-        when(producerRepository.saveAndFlush(any())).thenReturn(buildSavedProducer(buildSavedUser(UUID.randomUUID())));
+    when(userRepository.existsByEmail(anyString())).thenReturn(false);
+    when(producerRepository.existsByFiscalNumber(anyString())).thenReturn(false);
+    when(identityProviderService.registerProducer(anyString(), anyString()))
+        .thenReturn("auth-sub-dup");
+    when(userRepository.saveAndFlush(any())).thenReturn(buildSavedUser(UUID.randomUUID()));
+    when(producerRepository.saveAndFlush(any()))
+        .thenReturn(buildSavedProducer(buildSavedUser(UUID.randomUUID())));
 
-        assertThatThrownBy(() -> producerRegistrationService.register(request))
-                .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("Duplicate payment method type: pix");
+    assertThatThrownBy(() -> producerRegistrationService.register(request))
+        .isInstanceOf(BusinessException.class)
+        .hasMessageContaining("Duplicate payment method type: pix");
 
-        verify(identityProviderService).deleteUser("auth-sub-dup");
-    }
+    verify(identityProviderService).deleteUser("auth-sub-dup");
+  }
 }

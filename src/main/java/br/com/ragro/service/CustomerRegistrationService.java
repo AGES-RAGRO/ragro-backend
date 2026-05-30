@@ -13,13 +13,13 @@ import br.com.ragro.repository.AddressRepository;
 import br.com.ragro.repository.CustomerRepository;
 import br.com.ragro.repository.UserRepository;
 import br.com.ragro.service.api.IdentityProviderService;
-import java.util.Locale;
+import com.google.maps.model.LatLng;
 import java.math.BigDecimal;
+import java.util.Locale;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.google.maps.model.LatLng;
 
 @Service
 public class CustomerRegistrationService {
@@ -73,13 +73,19 @@ public class CustomerRegistrationService {
 
       Address address = AddressMapper.toEntity(normalizedAddress, savedUser, true);
 
-      String fullAddress = String.format("%s, %s - %s, %s - %s, %s", 
-              address.getStreet(), address.getNumber(), address.getNeighborhood(), 
-              address.getCity(), address.getState(), address.getZipCode());
+      String fullAddress =
+          String.format(
+              "%s, %s - %s, %s - %s, %s",
+              address.getStreet(),
+              address.getNumber(),
+              address.getNeighborhood(),
+              address.getCity(),
+              address.getState(),
+              address.getZipCode());
       LatLng latLng = googleMapsService.geocodeAddress(fullAddress);
       if (latLng != null) {
-          address.setLatitude(BigDecimal.valueOf(latLng.lat));
-          address.setLongitude(BigDecimal.valueOf(latLng.lng));
+        address.setLatitude(BigDecimal.valueOf(latLng.lat));
+        address.setLongitude(BigDecimal.valueOf(latLng.lng));
       }
 
       savedAddress = addressRepository.save(address);
@@ -87,7 +93,10 @@ public class CustomerRegistrationService {
       try {
         identityProviderService.deleteUser(externalUserId);
       } catch (Exception compensation) {
-        log.error("Keycloak compensation failed for user {}: {}", externalUserId, compensation.getMessage());
+        log.error(
+            "Keycloak compensation failed for user {}: {}",
+            externalUserId,
+            compensation.getMessage());
       }
       throw original;
     }

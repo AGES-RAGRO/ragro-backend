@@ -47,16 +47,17 @@ class CustomerNotificationControllerTest {
   void getMyNotifications_shouldReturn200() throws Exception {
     String sub = "customer-sub";
     UUID notificationId = UUID.randomUUID();
-    NotificationResponse response = NotificationResponse.builder()
-        .id(notificationId)
-        .title("Pedido aceito")
-        .message("Seu pedido foi aceito pelo produtor.")
-        .type(NotificationType.ORDER_CONFIRMED)
-        .referenceType(NotificationReferenceType.ORDER)
-        .referenceId(UUID.randomUUID())
-        .read(false)
-        .createdAt(OffsetDateTime.parse("2026-05-13T12:00:00Z"))
-        .build();
+    NotificationResponse response =
+        NotificationResponse.builder()
+            .id(notificationId)
+            .title("Pedido aceito")
+            .message("Seu pedido foi aceito pelo produtor.")
+            .type(NotificationType.ORDER_CONFIRMED)
+            .referenceType(NotificationReferenceType.ORDER)
+            .referenceId(UUID.randomUUID())
+            .read(false)
+            .createdAt(OffsetDateTime.parse("2026-05-13T12:00:00Z"))
+            .build();
 
     when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(buildCustomerUser(sub, true)));
     when(notificationService.getMyCustomerNotifications(any(), any()))
@@ -69,7 +70,8 @@ class CustomerNotificationControllerTest {
                 .totalPages(1)
                 .build());
 
-    mockMvc.perform(
+    mockMvc
+        .perform(
             get("/customers/me/notifications")
                 .with(
                     SecurityMockMvcRequestPostProcessors.jwt()
@@ -84,9 +86,11 @@ class CustomerNotificationControllerTest {
   void getUnreadCount_shouldReturn200() throws Exception {
     String sub = "customer-sub";
     when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(buildCustomerUser(sub, true)));
-    when(notificationService.getMyCustomerUnreadCount(any())).thenReturn(new UnreadCountResponse(4));
+    when(notificationService.getMyCustomerUnreadCount(any()))
+        .thenReturn(new UnreadCountResponse(4));
 
-    mockMvc.perform(
+    mockMvc
+        .perform(
             get("/customers/me/notifications/unread-count")
                 .with(
                     SecurityMockMvcRequestPostProcessors.jwt()
@@ -113,7 +117,8 @@ class CustomerNotificationControllerTest {
                 .readAt(OffsetDateTime.parse("2026-05-13T12:30:00Z"))
                 .build());
 
-    mockMvc.perform(
+    mockMvc
+        .perform(
             patch("/customers/me/notifications/{notificationId}/read", notificationId)
                 .with(
                     SecurityMockMvcRequestPostProcessors.jwt()
@@ -131,7 +136,8 @@ class CustomerNotificationControllerTest {
     when(notificationService.markMyCustomerNotificationAsRead(eq(notificationId), any()))
         .thenThrow(new NotFoundException("Notificação não encontrada"));
 
-    mockMvc.perform(
+    mockMvc
+        .perform(
             patch("/customers/me/notifications/{notificationId}/read", notificationId)
                 .with(
                     SecurityMockMvcRequestPostProcessors.jwt()
@@ -146,7 +152,8 @@ class CustomerNotificationControllerTest {
     String sub = "customer-sub";
     when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(buildCustomerUser(sub, true)));
 
-    mockMvc.perform(
+    mockMvc
+        .perform(
             patch("/customers/me/notifications/read-all")
                 .with(
                     SecurityMockMvcRequestPostProcessors.jwt()

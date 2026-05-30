@@ -26,4 +26,3 @@ public class DashboardWeeklyResponse {
   @Schema(description = "Daily sales data for the last 7 days")
   private List<DailySalesResponse> dailySales;
 }
-

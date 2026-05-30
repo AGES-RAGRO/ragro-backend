@@ -22,8 +22,12 @@ public class RouteController {
   private final GoogleMapsService googleMapsService;
 
   @PostMapping("/optimize")
-  @Operation(summary = "Optimize route", description = "Calculates the most efficient route passing through all waypoints and returns the distance, duration, and encoded polyline for the map.")
-  public ResponseEntity<RouteResponseDTO> optimizeRoute(@Valid @RequestBody RouteRequestDTO request) {
+  @Operation(
+      summary = "Optimize route",
+      description =
+          "Calculates the most efficient route passing through all waypoints and returns the distance, duration, and encoded polyline for the map.")
+  public ResponseEntity<RouteResponseDTO> optimizeRoute(
+      @Valid @RequestBody RouteRequestDTO request) {
     return ResponseEntity.ok(googleMapsService.optimizeRoute(request));
   }
 }

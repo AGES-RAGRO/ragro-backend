@@ -33,7 +33,8 @@ public class NotificationService {
       Jwt jwt, Pageable pageable) {
     User user = requireCustomer(jwt);
     return PaginatedResponse.of(
-        notificationRepository.findByUserIdOrderByCreatedAtDesc(user.getId(), pageable)
+        notificationRepository
+            .findByUserIdOrderByCreatedAtDesc(user.getId(), pageable)
             .map(NotificationMapper::toResponse));
   }
 
@@ -46,8 +47,10 @@ public class NotificationService {
   @Transactional
   public NotificationResponse markMyCustomerNotificationAsRead(UUID notificationId, Jwt jwt) {
     User user = requireCustomer(jwt);
-    Notification notification = notificationRepository.findByIdAndUserId(notificationId, user.getId())
-        .orElseThrow(() -> new NotFoundException("Notificação não encontrada"));
+    Notification notification =
+        notificationRepository
+            .findByIdAndUserId(notificationId, user.getId())
+            .orElseThrow(() -> new NotFoundException("Notificação não encontrada"));
 
     if (!notification.isRead()) {
       notification.setRead(true);
@@ -85,10 +88,7 @@ public class NotificationService {
   @Transactional
   public void createCustomerOrderDeliveredNotification(Order order) {
     createOrderNotification(
-        order,
-        NotificationType.ORDER_DELIVERED,
-        "Seu pedido chegou",
-        "Seu pedido foi entregue.");
+        order, NotificationType.ORDER_DELIVERED, "Seu pedido chegou", "Seu pedido foi entregue.");
   }
 
   @Transactional
@@ -101,10 +101,7 @@ public class NotificationService {
   }
 
   private void createOrderNotification(
-      Order order,
-      NotificationType type,
-      String title,
-      String baseMessage) {
+      Order order, NotificationType type, String title, String baseMessage) {
     Notification notification = new Notification();
     notification.setUser(order.getCustomer().getUser());
     notification.setTitle(title);
