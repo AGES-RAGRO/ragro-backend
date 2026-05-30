@@ -19,8 +19,7 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, UUID> {
       WHERE o.customer.id = :customerId
         AND o.status <> br.com.ragro.domain.enums.OrderStatus.CANCELLED
       """)
-  List<UUID> findDistinctProductIdsByCustomerId(
-      @Param("customerId") UUID customerId);
+  List<UUID> findDistinctProductIdsByCustomerId(@Param("customerId") UUID customerId);
 
   @Query(
       """

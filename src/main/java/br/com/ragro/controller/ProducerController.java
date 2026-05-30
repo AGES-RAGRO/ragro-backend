@@ -10,11 +10,11 @@ import br.com.ragro.controller.response.ProducerGetResponse;
 import br.com.ragro.controller.response.ProducerPublicProfileResponse;
 import br.com.ragro.controller.response.ProductResponse;
 import br.com.ragro.controller.response.ReviewResponse;
+import br.com.ragro.exception.BusinessException;
 import br.com.ragro.service.DashboardService;
 import br.com.ragro.service.ProducerService;
 import br.com.ragro.service.ProductService;
 import br.com.ragro.service.ReviewService;
-import br.com.ragro.exception.BusinessException;
 import br.com.ragro.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -130,9 +130,10 @@ public class ProducerController {
   @PreAuthorize("hasRole('FARMER')")
   @Operation(
       summary = "Get authenticated producer's financial dashboard",
-      description = "Returns consolidated financial dashboard data for the authenticated producer. "
-          + "Includes total sales, delivered orders, and stock sold percentage for the selected month, "
-          + "all with comparisons to the previous month. Defaults to current month if not specified.")
+      description =
+          "Returns consolidated financial dashboard data for the authenticated producer. "
+              + "Includes total sales, delivered orders, and stock sold percentage for the selected month, "
+              + "all with comparisons to the previous month. Defaults to current month if not specified.")
   public ResponseEntity<ProducerDashboardResponse> getProducerDashboard(
       @AuthenticationPrincipal Jwt jwt,
       @RequestParam(required = false) Integer month,
@@ -158,8 +159,9 @@ public class ProducerController {
   @PreAuthorize("hasRole('FARMER')")
   @Operation(
       summary = "Get authenticated producer's weekly sales dashboard",
-      description = "Returns daily sales data for the last 7 days (including today). "
-          + "Each day includes order count and total sales amount.")
+      description =
+          "Returns daily sales data for the last 7 days (including today). "
+              + "Each day includes order count and total sales amount.")
   public ResponseEntity<DashboardWeeklyResponse> getWeeklyDashboard(
       @AuthenticationPrincipal Jwt jwt) {
     UUID producerId = userService.getAuthenticatedUser(jwt).getId();

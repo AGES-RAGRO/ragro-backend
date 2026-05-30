@@ -8,7 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface PaymentMethodRepository extends JpaRepository<PaymentMethod, UUID> {
 
-    List<PaymentMethod> findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(UUID farmerId);
+  List<PaymentMethod> findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(UUID farmerId);
 
-    Optional<PaymentMethod> findByFarmerIdAndTypeAndActiveTrue(UUID farmerId, String type);
+  Optional<PaymentMethod> findByFarmerIdAndTypeAndActiveTrue(UUID farmerId, String type);
 }

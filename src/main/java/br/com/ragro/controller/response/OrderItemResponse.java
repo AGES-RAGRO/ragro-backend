@@ -17,5 +17,4 @@ public class OrderItemResponse {
   private String unityType;
   private BigDecimal quantity;
   private BigDecimal subtotal;
-
 }

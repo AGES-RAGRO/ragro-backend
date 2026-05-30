@@ -25,9 +25,10 @@ public class CnpjValidator implements ConstraintValidator<ValidCnpj, String> {
   }
 
   private static boolean checkDigit(String digits, int position) {
-    int[] weights = (position == 12)
-        ? new int[]{5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2}
-        : new int[]{6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2};
+    int[] weights =
+        (position == 12)
+            ? new int[] {5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2}
+            : new int[] {6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2};
     int sum = 0;
     for (int i = 0; i < weights.length; i++) {
       sum += Character.getNumericValue(digits.charAt(i)) * weights[i];

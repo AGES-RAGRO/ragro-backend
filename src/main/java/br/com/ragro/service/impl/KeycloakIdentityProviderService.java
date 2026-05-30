@@ -78,7 +78,10 @@ public class KeycloakIdentityProviderService implements IdentityProviderService 
           .retrieve()
           .toBodilessEntity();
     } catch (Exception e) {
-      log.error("Failed to trigger password reset email for Keycloak user {}: {}", userId, e.getMessage());
+      log.error(
+          "Failed to trigger password reset email for Keycloak user {}: {}",
+          userId,
+          e.getMessage());
       throw new BusinessException("Falha ao disparar e-mail de redefinição de senha");
     }
   }

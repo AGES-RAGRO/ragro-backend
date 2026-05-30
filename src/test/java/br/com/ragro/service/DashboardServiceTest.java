@@ -55,11 +55,19 @@ class DashboardServiceTest {
     farmer.setFarmName("Test Farm");
 
     // Lenient mocking for flexible repository calls
-    lenient().when(orderRepository.countDeliveredOrdersByMonth(any(), anyInt(), anyInt())).thenReturn(0L);
-    lenient().when(orderRepository.sumDeliveredOrdersAmountByMonth(any(), anyInt(), anyInt())).thenReturn(BigDecimal.ZERO);
+    lenient()
+        .when(orderRepository.countDeliveredOrdersByMonth(any(), anyInt(), anyInt()))
+        .thenReturn(0L);
+    lenient()
+        .when(orderRepository.sumDeliveredOrdersAmountByMonth(any(), anyInt(), anyInt()))
+        .thenReturn(BigDecimal.ZERO);
     lenient().when(productRepository.findAllByFarmerId(any())).thenReturn(new ArrayList<>());
-    lenient().when(stockMovementRepository.sumSoldStockByMonth(any(), anyInt(), anyInt())).thenReturn(BigDecimal.ZERO);
-    lenient().when(stockMovementRepository.sumAddedStockByMonth(any(), anyInt(), anyInt())).thenReturn(BigDecimal.ZERO);
+    lenient()
+        .when(stockMovementRepository.sumSoldStockByMonth(any(), anyInt(), anyInt()))
+        .thenReturn(BigDecimal.ZERO);
+    lenient()
+        .when(stockMovementRepository.sumAddedStockByMonth(any(), anyInt(), anyInt()))
+        .thenReturn(BigDecimal.ZERO);
   }
 
   // ========== getProducerDashboard Tests ==========
@@ -70,18 +78,23 @@ class DashboardServiceTest {
     int currentMonth = today.getMonthValue();
     int currentYear = today.getYear();
 
-    when(orderRepository.countDeliveredOrdersByMonth(eq(producerId), eq(currentYear), eq(currentMonth)))
+    when(orderRepository.countDeliveredOrdersByMonth(
+            eq(producerId), eq(currentYear), eq(currentMonth)))
         .thenReturn(5L);
-    when(orderRepository.sumDeliveredOrdersAmountByMonth(eq(producerId), eq(currentYear), eq(currentMonth)))
+    when(orderRepository.sumDeliveredOrdersAmountByMonth(
+            eq(producerId), eq(currentYear), eq(currentMonth)))
         .thenReturn(new BigDecimal("150.00"));
     when(productRepository.findAllByFarmerId(eq(producerId)))
         .thenReturn(List.of(createProduct(new BigDecimal("100.00"))));
-    when(stockMovementRepository.sumSoldStockByMonth(eq(producerId), eq(currentYear), eq(currentMonth)))
+    when(stockMovementRepository.sumSoldStockByMonth(
+            eq(producerId), eq(currentYear), eq(currentMonth)))
         .thenReturn(new BigDecimal("20.00"));
-    when(stockMovementRepository.sumAddedStockByMonth(eq(producerId), eq(currentYear), eq(currentMonth)))
+    when(stockMovementRepository.sumAddedStockByMonth(
+            eq(producerId), eq(currentYear), eq(currentMonth)))
         .thenReturn(BigDecimal.ZERO);
 
-    ProducerDashboardResponse response = dashboardService.getProducerDashboard(producerId, null, null);
+    ProducerDashboardResponse response =
+        dashboardService.getProducerDashboard(producerId, null, null);
 
     assertThat(response).isNotNull();
     assertThat(response.getMonth()).isEqualTo(currentMonth);
@@ -106,7 +119,8 @@ class DashboardServiceTest {
     when(stockMovementRepository.sumAddedStockByMonth(eq(producerId), eq(year), eq(month)))
         .thenReturn(new BigDecimal("10.00"));
 
-    ProducerDashboardResponse response = dashboardService.getProducerDashboard(producerId, month, year);
+    ProducerDashboardResponse response =
+        dashboardService.getProducerDashboard(producerId, month, year);
 
     assertThat(response).isNotNull();
     assertThat(response.getMonth()).isEqualTo(month);
@@ -126,16 +140,19 @@ class DashboardServiceTest {
         .thenReturn(10L);
     when(orderRepository.sumDeliveredOrdersAmountByMonth(eq(producerId), eq(year), eq(month)))
         .thenReturn(new BigDecimal("500.00"));
-    when(orderRepository.countDeliveredOrdersByMonth(eq(producerId), eq(previousYear), eq(previousMonth)))
+    when(orderRepository.countDeliveredOrdersByMonth(
+            eq(producerId), eq(previousYear), eq(previousMonth)))
         .thenReturn(5L);
-    when(orderRepository.sumDeliveredOrdersAmountByMonth(eq(producerId), eq(previousYear), eq(previousMonth)))
+    when(orderRepository.sumDeliveredOrdersAmountByMonth(
+            eq(producerId), eq(previousYear), eq(previousMonth)))
         .thenReturn(new BigDecimal("250.00"));
     when(productRepository.findAllByFarmerId(eq(producerId)))
         .thenReturn(List.of(createProduct(new BigDecimal("200.00"))));
     when(stockMovementRepository.sumSoldStockByMonth(any(), anyInt(), anyInt()))
         .thenReturn(BigDecimal.ZERO);
 
-    ProducerDashboardResponse response = dashboardService.getProducerDashboard(producerId, month, year);
+    ProducerDashboardResponse response =
+        dashboardService.getProducerDashboard(producerId, month, year);
 
     DashboardMetricResponse ordersMetric = response.getOrdersMetric();
     assertThat(ordersMetric.getCurrentValue()).isEqualByComparingTo("10");
@@ -159,16 +176,19 @@ class DashboardServiceTest {
         .thenReturn(5L);
     when(orderRepository.sumDeliveredOrdersAmountByMonth(eq(producerId), eq(year), eq(month)))
         .thenReturn(new BigDecimal("100.00"));
-    when(orderRepository.countDeliveredOrdersByMonth(eq(producerId), eq(previousYear), eq(previousMonth)))
+    when(orderRepository.countDeliveredOrdersByMonth(
+            eq(producerId), eq(previousYear), eq(previousMonth)))
         .thenReturn(0L);
-    when(orderRepository.sumDeliveredOrdersAmountByMonth(eq(producerId), eq(previousYear), eq(previousMonth)))
+    when(orderRepository.sumDeliveredOrdersAmountByMonth(
+            eq(producerId), eq(previousYear), eq(previousMonth)))
         .thenReturn(BigDecimal.ZERO);
     when(productRepository.findAllByFarmerId(eq(producerId)))
         .thenReturn(List.of(createProduct(new BigDecimal("200.00"))));
     when(stockMovementRepository.sumSoldStockByMonth(any(), anyInt(), anyInt()))
         .thenReturn(BigDecimal.ZERO);
 
-    ProducerDashboardResponse response = dashboardService.getProducerDashboard(producerId, month, year);
+    ProducerDashboardResponse response =
+        dashboardService.getProducerDashboard(producerId, month, year);
 
     DashboardMetricResponse ordersMetric = response.getOrdersMetric();
     assertThat(ordersMetric.getPercentageChange()).isEqualByComparingTo("100.00");
@@ -188,16 +208,19 @@ class DashboardServiceTest {
         .thenReturn(5L);
     when(orderRepository.sumDeliveredOrdersAmountByMonth(eq(producerId), eq(year), eq(month)))
         .thenReturn(new BigDecimal("250.00"));
-    when(orderRepository.countDeliveredOrdersByMonth(eq(producerId), eq(previousYear), eq(previousMonth)))
+    when(orderRepository.countDeliveredOrdersByMonth(
+            eq(producerId), eq(previousYear), eq(previousMonth)))
         .thenReturn(10L);
-    when(orderRepository.sumDeliveredOrdersAmountByMonth(eq(producerId), eq(previousYear), eq(previousMonth)))
+    when(orderRepository.sumDeliveredOrdersAmountByMonth(
+            eq(producerId), eq(previousYear), eq(previousMonth)))
         .thenReturn(new BigDecimal("500.00"));
     when(productRepository.findAllByFarmerId(eq(producerId)))
         .thenReturn(List.of(createProduct(new BigDecimal("200.00"))));
     when(stockMovementRepository.sumSoldStockByMonth(any(), anyInt(), anyInt()))
         .thenReturn(BigDecimal.ZERO);
 
-    ProducerDashboardResponse response = dashboardService.getProducerDashboard(producerId, month, year);
+    ProducerDashboardResponse response =
+        dashboardService.getProducerDashboard(producerId, month, year);
 
     DashboardMetricResponse salesMetric = response.getSalesMetric();
     assertThat(salesMetric.getPercentageChange()).isEqualByComparingTo("-50.00");
@@ -228,15 +251,15 @@ class DashboardServiceTest {
     // Total initial = 250 + 100 - 50 = 300
     // Percentage = 100 / 300 * 100 = 33.33%
 
-    ProducerDashboardResponse response = dashboardService.getProducerDashboard(producerId, month, year);
+    ProducerDashboardResponse response =
+        dashboardService.getProducerDashboard(producerId, month, year);
 
     assertThat(response.getStockSoldPercentage()).isEqualByComparingTo("33.33");
   }
 
   @Test
   void shouldReturnZeroStockPercentage_whenNoProducts() {
-    when(productRepository.findAllByFarmerId(eq(producerId)))
-        .thenReturn(new ArrayList<>());
+    when(productRepository.findAllByFarmerId(eq(producerId))).thenReturn(new ArrayList<>());
 
     ProducerDashboardResponse response = dashboardService.getProducerDashboard(producerId, 3, 2024);
 
@@ -247,8 +270,7 @@ class DashboardServiceTest {
   void shouldReturnZeroStockPercentage_whenInitialStockIsZero() {
     Product product = createProduct(BigDecimal.ZERO);
 
-    when(productRepository.findAllByFarmerId(eq(producerId)))
-        .thenReturn(List.of(product));
+    when(productRepository.findAllByFarmerId(eq(producerId))).thenReturn(List.of(product));
     when(stockMovementRepository.sumSoldStockByMonth(any(), anyInt(), anyInt()))
         .thenReturn(BigDecimal.ZERO);
     when(stockMovementRepository.sumAddedStockByMonth(any(), anyInt(), anyInt()))
@@ -267,8 +289,7 @@ class DashboardServiceTest {
         .thenReturn(0L);
     when(orderRepository.sumDeliveredOrdersAmountByMonth(eq(producerId), anyInt(), anyInt()))
         .thenReturn(BigDecimal.ZERO);
-    when(productRepository.findAllByFarmerId(eq(producerId)))
-        .thenReturn(List.of(product));
+    when(productRepository.findAllByFarmerId(eq(producerId))).thenReturn(List.of(product));
     when(stockMovementRepository.sumSoldStockByMonth(any(), anyInt(), anyInt()))
         .thenReturn(new BigDecimal("300.00"));
     when(stockMovementRepository.sumAddedStockByMonth(any(), anyInt(), anyInt()))
@@ -291,8 +312,7 @@ class DashboardServiceTest {
         .thenReturn(0L);
     when(orderRepository.sumDeliveredOrdersAmountByMonth(eq(producerId), anyInt(), anyInt()))
         .thenReturn(null);
-    when(productRepository.findAllByFarmerId(eq(producerId)))
-        .thenReturn(new ArrayList<>());
+    when(productRepository.findAllByFarmerId(eq(producerId))).thenReturn(new ArrayList<>());
 
     ProducerDashboardResponse response = dashboardService.getProducerDashboard(producerId, 3, 2024);
 
@@ -308,8 +328,7 @@ class DashboardServiceTest {
 
     List<Order> orders = createOrdersForWeek(sevenDaysAgo, today, producerId);
 
-    when(orderRepository.findDeliveredOrdersBetweenDates(any(), any(), any()))
-        .thenReturn(orders);
+    when(orderRepository.findDeliveredOrdersBetweenDates(any(), any(), any())).thenReturn(orders);
 
     DashboardWeeklyResponse response = dashboardService.getWeeklyDashboard(producerId);
 
@@ -331,8 +350,7 @@ class DashboardServiceTest {
     // 1 order on day 2
     orders.add(createOrderWithDate(sevenDaysAgo.plusDays(1), new BigDecimal("75.00")));
 
-    when(orderRepository.findDeliveredOrdersBetweenDates(any(), any(), any()))
-        .thenReturn(orders);
+    when(orderRepository.findDeliveredOrdersBetweenDates(any(), any(), any())).thenReturn(orders);
 
     DashboardWeeklyResponse response = dashboardService.getWeeklyDashboard(producerId);
 
@@ -355,8 +373,7 @@ class DashboardServiceTest {
     List<Order> orders = new ArrayList<>();
     orders.add(createOrderWithDate(sevenDaysAgo, new BigDecimal("100.00")));
 
-    when(orderRepository.findDeliveredOrdersBetweenDates(any(), any(), any()))
-        .thenReturn(orders);
+    when(orderRepository.findDeliveredOrdersBetweenDates(any(), any(), any())).thenReturn(orders);
 
     DashboardWeeklyResponse response = dashboardService.getWeeklyDashboard(producerId);
 
@@ -376,16 +393,14 @@ class DashboardServiceTest {
     // Only add order for first day
     orders.add(createOrderWithDate(sevenDaysAgo, new BigDecimal("100.00")));
 
-    when(orderRepository.findDeliveredOrdersBetweenDates(any(), any(), any()))
-        .thenReturn(orders);
+    when(orderRepository.findDeliveredOrdersBetweenDates(any(), any(), any())).thenReturn(orders);
 
     DashboardWeeklyResponse response = dashboardService.getWeeklyDashboard(producerId);
 
     assertThat(response.getDailySales()).hasSize(7);
     // All 7 days should be present
     for (int i = 0; i < 7; i++) {
-      assertThat(response.getDailySales().get(i).getFullDate())
-          .isEqualTo(sevenDaysAgo.plusDays(i));
+      assertThat(response.getDailySales().get(i).getFullDate()).isEqualTo(sevenDaysAgo.plusDays(i));
     }
   }
 
@@ -411,9 +426,8 @@ class DashboardServiceTest {
     LocalDate sevenDaysAgo = today.minusDays(6);
 
     Order order = new Order();
-    order.setDeliveredAt(sevenDaysAgo.atStartOfDay()
-        .atZone(ZoneId.systemDefault())
-        .toOffsetDateTime());
+    order.setDeliveredAt(
+        sevenDaysAgo.atStartOfDay().atZone(ZoneId.systemDefault()).toOffsetDateTime());
     order.setItems(new ArrayList<>());
 
     OrderItem item1 = new OrderItem();
@@ -450,9 +464,8 @@ class DashboardServiceTest {
     order.setId(UUID.randomUUID());
     order.setFarmer(farmer);
 
-    OffsetDateTime deliveredAt = date.atStartOfDay()
-        .atZone(ZoneId.systemDefault())
-        .toOffsetDateTime();
+    OffsetDateTime deliveredAt =
+        date.atStartOfDay().atZone(ZoneId.systemDefault()).toOffsetDateTime();
     order.setDeliveredAt(deliveredAt);
 
     OrderItem item = new OrderItem();
@@ -473,9 +486,8 @@ class DashboardServiceTest {
       order.setId(UUID.randomUUID());
       order.setFarmer(farmer);
 
-      OffsetDateTime deliveredAt = current.atStartOfDay()
-          .atZone(ZoneId.systemDefault())
-          .toOffsetDateTime();
+      OffsetDateTime deliveredAt =
+          current.atStartOfDay().atZone(ZoneId.systemDefault()).toOffsetDateTime();
       order.setDeliveredAt(deliveredAt);
 
       OrderItem item = new OrderItem();
@@ -491,7 +503,3 @@ class DashboardServiceTest {
     return orders;
   }
 }
-
-
-
-

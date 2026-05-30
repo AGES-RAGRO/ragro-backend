@@ -72,7 +72,10 @@ public class CustomerRegistrationService {
       try {
         identityProviderService.deleteUser(externalUserId);
       } catch (Exception compensation) {
-        log.error("Keycloak compensation failed for user {}: {}", externalUserId, compensation.getMessage());
+        log.error(
+            "Keycloak compensation failed for user {}: {}",
+            externalUserId,
+            compensation.getMessage());
       }
       throw original;
     }

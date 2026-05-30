@@ -160,7 +160,8 @@ class OrderServiceTest {
   void shouldThrowBusinessException_whenCartIsEmptyOrNotFound() {
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
     when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
-    when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId())).thenReturn(Optional.empty());
+    when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId()))
+        .thenReturn(Optional.empty());
 
     assertThatThrownBy(() -> orderService.createOrderFromCart(jwt()))
         .isInstanceOf(BusinessException.class)
@@ -172,7 +173,8 @@ class OrderServiceTest {
     cartItem.setActive(false);
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
     when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
-    when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId())).thenReturn(Optional.of(cart));
+    when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId()))
+        .thenReturn(Optional.of(cart));
 
     assertThatThrownBy(() -> orderService.createOrderFromCart(jwt()))
         .isInstanceOf(BusinessException.class)
@@ -183,8 +185,10 @@ class OrderServiceTest {
   void shouldThrowBusinessException_whenPrimaryAddressNotFound() {
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
     when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
-    when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId())).thenReturn(Optional.of(cart));
-    when(addressRepository.findByUserIdAndIsPrimaryTrue(customer.getId())).thenReturn(Optional.empty());
+    when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId()))
+        .thenReturn(Optional.of(cart));
+    when(addressRepository.findByUserIdAndIsPrimaryTrue(customer.getId()))
+        .thenReturn(Optional.empty());
 
     assertThatThrownBy(() -> orderService.createOrderFromCart(jwt()))
         .isInstanceOf(BusinessException.class)
@@ -195,9 +199,12 @@ class OrderServiceTest {
   void shouldThrowBusinessException_whenFarmerHasNoPaymentMethods() {
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
     when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
-    when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId())).thenReturn(Optional.of(cart));
-    when(addressRepository.findByUserIdAndIsPrimaryTrue(customer.getId())).thenReturn(Optional.of(address));
-    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(farmer.getId())).thenReturn(List.of());
+    when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId()))
+        .thenReturn(Optional.of(cart));
+    when(addressRepository.findByUserIdAndIsPrimaryTrue(customer.getId()))
+        .thenReturn(Optional.of(address));
+    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(farmer.getId()))
+        .thenReturn(List.of());
 
     assertThatThrownBy(() -> orderService.createOrderFromCart(jwt()))
         .isInstanceOf(BusinessException.class)
@@ -208,10 +215,14 @@ class OrderServiceTest {
   void shouldCreateOrderAndClearCart_whenValidData() {
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
     when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
-    when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId())).thenReturn(Optional.of(cart));
-    when(addressRepository.findByUserIdAndIsPrimaryTrue(customer.getId())).thenReturn(Optional.of(address));
-    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(farmer.getId())).thenReturn(List.of(paymentMethod));
-    when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+    when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId()))
+        .thenReturn(Optional.of(cart));
+    when(addressRepository.findByUserIdAndIsPrimaryTrue(customer.getId()))
+        .thenReturn(Optional.of(address));
+    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(farmer.getId()))
+        .thenReturn(List.of(paymentMethod));
+    when(orderRepository.saveAndFlush(any(Order.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
 
     OrderResponse response = orderService.createOrderFromCart(jwt());
 
@@ -586,7 +597,8 @@ class OrderServiceTest {
     when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
     when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
-    OrderResponse response = orderService.updateOrderStatus(orderId, OrderStatus.IN_DELIVERY, jwt());
+    OrderResponse response =
+        orderService.updateOrderStatus(orderId, OrderStatus.IN_DELIVERY, jwt());
 
     assertThat(response.getStatus()).isEqualTo(OrderStatus.IN_DELIVERY);
     verify(orderStatusHistoryRepository).save(any(OrderStatusHistory.class));
@@ -665,7 +677,8 @@ class OrderServiceTest {
 
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
     when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
-    when(orderRepository.findByIdAndCustomerId(orderId, user.getId())).thenReturn(Optional.of(order));
+    when(orderRepository.findByIdAndCustomerId(orderId, user.getId()))
+        .thenReturn(Optional.of(order));
     when(reviewRepository.existsByOrderId(orderId)).thenReturn(true);
 
     CustomerOrderResponse response = orderService.getMyOrderById(orderId, jwt());
@@ -810,7 +823,8 @@ class OrderServiceTest {
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
     when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
     when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
-    when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId())).thenReturn(Optional.empty());
+    when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId()))
+        .thenReturn(Optional.empty());
     when(cartRepository.saveAndFlush(any(Cart.class))).thenAnswer(inv -> inv.getArgument(0));
 
     CartResponse response = orderService.repeatOrder(orderId, jwt());
@@ -850,12 +864,15 @@ class OrderServiceTest {
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
     when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
     when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
-    when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId())).thenReturn(Optional.of(cart));
-    when(cartRepository.saveAndFlush(any(Cart.class))).thenAnswer(inv -> {
-      Cart savedCart = inv.getArgument(0);
-      savedCart.setId(UUID.randomUUID());
-      return savedCart;
-    });
+    when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId()))
+        .thenReturn(Optional.of(cart));
+    when(cartRepository.saveAndFlush(any(Cart.class)))
+        .thenAnswer(
+            inv -> {
+              Cart savedCart = inv.getArgument(0);
+              savedCart.setId(UUID.randomUUID());
+              return savedCart;
+            });
 
     CartResponse response = orderService.repeatOrder(orderId, jwt());
 
@@ -884,7 +901,8 @@ class OrderServiceTest {
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
     when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
     when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
-    when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId())).thenReturn(Optional.empty());
+    when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId()))
+        .thenReturn(Optional.empty());
     when(cartRepository.saveAndFlush(any(Cart.class))).thenAnswer(inv -> inv.getArgument(0));
 
     CartResponse response = orderService.repeatOrder(orderId, jwt());
@@ -912,7 +930,8 @@ class OrderServiceTest {
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
     when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
     when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
-    when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId())).thenReturn(Optional.empty());
+    when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId()))
+        .thenReturn(Optional.empty());
 
     assertThatThrownBy(() -> orderService.repeatOrder(orderId, jwt()))
         .isInstanceOf(BusinessException.class)
@@ -920,7 +939,11 @@ class OrderServiceTest {
   }
 
   private Jwt jwt() {
-    return new Jwt("token", Instant.now(), Instant.now().plusSeconds(300),
-        Map.of("alg", "none"), Map.of("sub", "sub"));
+    return new Jwt(
+        "token",
+        Instant.now(),
+        Instant.now().plusSeconds(300),
+        Map.of("alg", "none"),
+        Map.of("sub", "sub"));
   }
 }

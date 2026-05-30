@@ -27,31 +27,31 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Recommendations", description = "Personalized product recommendations for customers")
 public class RecommendationController {
 
-    private final RecommendationService recommendationService;
+  private final RecommendationService recommendationService;
 
-    @GetMapping
-    @PreAuthorize("hasRole('CUSTOMER')")
-    @Operation(
-            summary = "Get product recommendations",
-            description =
-                    "Returns a ranked list of personalized product recommendations for the authenticated customer.")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Recommendations returned successfully"),
-            @ApiResponse(
-                    responseCode = "400",
-                    description = "Invalid request parameters",
-                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
-            @ApiResponse(
-                    responseCode = "401",
-                    description = "Inactive account or user not found",
-                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
-            @ApiResponse(
-                    responseCode = "403",
-                    description = "Access denied – only customers can request recommendations",
-                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-    })
-    public ResponseEntity<RecommendationResponse> getRecommendations(
-            @ModelAttribute @Valid RecommendationRequest request, @AuthenticationPrincipal Jwt jwt) {
-        return ResponseEntity.ok(recommendationService.getRecommendations(request, jwt));
-    }
+  @GetMapping
+  @PreAuthorize("hasRole('CUSTOMER')")
+  @Operation(
+      summary = "Get product recommendations",
+      description =
+          "Returns a ranked list of personalized product recommendations for the authenticated customer.")
+  @ApiResponses({
+    @ApiResponse(responseCode = "200", description = "Recommendations returned successfully"),
+    @ApiResponse(
+        responseCode = "400",
+        description = "Invalid request parameters",
+        content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+    @ApiResponse(
+        responseCode = "401",
+        description = "Inactive account or user not found",
+        content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+    @ApiResponse(
+        responseCode = "403",
+        description = "Access denied – only customers can request recommendations",
+        content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+  })
+  public ResponseEntity<RecommendationResponse> getRecommendations(
+      @ModelAttribute @Valid RecommendationRequest request, @AuthenticationPrincipal Jwt jwt) {
+    return ResponseEntity.ok(recommendationService.getRecommendations(request, jwt));
+  }
 }

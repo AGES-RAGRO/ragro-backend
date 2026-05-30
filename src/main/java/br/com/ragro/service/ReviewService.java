@@ -22,7 +22,6 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-
 @Service
 @RequiredArgsConstructor
 public class ReviewService {
@@ -33,15 +32,14 @@ public class ReviewService {
   private final ProducerService producerService;
 
   @Transactional(readOnly = true)
-  public PaginatedResponse<ReviewResponse> getReviewsByProducer(UUID producerId, Pageable pageable) {
+  public PaginatedResponse<ReviewResponse> getReviewsByProducer(
+      UUID producerId, Pageable pageable) {
     producerRepository
         .findById(producerId)
         .orElseThrow(() -> new NotFoundException("Produtor não encontrado"));
 
     Page<ReviewResponse> page =
-        reviewRepository
-            .findAllByFarmerId(producerId, pageable)
-            .map(ReviewMapper::toResponse);
+        reviewRepository.findAllByFarmerId(producerId, pageable).map(ReviewMapper::toResponse);
 
     return PaginatedResponse.of(page);
   }

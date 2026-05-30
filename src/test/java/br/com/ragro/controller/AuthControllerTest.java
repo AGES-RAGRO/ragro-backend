@@ -37,11 +37,14 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(AuthController.class)
-@Import({SecurityConfig.class, KeycloakRolesConverter.class, CorsConfig.class, ActiveUserFilter.class})
-@TestPropertySource(properties = {
-    "keycloak.public-url=http://localhost:8180",
-    "keycloak.realm=ragro"
+@Import({
+  SecurityConfig.class,
+  KeycloakRolesConverter.class,
+  CorsConfig.class,
+  ActiveUserFilter.class
 })
+@TestPropertySource(
+    properties = {"keycloak.public-url=http://localhost:8180", "keycloak.realm=ragro"})
 class AuthControllerTest {
 
   @Autowired private MockMvc mockMvc;
@@ -56,24 +59,27 @@ class AuthControllerTest {
   @Test
   void registerCustomer_shouldReturn201_whenRequestIsValid() throws Exception {
     UUID id = UUID.randomUUID();
-    CustomerRegistrationResponse response = CustomerRegistrationResponse.builder()
-        .id(id)
-        .name("Maria Silva")
-        .email("maria@example.com")
-        .phone("51987654321")
-        .type("customer")
-        .active(true)
-        .fiscalNumber("52998224725")
-        .createdAt(OffsetDateTime.now())
-        .updatedAt(OffsetDateTime.now())
-        .build();
+    CustomerRegistrationResponse response =
+        CustomerRegistrationResponse.builder()
+            .id(id)
+            .name("Maria Silva")
+            .email("maria@example.com")
+            .phone("51987654321")
+            .type("customer")
+            .active(true)
+            .fiscalNumber("52998224725")
+            .createdAt(OffsetDateTime.now())
+            .updatedAt(OffsetDateTime.now())
+            .build();
 
     when(customerRegistrationService.register(any())).thenReturn(response);
 
-    mockMvc.perform(post("/auth/register/customer")
-            .with(csrf())
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(validRegistrationRequest())))
+    mockMvc
+        .perform(
+            post("/auth/register/customer")
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(validRegistrationRequest())))
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.id").value(id.toString()))
         .andExpect(jsonPath("$.email").value("maria@example.com"))
@@ -85,10 +91,12 @@ class AuthControllerTest {
     when(customerRegistrationService.register(any()))
         .thenThrow(new ConflictException("E-mail already registered"));
 
-    mockMvc.perform(post("/auth/register/customer")
-            .with(csrf())
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(validRegistrationRequest())))
+    mockMvc
+        .perform(
+            post("/auth/register/customer")
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(validRegistrationRequest())))
         .andExpect(status().isConflict())
         .andExpect(jsonPath("$.error").value("E-mail already registered"));
   }
@@ -97,10 +105,12 @@ class AuthControllerTest {
   void registerCustomer_shouldReturn400_whenRequestBodyIsInvalid() throws Exception {
     CustomerRegistrationRequest invalid = new CustomerRegistrationRequest();
 
-    mockMvc.perform(post("/auth/register/customer")
-            .with(csrf())
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(invalid)))
+    mockMvc
+        .perform(
+            post("/auth/register/customer")
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(invalid)))
         .andExpect(status().isBadRequest());
   }
 
@@ -109,10 +119,12 @@ class AuthControllerTest {
     CustomerRegistrationRequest request = validRegistrationRequest();
     request.setFiscalNumber("12345678901");
 
-    mockMvc.perform(post("/auth/register/customer")
-            .with(csrf())
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(request)))
+    mockMvc
+        .perform(
+            post("/auth/register/customer")
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isBadRequest());
   }
 
@@ -120,18 +132,19 @@ class AuthControllerTest {
 
   @Test
   void getConfig_shouldReturn200_withKeycloakTokenUrl() throws Exception {
-    mockMvc.perform(get("/auth/config"))
+    mockMvc
+        .perform(get("/auth/config"))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.tokenUrl").value(
-            "http://localhost:8180/realms/ragro/protocol/openid-connect/token"))
+        .andExpect(
+            jsonPath("$.tokenUrl")
+                .value("http://localhost:8180/realms/ragro/protocol/openid-connect/token"))
         .andExpect(jsonPath("$.clientId").value("ragro-app"))
         .andExpect(jsonPath("$.realm").value("ragro"));
   }
 
   @Test
   void getConfig_shouldReturn200_withoutAuthentication() throws Exception {
-    mockMvc.perform(get("/auth/config"))
-        .andExpect(status().isOk());
+    mockMvc.perform(get("/auth/config")).andExpect(status().isOk());
   }
 
   // ─── GET /auth/session ────────────────────────────────────────────────────
@@ -143,10 +156,13 @@ class AuthControllerTest {
     when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(user));
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
 
-    mockMvc.perform(get("/auth/session")
-            .with(SecurityMockMvcRequestPostProcessors.jwt()
-                .jwt(j -> j.claim("sub", sub).claim("email", "user@example.com"))
-                .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"))))
+    mockMvc
+        .perform(
+            get("/auth/session")
+                .with(
+                    SecurityMockMvcRequestPostProcessors.jwt()
+                        .jwt(j -> j.claim("sub", sub).claim("email", "user@example.com"))
+                        .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"))))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.name").value("Test User"))
         .andExpect(jsonPath("$.email").value("user@example.com"))
@@ -156,8 +172,7 @@ class AuthControllerTest {
 
   @Test
   void getSession_shouldReturn401_whenNoJwtProvided() throws Exception {
-    mockMvc.perform(get("/auth/session"))
-        .andExpect(status().isUnauthorized());
+    mockMvc.perform(get("/auth/session")).andExpect(status().isUnauthorized());
   }
 
   // ─── helpers ─────────────────────────────────────────────────────────────

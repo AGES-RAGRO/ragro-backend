@@ -17,9 +17,6 @@ public class OllamaConfig {
     SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
     factory.setConnectTimeout(properties.getConnectTimeoutMs());
     factory.setReadTimeout(properties.getReadTimeoutMs());
-    return RestClient.builder()
-        .baseUrl(properties.getBaseUrl())
-        .requestFactory(factory)
-        .build();
+    return RestClient.builder().baseUrl(properties.getBaseUrl()).requestFactory(factory).build();
   }
 }

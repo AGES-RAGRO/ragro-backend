@@ -9,24 +9,14 @@ import org.junit.jupiter.params.provider.ValueSource;
 class CpfValidatorTest {
 
   @ParameterizedTest(name = "valid CPF: {0}")
-  @ValueSource(strings = {
-      "52998224725",
-      "11144477735",
-      "12345678909",
-      "98765432100"
-  })
+  @ValueSource(strings = {"52998224725", "11144477735", "12345678909", "98765432100"})
   void isValidCpf_shouldReturnTrue_forKnownValidCpfs(String cpf) {
     assertThat(CpfValidator.isValidCpf(cpf)).isTrue();
   }
 
   @ParameterizedTest(name = "invalid CPF: {0}")
-  @ValueSource(strings = {
-      "12345678901",
-      "00000000000",
-      "11111111111",
-      "1234567890",
-      "123456789012"
-  })
+  @ValueSource(
+      strings = {"12345678901", "00000000000", "11111111111", "1234567890", "123456789012"})
   void isValidCpf_shouldReturnFalse_forInvalidCpfs(String cpf) {
     assertThat(CpfValidator.isValidCpf(cpf)).isFalse();
   }

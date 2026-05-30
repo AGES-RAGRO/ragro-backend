@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import org.mockito.ArgumentMatchers;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -47,6 +46,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
@@ -174,7 +174,8 @@ class ProducerServiceTest {
   @Test
   void getActiveProducers_shouldReturnEmptyPage_whenNoProducersMatch() {
     Pageable pageable = PageRequest.of(0, 10);
-    when(producerRepository.findAll(ArgumentMatchers.<Specification<Producer>>any(), eq(pageable))).thenReturn(Page.empty(pageable));
+    when(producerRepository.findAll(ArgumentMatchers.<Specification<Producer>>any(), eq(pageable)))
+        .thenReturn(Page.empty(pageable));
 
     Page<MarketplaceProducerResponse> response =
         producerService.getActiveProducers(new ProducerFilter(), pageable);
@@ -190,13 +191,13 @@ class ProducerServiceTest {
     Producer producer = buildProducerEntity(id, buildProducer(id));
     producer.setFarmName("Fazenda Boa Terra");
     when(producerRepository.findAll(ArgumentMatchers.<Specification<Producer>>any(), eq(pageable)))
-            .thenReturn(new PageImpl<>(List.of(producer), pageable, 1));
+        .thenReturn(new PageImpl<>(List.of(producer), pageable, 1));
 
     ProducerFilter filter = new ProducerFilter();
     filter.setQuery("boa");
 
     Page<MarketplaceProducerResponse> response =
-            producerService.getActiveProducers(filter, pageable);
+        producerService.getActiveProducers(filter, pageable);
 
     assertThat(response.getContent()).hasSize(1);
     assertThat(response.getContent().getFirst().getFarmName()).isEqualTo("Fazenda Boa Terra");
@@ -205,7 +206,8 @@ class ProducerServiceTest {
   @Test
   void getActiveProducers_shouldReturnEmptyPage_whenMinRatingFilterExcludesAll() {
     Pageable pageable = PageRequest.of(0, 10);
-    when(producerRepository.findAll(ArgumentMatchers.<Specification<Producer>>any(), eq(pageable))).thenReturn(Page.empty(pageable));
+    when(producerRepository.findAll(ArgumentMatchers.<Specification<Producer>>any(), eq(pageable)))
+        .thenReturn(Page.empty(pageable));
 
     ProducerFilter filter = new ProducerFilter();
     filter.setMinRating(4.5);
@@ -219,27 +221,31 @@ class ProducerServiceTest {
   @Test
   void getActiveProducers_shouldDelegateToRepository_whenSortByName() {
     Pageable pageable = PageRequest.of(0, 10);
-    when(producerRepository.findAll(ArgumentMatchers.<Specification<Producer>>any(), eq(pageable))).thenReturn(Page.empty(pageable));
+    when(producerRepository.findAll(ArgumentMatchers.<Specification<Producer>>any(), eq(pageable)))
+        .thenReturn(Page.empty(pageable));
 
     ProducerFilter filter = new ProducerFilter();
     filter.setSortBy("name");
 
     producerService.getActiveProducers(filter, pageable);
 
-    verify(producerRepository).findAll(ArgumentMatchers.<Specification<Producer>>any(), eq(pageable));
+    verify(producerRepository)
+        .findAll(ArgumentMatchers.<Specification<Producer>>any(), eq(pageable));
   }
 
   @Test
   void getActiveProducers_shouldDelegateToRepository_whenSortByOrders() {
     Pageable pageable = PageRequest.of(0, 10);
-    when(producerRepository.findAll(ArgumentMatchers.<Specification<Producer>>any(), eq(pageable))).thenReturn(Page.empty(pageable));
+    when(producerRepository.findAll(ArgumentMatchers.<Specification<Producer>>any(), eq(pageable)))
+        .thenReturn(Page.empty(pageable));
 
     ProducerFilter filter = new ProducerFilter();
     filter.setSortBy("orders");
 
     producerService.getActiveProducers(filter, pageable);
 
-    verify(producerRepository).findAll(ArgumentMatchers.<Specification<Producer>>any(), eq(pageable));
+    verify(producerRepository)
+        .findAll(ArgumentMatchers.<Specification<Producer>>any(), eq(pageable));
   }
 
   @Test
@@ -341,7 +347,8 @@ class ProducerServiceTest {
     assertThat(response.getAvailability()).hasSize(1);
     assertThat(response.getAvailability().get(0).getOpensAt()).isEqualTo("14:00");
     assertThat(response.getAvailability().get(0).getClosesAt()).isEqualTo("18:30");
-    verify(paymentMethodRepository, never()).findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(any(UUID.class));
+    verify(paymentMethodRepository, never())
+        .findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(any(UUID.class));
   }
 
   @Test
@@ -466,7 +473,8 @@ class ProducerServiceTest {
     when(producerProfileRepository.findById(producerId)).thenReturn(Optional.of(profile));
     when(producerProfileRepository.save(profile)).thenReturn(profile);
     when(addressRepository.findByUserIdAndIsPrimaryTrue(producerId)).thenReturn(Optional.empty());
-    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(producerId)).thenReturn(List.of());
+    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(producerId))
+        .thenReturn(List.of());
 
     ProducerGetResponse response = producerService.updateProducerProfile(producerId, jwt, request);
 
@@ -531,7 +539,8 @@ class ProducerServiceTest {
     when(producerProfileRepository.save(any(ProducerProfile.class)))
         .thenAnswer(inv -> inv.getArgument(0));
     when(addressRepository.findByUserIdAndIsPrimaryTrue(producerId)).thenReturn(Optional.empty());
-    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(producerId)).thenReturn(List.of());
+    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(producerId))
+        .thenReturn(List.of());
 
     ProducerGetResponse response = producerService.updateProducerProfile(producerId, jwt, request);
 
@@ -563,7 +572,8 @@ class ProducerServiceTest {
     when(producerProfileRepository.findById(farmerId)).thenReturn(Optional.of(profile));
     when(producerProfileRepository.save(profile)).thenReturn(profile);
     when(addressRepository.findByUserIdAndIsPrimaryTrue(farmerId)).thenReturn(Optional.empty());
-    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(farmerId)).thenReturn(List.of());
+    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(farmerId))
+        .thenReturn(List.of());
 
     ProducerGetResponse response = producerService.updateProducerProfile(farmerId, jwt, request);
 
@@ -638,7 +648,8 @@ class ProducerServiceTest {
     when(producerProfileRepository.findById(producerId)).thenReturn(Optional.of(profile));
     when(producerProfileRepository.save(profile)).thenReturn(profile);
     when(addressRepository.findByUserIdAndIsPrimaryTrue(producerId)).thenReturn(Optional.empty());
-    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(producerId)).thenReturn(List.of());
+    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(producerId))
+        .thenReturn(List.of());
 
     producerService.updateProducerProfile(producerId, jwt, request);
 
@@ -679,7 +690,8 @@ class ProducerServiceTest {
     when(paymentMethodRepository.findByFarmerIdAndTypeAndActiveTrue(eq(producerId), anyString()))
         .thenReturn(Optional.empty());
     when(paymentMethodRepository.save(any(PaymentMethod.class))).thenAnswer(i -> i.getArgument(0));
-    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(producerId)).thenReturn(List.of());
+    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(producerId))
+        .thenReturn(List.of());
 
     producerService.updateProducerProfile(producerId, jwt, request);
 
@@ -740,7 +752,8 @@ class ProducerServiceTest {
     when(producerProfileRepository.findById(producerId)).thenReturn(Optional.of(profile));
     when(producerProfileRepository.save(profile)).thenReturn(profile);
     when(addressRepository.findByUserIdAndIsPrimaryTrue(producerId)).thenReturn(Optional.empty());
-    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(producerId)).thenReturn(List.of());
+    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(producerId))
+        .thenReturn(List.of());
 
     producerService.updateProducerProfile(producerId, jwt, request);
 
@@ -770,7 +783,8 @@ class ProducerServiceTest {
     when(producerProfileRepository.findById(producerId)).thenReturn(Optional.of(profile));
     when(producerProfileRepository.save(profile)).thenReturn(profile);
     when(addressRepository.findByUserIdAndIsPrimaryTrue(producerId)).thenReturn(Optional.empty());
-    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(producerId)).thenReturn(List.of());
+    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(producerId))
+        .thenReturn(List.of());
     when(farmerAvailabilityRepository.findByFarmerIdAndActiveTrueOrderByWeekdayAsc(producerId))
         .thenReturn(List.of());
 
@@ -907,7 +921,8 @@ class ProducerServiceTest {
     when(producerProfileRepository.findById(producerId)).thenReturn(Optional.of(profile));
     when(producerProfileRepository.save(profile)).thenReturn(profile);
     when(addressRepository.findByUserIdAndIsPrimaryTrue(producerId)).thenReturn(Optional.empty());
-    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(producerId)).thenReturn(List.of());
+    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(producerId))
+        .thenReturn(List.of());
     when(farmerAvailabilityRepository.findByFarmerIdAndActiveTrueOrderByWeekdayAsc(producerId))
         .thenReturn(List.of());
 

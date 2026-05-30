@@ -88,8 +88,7 @@ class Co2ServiceTest {
     UUID userId = UUID.randomUUID();
     User user = new User();
     user.setId(userId);
-    Jwt jwt =
-        Jwt.withTokenValue("token").header("alg", "RS256").claim("sub", "user-sub").build();
+    Jwt jwt = Jwt.withTokenValue("token").header("alg", "RS256").claim("sub", "user-sub").build();
 
     when(userService.getAuthenticatedUser(jwt)).thenReturn(user);
     when(vehiclePreferenceRepository.findById(userId)).thenReturn(Optional.empty());

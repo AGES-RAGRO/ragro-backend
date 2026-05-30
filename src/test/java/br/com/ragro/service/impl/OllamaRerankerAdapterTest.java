@@ -2,6 +2,7 @@ package br.com.ragro.service.impl;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -36,7 +37,8 @@ class OllamaRerankerAdapterTest {
 
   @BeforeEach
   void setUp() {
-    when(properties.getModel()).thenReturn("llama3");
+    // lenient: o cenário de candidatos vazios faz short-circuit antes de usar o model.
+    lenient().when(properties.getModel()).thenReturn("llama3");
     adapter = new OllamaRerankerAdapter(restClient, properties, objectMapper);
   }
 
@@ -190,6 +192,92 @@ class OllamaRerankerAdapterTest {
     assertThat(result.get(0).getReason()).isNotNull().isEmpty();
   }
 
+  // ─── Cenário 8: resposta sem message → LlmInvalidOutputException ─────────────
+
+  @Test
+  void shouldThrowOnNullMessage() {
+    // Given
+    Candidate candidate = buildCandidate(UUID.randomUUID());
+    OllamaChatResponse response = new OllamaChatResponse();
+    response.setMessage(null);
+    stubRestClient(response);
+
+    // When / Then
+    assertThatThrownBy(() -> adapter.rerank(List.of(candidate), emptyFeatures()))
+        .isInstanceOf(LlmInvalidOutputException.class)
+        .hasMessageContaining("Empty or null response");
+  }
+
+  // ─── Cenário 9: conteúdo em branco → LlmInvalidOutputException ───────────────
+
+  @Test
+  void shouldThrowOnBlankContent() {
+    // Given
+    Candidate candidate = buildCandidate(UUID.randomUUID());
+    stubRestClient("   ");
+
+    // When / Then
+    assertThatThrownBy(() -> adapter.rerank(List.of(candidate), emptyFeatures()))
+        .isInstanceOf(LlmInvalidOutputException.class)
+        .hasMessageContaining("Empty content");
+  }
+
+  // ─── Cenário 10: entry sem productId → LlmInvalidOutputException ─────────────
+
+  @Test
+  void shouldThrowOnMissingProductId() {
+    // Given
+    Candidate candidate = buildCandidate(UUID.randomUUID());
+    stubRestClient("{\"ranked\":[{\"score\":0.5,\"reason\":\"sem id\"}]}");
+
+    // When / Then
+    assertThatThrownBy(() -> adapter.rerank(List.of(candidate), emptyFeatures()))
+        .isInstanceOf(LlmInvalidOutputException.class)
+        .hasMessageContaining("Missing productId");
+  }
+
+  // ─── Cenário 11: productId que não é UUID → LlmInvalidOutputException ────────
+
+  @Test
+  void shouldThrowOnInvalidUuid() {
+    // Given
+    Candidate candidate = buildCandidate(UUID.randomUUID());
+    stubRestClient("{\"ranked\":[{\"productId\":\"not-a-uuid\",\"score\":0.5}]}");
+
+    // When / Then
+    assertThatThrownBy(() -> adapter.rerank(List.of(candidate), emptyFeatures()))
+        .isInstanceOf(LlmInvalidOutputException.class)
+        .hasMessageContaining("Invalid UUID");
+  }
+
+  // ─── Cenário 12: todos os productId desconhecidos → nenhum item válido ──────
+
+  @Test
+  void shouldThrowWhenAllProductIdsUnknown() {
+    // Given
+    UUID knownId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+    UUID unknownId = UUID.fromString("00000000-0000-0000-0000-000000000099");
+    Candidate candidate = buildCandidate(knownId);
+    stubRestClient(
+        "{\"ranked\":[{\"productId\":\"" + unknownId + "\",\"score\":0.5,\"reason\":\"x\"}]}");
+
+    // When / Then
+    assertThatThrownBy(() -> adapter.rerank(List.of(candidate), emptyFeatures()))
+        .isInstanceOf(LlmInvalidOutputException.class)
+        .hasMessageContaining("No valid ranked items");
+  }
+
+  // ─── Cenário 13: lista de candidatos vazia → retorna vazio sem chamar o LLM ─
+
+  @Test
+  void shouldReturnEmptyWhenNoCandidates() {
+    // When
+    List<RankedItem> result = adapter.rerank(List.of(), emptyFeatures());
+
+    // Then
+    assertThat(result).isEmpty();
+  }
+
   // ─────────────────────────────────────────────────────────────────────────────
   // Helpers
   // ─────────────────────────────────────────────────────────────────────────────
@@ -199,7 +287,10 @@ class OllamaRerankerAdapterTest {
     OllamaResponseMessage message = new OllamaResponseMessage();
     message.setContent(jsonContent);
     response.setMessage(message);
+    stubRestClient(response);
+  }
 
+  private void stubRestClient(OllamaChatResponse response) {
     // RETURNS_SELF faz cada método fluente (uri, contentType, body) devolver o próprio mock,
     // evitando problemas com a inferência de tipo genérico das interfaces aninhadas do RestClient.
     RestClient.RequestBodyUriSpec uriSpec =

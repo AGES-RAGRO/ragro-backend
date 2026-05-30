@@ -30,8 +30,6 @@ public class CustomerUpdateRequest {
 
   @Valid
   @NotNull(message = "Address is required")
-  @Schema(
-      description = "Primary delivery address",
-      requiredMode = Schema.RequiredMode.REQUIRED)
+  @Schema(description = "Primary delivery address", requiredMode = Schema.RequiredMode.REQUIRED)
   private AddressRequest address;
 }

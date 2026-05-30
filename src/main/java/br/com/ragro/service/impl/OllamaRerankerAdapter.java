@@ -170,7 +170,8 @@ public class OllamaRerankerAdapter implements LlmRerankerPort {
     if (content.startsWith("```")) {
       int nl = content.indexOf('\n');
       if (nl != -1) content = content.substring(nl + 1).trim();
-      if (content.endsWith("```")) content = content.substring(0, content.lastIndexOf("```")).trim();
+      if (content.endsWith("```"))
+        content = content.substring(0, content.lastIndexOf("```")).trim();
     }
 
     OllamaRankedOutput output;
