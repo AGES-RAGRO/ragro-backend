@@ -61,10 +61,8 @@ public class MinioStorageService {
 
     try (InputStream stream = file.getInputStream()) {
       minioClient.putObject(
-          PutObjectArgs.builder()
-              .bucket(properties.getBucket())
-              .object(objectKey)
-              .stream(stream, file.getSize(), -1)
+          PutObjectArgs.builder().bucket(properties.getBucket()).object(objectKey).stream(
+                  stream, file.getSize(), -1)
               .contentType(contentType)
               .build());
     } catch (IOException e) {

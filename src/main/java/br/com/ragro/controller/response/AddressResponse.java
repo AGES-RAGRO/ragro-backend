@@ -50,10 +50,7 @@ public class AddressResponse {
       requiredMode = Schema.RequiredMode.REQUIRED)
   private String city;
 
-  @Schema(
-      description = "State code",
-      example = "RS",
-      requiredMode = Schema.RequiredMode.REQUIRED)
+  @Schema(description = "State code", example = "RS", requiredMode = Schema.RequiredMode.REQUIRED)
   private String state;
 
   @Schema(

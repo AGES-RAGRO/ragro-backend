@@ -22,8 +22,7 @@ class OllamaConfigTest {
 
     assertThat(properties.getConnectTimeoutMs()).isEqualTo(2000);
     assertThat(properties.getReadTimeoutMs()).isEqualTo(30000);
-    assertThat(properties.getConnectTimeoutMs())
-        .isNotEqualTo(properties.getReadTimeoutMs());
+    assertThat(properties.getConnectTimeoutMs()).isNotEqualTo(properties.getReadTimeoutMs());
   }
 
   @Test

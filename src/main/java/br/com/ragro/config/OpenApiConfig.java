@@ -41,8 +41,12 @@ public class OpenApiConfig {
                 .license(new License().name("MIT").url("https://opensource.org/licenses/MIT")))
         .servers(
             List.of(
-                new Server().url("http://localhost:8080").description("Development Server (LOCALHOST)"),
-                new Server().url("https://7ruopxdlm7.execute-api.us-east-2.amazonaws.com").description("Production Server (AWS)")))
+                new Server()
+                    .url("http://localhost:8080")
+                    .description("Development Server (LOCALHOST)"),
+                new Server()
+                    .url("https://7ruopxdlm7.execute-api.us-east-2.amazonaws.com")
+                    .description("Production Server (AWS)")))
         .tags(
             List.of(
                 new Tag()

@@ -49,7 +49,9 @@ public class ProducerUpdateRequest {
   private AddressRequest address;
 
   @Valid
-  @Schema(description = "Payment methods to upsert (pix and/or bank_account). Partial update: null or empty list means no change.")
+  @Schema(
+      description =
+          "Payment methods to upsert (pix and/or bank_account). Partial update: null or empty list means no change.")
   private List<PaymentMethodRequest> paymentMethods;
 
   @Valid

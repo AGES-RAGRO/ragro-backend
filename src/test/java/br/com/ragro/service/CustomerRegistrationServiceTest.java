@@ -96,7 +96,8 @@ class CustomerRegistrationServiceTest {
 
     when(userRepository.existsByEmail("maria@example.com")).thenReturn(false);
     when(customerRepository.existsByFiscalNumber("52998224725")).thenReturn(false);
-    when(identityProviderService.registerCustomer(anyString(), anyString())).thenReturn("auth-sub-" + id);
+    when(identityProviderService.registerCustomer(anyString(), anyString()))
+        .thenReturn("auth-sub-" + id);
     when(userRepository.saveAndFlush(any())).thenReturn(savedUser);
     when(customerRepository.saveAndFlush(any())).thenReturn(null);
     when(addressRepository.save(any())).thenReturn(savedAddress);
@@ -122,7 +123,8 @@ class CustomerRegistrationServiceTest {
 
     when(userRepository.existsByEmail("maria@example.com")).thenReturn(false);
     when(customerRepository.existsByFiscalNumber(anyString())).thenReturn(false);
-    when(identityProviderService.registerCustomer("maria@example.com", "Senha@123")).thenReturn("auth-sub");
+    when(identityProviderService.registerCustomer("maria@example.com", "Senha@123"))
+        .thenReturn("auth-sub");
     when(userRepository.saveAndFlush(any())).thenReturn(savedUser);
     when(customerRepository.saveAndFlush(any())).thenReturn(null);
     when(addressRepository.save(any())).thenReturn(buildSavedAddress(savedUser));
@@ -185,7 +187,8 @@ class CustomerRegistrationServiceTest {
   void register_shouldDeleteKeycloakUser_whenSavingUserFails() {
     when(userRepository.existsByEmail(anyString())).thenReturn(false);
     when(customerRepository.existsByFiscalNumber(anyString())).thenReturn(false);
-    when(identityProviderService.registerCustomer(anyString(), anyString())).thenReturn("auth-sub-123");
+    when(identityProviderService.registerCustomer(anyString(), anyString()))
+        .thenReturn("auth-sub-123");
     when(userRepository.saveAndFlush(any())).thenThrow(new RuntimeException("DB error"));
 
     assertThatThrownBy(() -> customerRegistrationService.register(validRequest()))
@@ -202,7 +205,8 @@ class CustomerRegistrationServiceTest {
 
     when(userRepository.existsByEmail(anyString())).thenReturn(false);
     when(customerRepository.existsByFiscalNumber(anyString())).thenReturn(false);
-    when(identityProviderService.registerCustomer(anyString(), anyString())).thenReturn("auth-sub-123");
+    when(identityProviderService.registerCustomer(anyString(), anyString()))
+        .thenReturn("auth-sub-123");
     when(userRepository.saveAndFlush(any())).thenReturn(savedUser);
     when(customerRepository.saveAndFlush(any())).thenThrow(new RuntimeException("DB error"));
 
@@ -220,7 +224,8 @@ class CustomerRegistrationServiceTest {
 
     when(userRepository.existsByEmail(anyString())).thenReturn(false);
     when(customerRepository.existsByFiscalNumber(anyString())).thenReturn(false);
-    when(identityProviderService.registerCustomer(anyString(), anyString())).thenReturn("auth-sub-123");
+    when(identityProviderService.registerCustomer(anyString(), anyString()))
+        .thenReturn("auth-sub-123");
     when(userRepository.saveAndFlush(any())).thenReturn(savedUser);
     when(customerRepository.saveAndFlush(any())).thenReturn(null);
     when(addressRepository.save(any())).thenThrow(new RuntimeException("DB error"));
@@ -239,7 +244,8 @@ class CustomerRegistrationServiceTest {
 
     when(userRepository.existsByEmail(anyString())).thenReturn(false);
     when(customerRepository.existsByFiscalNumber(anyString())).thenReturn(false);
-    when(identityProviderService.registerCustomer(anyString(), anyString())).thenReturn("auth-sub-123");
+    when(identityProviderService.registerCustomer(anyString(), anyString()))
+        .thenReturn("auth-sub-123");
     when(userRepository.saveAndFlush(any())).thenThrow(originalException);
     doThrow(compensationException).when(identityProviderService).deleteUser("auth-sub-123");
 

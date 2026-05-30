@@ -19,29 +19,29 @@ import org.hibernate.annotations.UpdateTimestamp;
 @ToString(of = "id")
 public class ProducerProfile {
 
-    @Id
-    @Column(name = "id", columnDefinition = "uuid")
-    private UUID id;
+  @Id
+  @Column(name = "id", columnDefinition = "uuid")
+  private UUID id;
 
-    @MapsId
-    @OneToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "id")
-    private User user;
+  @MapsId
+  @OneToOne(fetch = FetchType.LAZY, optional = false)
+  @JoinColumn(name = "id")
+  private User user;
 
-    @Column(columnDefinition = "TEXT")
-    private String story;
+  @Column(columnDefinition = "TEXT")
+  private String story;
 
-    @Column(name = "photo_url")
-    private String photoUrl;
+  @Column(name = "photo_url")
+  private String photoUrl;
 
-    @Column(name = "member_since")
-    private LocalDate memberSince;
+  @Column(name = "member_since")
+  private LocalDate memberSince;
 
-    @CreationTimestamp
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private OffsetDateTime createdAt;
+  @CreationTimestamp
+  @Column(name = "created_at", nullable = false, updatable = false)
+  private OffsetDateTime createdAt;
 
-    @UpdateTimestamp
-    @Column(name = "updated_at", nullable = false)
-    private OffsetDateTime updatedAt;
+  @UpdateTimestamp
+  @Column(name = "updated_at", nullable = false)
+  private OffsetDateTime updatedAt;
 }

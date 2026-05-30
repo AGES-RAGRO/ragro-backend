@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 
 import br.com.ragro.controller.request.StockEntryRequest;
 import br.com.ragro.controller.request.StockExitRequest;
+import br.com.ragro.controller.request.StockMovementFilter;
 import br.com.ragro.controller.response.StockMovementResponse;
 import br.com.ragro.domain.Producer;
 import br.com.ragro.domain.Product;
@@ -18,7 +19,6 @@ import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.StockMovementReason;
 import br.com.ragro.domain.enums.StockMovementType;
 import br.com.ragro.domain.enums.TypeUser;
-import br.com.ragro.controller.request.StockMovementFilter;
 import br.com.ragro.exception.BusinessException;
 import br.com.ragro.exception.ForbiddenException;
 import br.com.ragro.exception.NotFoundException;
@@ -57,17 +57,19 @@ class StockMovementServiceTest {
   void registerExit_shouldDeductStockAndReturnMovement_withSaleReason() {
     Producer farmer = buildAuthenticatedFarmer();
     Product product = buildProduct(farmer, new BigDecimal("10.000"));
-    StockExitRequest request = buildRequest(product.getId(), new BigDecimal("3.000"), StockMovementReason.SALE);
+    StockExitRequest request =
+        buildRequest(product.getId(), new BigDecimal("3.000"), StockMovementReason.SALE);
 
     when(productRepository.findByIdAndFarmerId(product.getId(), farmer.getId()))
         .thenReturn(Optional.of(product));
     when(productRepository.saveAndFlush(product)).thenReturn(product);
     when(stockMovementRepository.saveAndFlush(any(StockMovement.class)))
-        .thenAnswer(inv -> {
-          StockMovement m = inv.getArgument(0);
-          m.setId(UUID.randomUUID());
-          return m;
-        });
+        .thenAnswer(
+            inv -> {
+              StockMovement m = inv.getArgument(0);
+              m.setId(UUID.randomUUID());
+              return m;
+            });
 
     StockMovementResponse response = stockMovementService.registerExit(request, jwt());
 
@@ -84,18 +86,20 @@ class StockMovementServiceTest {
   void registerExit_shouldDeductStockAndReturnMovement_withLossReason() {
     Producer farmer = buildAuthenticatedFarmer();
     Product product = buildProduct(farmer, new BigDecimal("5.000"));
-    StockExitRequest request = buildRequest(product.getId(), new BigDecimal("2.000"), StockMovementReason.LOSS);
+    StockExitRequest request =
+        buildRequest(product.getId(), new BigDecimal("2.000"), StockMovementReason.LOSS);
     request.setNotes("Damaged goods");
 
     when(productRepository.findByIdAndFarmerId(product.getId(), farmer.getId()))
         .thenReturn(Optional.of(product));
     when(productRepository.saveAndFlush(product)).thenReturn(product);
     when(stockMovementRepository.saveAndFlush(any(StockMovement.class)))
-        .thenAnswer(inv -> {
-          StockMovement m = inv.getArgument(0);
-          m.setId(UUID.randomUUID());
-          return m;
-        });
+        .thenAnswer(
+            inv -> {
+              StockMovement m = inv.getArgument(0);
+              m.setId(UUID.randomUUID());
+              return m;
+            });
 
     StockMovementResponse response = stockMovementService.registerExit(request, jwt());
 
@@ -108,17 +112,19 @@ class StockMovementServiceTest {
   void registerExit_shouldDeductStockAndReturnMovement_withDisposalReason() {
     Producer farmer = buildAuthenticatedFarmer();
     Product product = buildProduct(farmer, new BigDecimal("8.000"));
-    StockExitRequest request = buildRequest(product.getId(), new BigDecimal("1.500"), StockMovementReason.DISPOSAL);
+    StockExitRequest request =
+        buildRequest(product.getId(), new BigDecimal("1.500"), StockMovementReason.DISPOSAL);
 
     when(productRepository.findByIdAndFarmerId(product.getId(), farmer.getId()))
         .thenReturn(Optional.of(product));
     when(productRepository.saveAndFlush(product)).thenReturn(product);
     when(stockMovementRepository.saveAndFlush(any(StockMovement.class)))
-        .thenAnswer(inv -> {
-          StockMovement m = inv.getArgument(0);
-          m.setId(UUID.randomUUID());
-          return m;
-        });
+        .thenAnswer(
+            inv -> {
+              StockMovement m = inv.getArgument(0);
+              m.setId(UUID.randomUUID());
+              return m;
+            });
 
     StockMovementResponse response = stockMovementService.registerExit(request, jwt());
 
@@ -130,17 +136,19 @@ class StockMovementServiceTest {
   void registerExit_shouldAllowExitWhenQuantityEqualsCurrentStock() {
     Producer farmer = buildAuthenticatedFarmer();
     Product product = buildProduct(farmer, new BigDecimal("5.000"));
-    StockExitRequest request = buildRequest(product.getId(), new BigDecimal("5.000"), StockMovementReason.SALE);
+    StockExitRequest request =
+        buildRequest(product.getId(), new BigDecimal("5.000"), StockMovementReason.SALE);
 
     when(productRepository.findByIdAndFarmerId(product.getId(), farmer.getId()))
         .thenReturn(Optional.of(product));
     when(productRepository.saveAndFlush(product)).thenReturn(product);
     when(stockMovementRepository.saveAndFlush(any(StockMovement.class)))
-        .thenAnswer(inv -> {
-          StockMovement m = inv.getArgument(0);
-          m.setId(UUID.randomUUID());
-          return m;
-        });
+        .thenAnswer(
+            inv -> {
+              StockMovement m = inv.getArgument(0);
+              m.setId(UUID.randomUUID());
+              return m;
+            });
 
     StockMovementResponse response = stockMovementService.registerExit(request, jwt());
 
@@ -153,14 +161,13 @@ class StockMovementServiceTest {
   void registerExit_shouldThrowBusinessException_whenStockIsInsufficient() {
     Producer farmer = buildAuthenticatedFarmer();
     Product product = buildProduct(farmer, new BigDecimal("5.000"));
-    StockExitRequest request = buildRequest(product.getId(), new BigDecimal("10.000"), StockMovementReason.SALE);
+    StockExitRequest request =
+        buildRequest(product.getId(), new BigDecimal("10.000"), StockMovementReason.SALE);
 
     when(productRepository.findByIdAndFarmerId(product.getId(), farmer.getId()))
         .thenReturn(Optional.of(product));
 
-    assertThatThrownBy(() -> stockMovementService
-                            .registerExit
-                            (request, jwt()))
+    assertThatThrownBy(() -> stockMovementService.registerExit(request, jwt()))
         .isInstanceOf(BusinessException.class)
         .hasMessage("Saldo insuficiente para registrar saída de estoque");
 
@@ -172,7 +179,8 @@ class StockMovementServiceTest {
   void registerExit_shouldThrowBusinessException_whenStockIsZero() {
     Producer farmer = buildAuthenticatedFarmer();
     Product product = buildProduct(farmer, BigDecimal.ZERO);
-    StockExitRequest request = buildRequest(product.getId(), new BigDecimal("1.000"), StockMovementReason.SALE);
+    StockExitRequest request =
+        buildRequest(product.getId(), new BigDecimal("1.000"), StockMovementReason.SALE);
 
     when(productRepository.findByIdAndFarmerId(product.getId(), farmer.getId()))
         .thenReturn(Optional.of(product));
@@ -189,7 +197,8 @@ class StockMovementServiceTest {
   void registerExit_shouldThrowBusinessException_whenReasonIsManualEntry() {
     Producer farmer = buildAuthenticatedFarmer();
     Product product = buildProduct(farmer, new BigDecimal("10.000"));
-    StockExitRequest request = buildRequest(product.getId(), new BigDecimal("2.000"), StockMovementReason.MANUAL_ENTRY);
+    StockExitRequest request =
+        buildRequest(product.getId(), new BigDecimal("2.000"), StockMovementReason.MANUAL_ENTRY);
 
     when(productRepository.findByIdAndFarmerId(product.getId(), farmer.getId()))
         .thenReturn(Optional.of(product));
@@ -208,7 +217,8 @@ class StockMovementServiceTest {
   void registerExit_shouldThrowNotFoundException_whenProductDoesNotBelongToFarmer() {
     Producer farmer = buildAuthenticatedFarmer();
     UUID unknownProductId = UUID.randomUUID();
-    StockExitRequest request = buildRequest(unknownProductId, new BigDecimal("2.000"), StockMovementReason.SALE);
+    StockExitRequest request =
+        buildRequest(unknownProductId, new BigDecimal("2.000"), StockMovementReason.SALE);
 
     when(productRepository.findByIdAndFarmerId(unknownProductId, farmer.getId()))
         .thenReturn(Optional.empty());
@@ -232,11 +242,12 @@ class StockMovementServiceTest {
         .thenReturn(Optional.of(product));
     when(productRepository.saveAndFlush(product)).thenReturn(product);
     when(stockMovementRepository.saveAndFlush(any(StockMovement.class)))
-        .thenAnswer(inv -> {
-          StockMovement m = inv.getArgument(0);
-          m.setId(UUID.randomUUID());
-          return m;
-        });
+        .thenAnswer(
+            inv -> {
+              StockMovement m = inv.getArgument(0);
+              m.setId(UUID.randomUUID());
+              return m;
+            });
 
     StockMovementResponse response = stockMovementService.registerEntry(request, jwt());
 
@@ -265,8 +276,10 @@ class StockMovementServiceTest {
     Pageable pageable = PageRequest.of(0, 20);
 
     when(producerRepository.findById(farmer.getId())).thenReturn(Optional.of(farmer));
-    when(stockMovementRepository.findAll(org.mockito.ArgumentMatchers.<Specification<StockMovement>>any(), eq(pageable)))
-        .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(movement), pageable, 1L));
+    when(stockMovementRepository.findAll(
+            org.mockito.ArgumentMatchers.<Specification<StockMovement>>any(), eq(pageable)))
+        .thenReturn(
+            new org.springframework.data.domain.PageImpl<>(List.of(movement), pageable, 1L));
 
     var response = stockMovementService.getProducerStockMovements(jwt(), filter, pageable);
 
@@ -283,7 +296,12 @@ class StockMovementServiceTest {
     customer.setActive(true);
     when(userService.getAuthenticatedUser(any(Jwt.class))).thenReturn(customer);
 
-    assertThatThrownBy(() -> stockMovementService.getProducerStockMovements(jwt(), new br.com.ragro.controller.request.StockMovementFilter(), PageRequest.of(0, 20)))
+    assertThatThrownBy(
+            () ->
+                stockMovementService.getProducerStockMovements(
+                    jwt(),
+                    new br.com.ragro.controller.request.StockMovementFilter(),
+                    PageRequest.of(0, 20)))
         .isInstanceOf(ForbiddenException.class)
         .hasMessage("Acesso restrito a produtores");
   }
@@ -316,7 +334,8 @@ class StockMovementServiceTest {
     return product;
   }
 
-  private StockExitRequest buildRequest(UUID productId, BigDecimal quantity, StockMovementReason reason) {
+  private StockExitRequest buildRequest(
+      UUID productId, BigDecimal quantity, StockMovementReason reason) {
     StockExitRequest request = new StockExitRequest();
     request.setProductId(productId);
     request.setQuantity(quantity);

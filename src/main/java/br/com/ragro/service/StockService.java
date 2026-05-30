@@ -29,12 +29,14 @@ public class StockService {
   private final StockMovementRepository stockMovementRepository;
 
   @Transactional(readOnly = true)
-  public Page<StockMovementResponse> getProductMovements(UUID productId, int page, int size, Jwt jwt) {
+  public Page<StockMovementResponse> getProductMovements(
+      UUID productId, int page, int size, Jwt jwt) {
     Producer farmer = getAuthenticatedFarmer(jwt);
     Product product = getOwnedProduct(productId, farmer.getId());
     Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
 
-    return stockMovementRepository.findAllByProductId(product.getId(), pageable)
+    return stockMovementRepository
+        .findAllByProductId(product.getId(), pageable)
         .map(StockMovementMapper::toResponse);
   }
 
@@ -51,7 +53,8 @@ public class StockService {
   }
 
   private Product getOwnedProduct(UUID productId, UUID farmerId) {
-    return productRepository.findByIdAndFarmerId(productId, farmerId)
+    return productRepository
+        .findByIdAndFarmerId(productId, farmerId)
         .orElseThrow(() -> new NotFoundException("Produto não encontrado"));
   }
 }

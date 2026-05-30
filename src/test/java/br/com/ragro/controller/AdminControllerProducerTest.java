@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import br.com.ragro.TestSecurityConfiguration;
 import br.com.ragro.controller.request.ProducerUpdateRequest;
 import br.com.ragro.controller.response.CustomerResponse;
 import br.com.ragro.controller.response.ProducerGetResponse;
@@ -29,6 +30,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -36,8 +38,6 @@ import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
-import org.springframework.context.annotation.Import;
-import br.com.ragro.TestSecurityConfiguration;
 
 @WebMvcTest(AdminController.class)
 @Import(TestSecurityConfiguration.class)
@@ -49,61 +49,59 @@ class AdminControllerProducerTest {
 
   @MockBean private ProducerService producerService;
 
-    @MockBean private CustomerService customerService;
+  @MockBean private CustomerService customerService;
 
   @MockBean private UserService userService;
 
   @MockBean private UserRepository userRepository;
 
-    @MockBean private ProducerRegistrationService producerRegistrationService;
+  @MockBean private ProducerRegistrationService producerRegistrationService;
 
   @Test
   @WithMockUser(roles = "ADMIN")
-    void getCustomer_shouldReturn200WithCustomerDetails_whenCustomerExists() throws Exception {
-        UUID customerId = UUID.randomUUID();
-        CustomerResponse customerResponse =
-                CustomerResponse.builder()
-                        .id(customerId)
-                        .name("Maria Silva")
-                        .email("maria@example.com")
-                        .phone("51999999999")
-                        .active(true)
-                        .createdAt(OffsetDateTime.now().minusDays(1))
-                        .updatedAt(OffsetDateTime.now())
-                        .addresses(List.of())
-                        .build();
+  void getCustomer_shouldReturn200WithCustomerDetails_whenCustomerExists() throws Exception {
+    UUID customerId = UUID.randomUUID();
+    CustomerResponse customerResponse =
+        CustomerResponse.builder()
+            .id(customerId)
+            .name("Maria Silva")
+            .email("maria@example.com")
+            .phone("51999999999")
+            .active(true)
+            .createdAt(OffsetDateTime.now().minusDays(1))
+            .updatedAt(OffsetDateTime.now())
+            .addresses(List.of())
+            .build();
 
-        when(customerService.getCustomerById(customerId)).thenReturn(customerResponse);
+    when(customerService.getCustomerById(customerId)).thenReturn(customerResponse);
 
-        mockMvc
-                .perform(get("/admin/customers/{id}", customerId))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(customerId.toString()))
-                .andExpect(jsonPath("$.name").value("Maria Silva"));
-    }
+    mockMvc
+        .perform(get("/admin/customers/{id}", customerId))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id").value(customerId.toString()))
+        .andExpect(jsonPath("$.name").value("Maria Silva"));
+  }
 
-    @Test
-    @WithMockUser(roles = "ADMIN")
-    void getCustomer_shouldReturn404_whenCustomerNotFound() throws Exception {
-        UUID customerId = UUID.randomUUID();
-        when(customerService.getCustomerById(customerId))
-                .thenThrow(new NotFoundException("Customer not found"));
+  @Test
+  @WithMockUser(roles = "ADMIN")
+  void getCustomer_shouldReturn404_whenCustomerNotFound() throws Exception {
+    UUID customerId = UUID.randomUUID();
+    when(customerService.getCustomerById(customerId))
+        .thenThrow(new NotFoundException("Customer not found"));
 
-        mockMvc
-                .perform(get("/admin/customers/{id}", customerId))
-                .andExpect(status().isNotFound());
-    }
+    mockMvc.perform(get("/admin/customers/{id}", customerId)).andExpect(status().isNotFound());
+  }
 
-    @Test
-    @WithMockUser(roles = "FARMER")
-    void getCustomer_shouldReturn403_whenCalledByNonAdmin() throws Exception {
-        mockMvc
-                .perform(get("/admin/customers/{id}", UUID.randomUUID()))
-                .andExpect(status().isForbidden());
-    }
+  @Test
+  @WithMockUser(roles = "FARMER")
+  void getCustomer_shouldReturn403_whenCalledByNonAdmin() throws Exception {
+    mockMvc
+        .perform(get("/admin/customers/{id}", UUID.randomUUID()))
+        .andExpect(status().isForbidden());
+  }
 
-    @Test
-    @WithMockUser(roles = "ADMIN")
+  @Test
+  @WithMockUser(roles = "ADMIN")
   void getProducers_shouldReturn200WithPageOfProducers() throws Exception {
     UUID id1 = UUID.randomUUID();
     UUID id2 = UUID.randomUUID();
@@ -228,9 +226,7 @@ class AdminControllerProducerTest {
     when(producerService.getProducerProfileById(producerId))
         .thenThrow(new NotFoundException("Produtor não encontrado"));
 
-    mockMvc
-        .perform(get("/admin/producers/{id}", producerId))
-        .andExpect(status().isNotFound());
+    mockMvc.perform(get("/admin/producers/{id}", producerId)).andExpect(status().isNotFound());
   }
 
   @WithMockUser(roles = "ADMIN")
@@ -240,9 +236,7 @@ class AdminControllerProducerTest {
     when(producerService.getProducerProfileById(customerId))
         .thenThrow(new NotFoundException("Produtor não encontrado"));
 
-    mockMvc
-        .perform(get("/admin/producers/{id}", customerId))
-        .andExpect(status().isNotFound());
+    mockMvc.perform(get("/admin/producers/{id}", customerId)).andExpect(status().isNotFound());
   }
 
   @WithMockUser(roles = "ADMIN")
@@ -252,9 +246,7 @@ class AdminControllerProducerTest {
     when(producerService.getProducerProfileById(adminId))
         .thenThrow(new NotFoundException("Produtor não encontrado"));
 
-    mockMvc
-        .perform(get("/admin/producers/{id}", adminId))
-        .andExpect(status().isNotFound());
+    mockMvc.perform(get("/admin/producers/{id}", adminId)).andExpect(status().isNotFound());
   }
 
   @WithMockUser(roles = "ADMIN")
@@ -403,7 +395,7 @@ class AdminControllerProducerTest {
         .andExpect(jsonPath("$.farmName").value("Fazenda Nova"));
   }
 
-    @WithMockUser(roles = "FARMER")
+  @WithMockUser(roles = "FARMER")
   @Test
   void putProducer_shouldReturn403_whenCalledByNonAdmin() throws Exception {
     UUID producerId = UUID.randomUUID();

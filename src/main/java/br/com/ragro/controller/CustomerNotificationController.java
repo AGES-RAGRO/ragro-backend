@@ -23,7 +23,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/customers/me/notifications")
 @RequiredArgsConstructor
-@Tag(name = "Customer Notifications", description = "Notification operations for authenticated customers")
+@Tag(
+    name = "Customer Notifications",
+    description = "Notification operations for authenticated customers")
 public class CustomerNotificationController {
 
   private final NotificationService notificationService;
@@ -56,8 +58,7 @@ public class CustomerNotificationController {
       summary = "Mark notification as read",
       description = "Marks one notification as read for the authenticated customer.")
   public ResponseEntity<NotificationResponse> markAsRead(
-      @PathVariable UUID notificationId,
-      @AuthenticationPrincipal Jwt jwt) {
+      @PathVariable UUID notificationId, @AuthenticationPrincipal Jwt jwt) {
     return ResponseEntity.ok(
         notificationService.markMyCustomerNotificationAsRead(notificationId, jwt));
   }

@@ -1,4 +1,5 @@
 package br.com.ragro.controller.response;
+
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -10,5 +11,4 @@ public record ReviewResponse(
     UUID orderId,
     UUID farmerId,
     UUID customerId,
-    OffsetDateTime createdAt
-){}
+    OffsetDateTime createdAt) {}

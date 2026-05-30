@@ -2,17 +2,18 @@ package br.com.ragro.domain.specification;
 
 import br.com.ragro.controller.request.StockMovementFilter;
 import br.com.ragro.domain.StockMovement;
-import java.util.UUID;
 import jakarta.persistence.criteria.Predicate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import org.springframework.data.jpa.domain.Specification;
 
 public class StockMovementSpecification {
 
   private StockMovementSpecification() {}
 
-  public static Specification<StockMovement> withFilter(UUID producerId, StockMovementFilter filter) {
+  public static Specification<StockMovement> withFilter(
+      UUID producerId, StockMovementFilter filter) {
     return (root, query, cb) -> {
       List<Predicate> predicates = new ArrayList<>();
 

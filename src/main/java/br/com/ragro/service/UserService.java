@@ -15,34 +15,37 @@ public class UserService {
   private final UserRepository userRepository;
   private final IdentityProviderService identityProviderService;
 
-  public UserService(UserRepository userRepository, IdentityProviderService identityProviderService) {
+  public UserService(
+      UserRepository userRepository, IdentityProviderService identityProviderService) {
     this.userRepository = userRepository;
     this.identityProviderService = identityProviderService;
   }
 
   /**
-   * Resolves the authenticated user from JWT claims.
-   * Lookup strategy (D6):
-   * 1. Try findByAuthSub(sub)
-   * 2. If not found, try findByEmail(email) and self-heal auth_sub
-   * 3. If neither matches, throw UnauthorizedException
+   * Resolves the authenticated user from JWT claims. Lookup strategy (D6): 1. Try
+   * findByAuthSub(sub) 2. If not found, try findByEmail(email) and self-heal auth_sub 3. If neither
+   * matches, throw UnauthorizedException
    */
   @Transactional
   public User getAuthenticatedUser(Jwt jwt) {
     String sub = getRequiredClaim(jwt, "sub");
     String email = jwt.getClaimAsString("email");
 
-    return userRepository.findByAuthSub(sub)
-        .orElseGet(() -> {
-          if (email == null || email.isBlank()) {
-            throw new UnauthorizedException("Usuário não autenticado");
-          }
-          User user = userRepository.findByEmail(email)
-              .orElseThrow(() -> new UnauthorizedException("Usuário não autenticado"));
-          // Self-heal: update auth_sub so future lookups hit the fast path
-          user.setAuthSub(sub);
-          return userRepository.save(user);
-        });
+    return userRepository
+        .findByAuthSub(sub)
+        .orElseGet(
+            () -> {
+              if (email == null || email.isBlank()) {
+                throw new UnauthorizedException("Usuário não autenticado");
+              }
+              User user =
+                  userRepository
+                      .findByEmail(email)
+                      .orElseThrow(() -> new UnauthorizedException("Usuário não autenticado"));
+              // Self-heal: update auth_sub so future lookups hit the fast path
+              user.setAuthSub(sub);
+              return userRepository.save(user);
+            });
   }
 
   @Transactional
@@ -62,11 +65,14 @@ public class UserService {
 
   @Transactional(readOnly = true)
   public void forgotPassword(String email) {
-    userRepository.findByEmail(email).ifPresent(user -> {
-      if (user.getAuthSub() != null) {
-        identityProviderService.sendPasswordResetEmail(user.getAuthSub());
-      }
-    });
+    userRepository
+        .findByEmail(email)
+        .ifPresent(
+            user -> {
+              if (user.getAuthSub() != null) {
+                identityProviderService.sendPasswordResetEmail(user.getAuthSub());
+              }
+            });
   }
 
   public String getRequiredClaim(Jwt jwt, String claimName) {

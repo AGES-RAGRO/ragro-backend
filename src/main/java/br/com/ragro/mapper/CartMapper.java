@@ -17,14 +17,16 @@ public class CartMapper {
   }
 
   public static CartResponse toResponse(Cart cart, PaymentMethod paymentMethod) {
-    List<CartItemResponse> itemResponses = cart.getItems().stream()
-        .filter(CartItem::isActive)
-        .map(CartMapper::toItemResponse)
-        .collect(Collectors.toList());
+    List<CartItemResponse> itemResponses =
+        cart.getItems().stream()
+            .filter(CartItem::isActive)
+            .map(CartMapper::toItemResponse)
+            .collect(Collectors.toList());
 
-    BigDecimal total = itemResponses.stream()
-        .map(CartItemResponse::getSubtotal)
-        .reduce(BigDecimal.ZERO, BigDecimal::add);
+    BigDecimal total =
+        itemResponses.stream()
+            .map(CartItemResponse::getSubtotal)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
 
     return CartResponse.builder()
         .id(cart.getId())

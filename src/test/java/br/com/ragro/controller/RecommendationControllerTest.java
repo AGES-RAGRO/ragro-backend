@@ -39,110 +39,102 @@ import org.springframework.test.web.servlet.request.RequestPostProcessor;
 @Import({SecurityConfig.class, KeycloakRolesConverter.class, CorsConfig.class})
 class RecommendationControllerTest {
 
-    @Autowired
-    private MockMvc mockMvc;
+  @Autowired private MockMvc mockMvc;
 
-    @MockBean
-    private RecommendationService recommendationService;
+  @MockBean private RecommendationService recommendationService;
 
-    @MockBean
-    private JwtDecoder jwtDecoder;
+  @MockBean private JwtDecoder jwtDecoder;
 
-    @MockBean
-    private UserRepository userRepository;
+  @MockBean private UserRepository userRepository;
 
-    @BeforeEach
-    void setUp() {
-        SecurityContextHolder.clearContext();
-        User activeCustomer = new User();
-        activeCustomer.setId(UUID.randomUUID());
-        activeCustomer.setActive(true);
-        activeCustomer.setType(TypeUser.CUSTOMER);
-        when(userRepository.findByAuthSub(any())).thenReturn(Optional.of(activeCustomer));
-    }
+  @BeforeEach
+  void setUp() {
+    SecurityContextHolder.clearContext();
+    User activeCustomer = new User();
+    activeCustomer.setId(UUID.randomUUID());
+    activeCustomer.setActive(true);
+    activeCustomer.setType(TypeUser.CUSTOMER);
+    when(userRepository.findByAuthSub(any())).thenReturn(Optional.of(activeCustomer));
+  }
 
-    @AfterEach
-    void tearDown() {
-        SecurityContextHolder.clearContext();
-    }
+  @AfterEach
+  void tearDown() {
+    SecurityContextHolder.clearContext();
+  }
 
-    @Test
-    void getRecommendations_shouldReturn200_whenAuthenticatedAsCustomer() throws Exception {
-        var product = RecommendationProductResponse.builder()
-                .id(UUID.randomUUID())
-                .name("Tomate Orgânico")
-                .price(new BigDecimal("12.90"))
-                .unityType("kg")
-                .farmerId(UUID.randomUUID())
-                .farmName("Sítio Boa Vista")
-                .categoryNames(List.of("Hortaliças"))
-                .score(5)
-                .reason(RecommendationReason.FRESHNESS)
-                .build();
+  @Test
+  void getRecommendations_shouldReturn200_whenAuthenticatedAsCustomer() throws Exception {
+    var product =
+        RecommendationProductResponse.builder()
+            .id(UUID.randomUUID())
+            .name("Tomate Orgânico")
+            .price(new BigDecimal("12.90"))
+            .unityType("kg")
+            .farmerId(UUID.randomUUID())
+            .farmName("Sítio Boa Vista")
+            .categoryNames(List.of("Hortaliças"))
+            .score(5)
+            .reason(RecommendationReason.FRESHNESS)
+            .build();
 
-        var response = RecommendationResponse.builder()
-                .recommendations(List.of(product))
-                .total(1)
-                .build();
+    var response =
+        RecommendationResponse.builder().recommendations(List.of(product)).total(1).build();
 
-        when(recommendationService.getRecommendations(any(), any())).thenReturn(response);
+    when(recommendationService.getRecommendations(any(), any())).thenReturn(response);
 
-        mockMvc.perform(get("/recommendations?limit=10").with(asCustomer()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.total").value(1))
-                .andExpect(jsonPath("$.recommendations[0].name").value("Tomate Orgânico"))
-                .andExpect(jsonPath("$.recommendations[0].score").value(5))
-                .andExpect(jsonPath("$.recommendations[0].reason").value("FRESHNESS"));
-    }
+    mockMvc
+        .perform(get("/recommendations?limit=10").with(asCustomer()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.total").value(1))
+        .andExpect(jsonPath("$.recommendations[0].name").value("Tomate Orgânico"))
+        .andExpect(jsonPath("$.recommendations[0].score").value(5))
+        .andExpect(jsonPath("$.recommendations[0].reason").value("FRESHNESS"));
+  }
 
-    @Test
-    void getRecommendations_shouldReturn200_whenNoRecommendations() throws Exception {
-        var response = RecommendationResponse.builder()
-                .recommendations(List.of())
-                .total(0)
-                .build();
+  @Test
+  void getRecommendations_shouldReturn200_whenNoRecommendations() throws Exception {
+    var response = RecommendationResponse.builder().recommendations(List.of()).total(0).build();
 
-        when(recommendationService.getRecommendations(any(), any())).thenReturn(response);
+    when(recommendationService.getRecommendations(any(), any())).thenReturn(response);
 
-        mockMvc.perform(get("/recommendations").with(asCustomer()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.total").value(0))
-                .andExpect(jsonPath("$.recommendations").isEmpty());
-    }
+    mockMvc
+        .perform(get("/recommendations").with(asCustomer()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.total").value(0))
+        .andExpect(jsonPath("$.recommendations").isEmpty());
+  }
 
-    @Test
-    void getRecommendations_shouldReturn403_whenAuthenticatedWithoutCustomerRole() throws Exception {
-        mockMvc.perform(get("/recommendations").with(asFarmer()))
-                .andExpect(status().isForbidden());
-    }
+  @Test
+  void getRecommendations_shouldReturn403_whenAuthenticatedWithoutCustomerRole() throws Exception {
+    mockMvc.perform(get("/recommendations").with(asFarmer())).andExpect(status().isForbidden());
+  }
 
-    @Test
-    void getRecommendations_shouldReturn401_whenUnauthenticated() throws Exception {
-        mockMvc.perform(get("/recommendations"))
-                .andExpect(status().isUnauthorized());
-    }
+  @Test
+  void getRecommendations_shouldReturn401_whenUnauthenticated() throws Exception {
+    mockMvc.perform(get("/recommendations")).andExpect(status().isUnauthorized());
+  }
 
-    @Test
-    void getRecommendations_shouldReturn400_whenLimitIsBelowMinimum() throws Exception {
-        mockMvc.perform(get("/recommendations?limit=0").with(asCustomer()))
-                .andExpect(status().isBadRequest());
-    }
+  @Test
+  void getRecommendations_shouldReturn400_whenLimitIsBelowMinimum() throws Exception {
+    mockMvc
+        .perform(get("/recommendations?limit=0").with(asCustomer()))
+        .andExpect(status().isBadRequest());
+  }
 
-    @Test
-    void getRecommendations_shouldReturn400_whenLimitExceedsMaximum() throws Exception {
-        mockMvc.perform(get("/recommendations?limit=101").with(asCustomer()))
-                .andExpect(status().isBadRequest());
-    }
+  @Test
+  void getRecommendations_shouldReturn400_whenLimitExceedsMaximum() throws Exception {
+    mockMvc
+        .perform(get("/recommendations?limit=101").with(asCustomer()))
+        .andExpect(status().isBadRequest());
+  }
 
-    // ─── Helpers ──────────────────────────────────────────────────────────────
+  // ─── Helpers ──────────────────────────────────────────────────────────────
 
-    private static RequestPostProcessor asCustomer() {
-        return Objects.requireNonNull(
-                jwt().authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER")));
-    }
+  private static RequestPostProcessor asCustomer() {
+    return Objects.requireNonNull(jwt().authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER")));
+  }
 
-    private static RequestPostProcessor asFarmer() {
-        return Objects.requireNonNull(
-                jwt().authorities(new SimpleGrantedAuthority("ROLE_FARMER")));
-    }
+  private static RequestPostProcessor asFarmer() {
+    return Objects.requireNonNull(jwt().authorities(new SimpleGrantedAuthority("ROLE_FARMER")));
+  }
 }

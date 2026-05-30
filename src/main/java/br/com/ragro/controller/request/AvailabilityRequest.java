@@ -12,19 +12,19 @@ import lombok.Setter;
 @Setter
 public class AvailabilityRequest {
 
-    @NotNull(message = "Weekday is required")
-    @Min(value = 0, message = "Weekday must be between 0 and 6")
-    @Max(value = 6, message = "Weekday must be between 0 and 6")
-    @Schema(description = "0=Sunday, 1=Monday ... 6=Saturday", example = "1")
-    private Short weekday;
+  @NotNull(message = "Weekday is required")
+  @Min(value = 0, message = "Weekday must be between 0 and 6")
+  @Max(value = 6, message = "Weekday must be between 0 and 6")
+  @Schema(description = "0=Sunday, 1=Monday ... 6=Saturday", example = "1")
+  private Short weekday;
 
-    @NotNull(message = "Opens at is required")
-    @Pattern(regexp = "^\\d{2}:\\d{2}$", message = "Opens at must use HH:mm format")
-    @Schema(example = "08:00")
-    private String opensAt;
+  @NotNull(message = "Opens at is required")
+  @Pattern(regexp = "^\\d{2}:\\d{2}$", message = "Opens at must use HH:mm format")
+  @Schema(example = "08:00")
+  private String opensAt;
 
-    @NotNull(message = "Closes at is required")
-    @Pattern(regexp = "^\\d{2}:\\d{2}$", message = "Closes at must use HH:mm format")
-    @Schema(example = "18:00")
-    private String closesAt;
+  @NotNull(message = "Closes at is required")
+  @Pattern(regexp = "^\\d{2}:\\d{2}$", message = "Closes at must use HH:mm format")
+  @Schema(example = "18:00")
+  private String closesAt;
 }

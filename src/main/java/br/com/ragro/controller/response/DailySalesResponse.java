@@ -32,4 +32,3 @@ public class DailySalesResponse {
   @Schema(description = "Total sales amount for this day", example = "450.50")
   private BigDecimal salesAmount;
 }
-

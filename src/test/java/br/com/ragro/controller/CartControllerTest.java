@@ -137,7 +137,8 @@ class CartControllerTest {
     UUID itemId = UUID.randomUUID();
     when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(user));
     when(cartService.updateItemQuantity(any(), eq(itemId), any()))
-        .thenThrow(new BusinessException("Quantidade solicitada (15) excede o estoque disponível (10)"));
+        .thenThrow(
+            new BusinessException("Quantidade solicitada (15) excede o estoque disponível (10)"));
 
     mockMvc
         .perform(
@@ -154,18 +155,17 @@ class CartControllerTest {
     User user = buildUser(sub);
     when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(user));
     when(cartService.clearActiveCart(any()))
-        .thenReturn(CartResponse.builder()
-            .id(UUID.randomUUID())
-            .farmerId(UUID.randomUUID())
-            .farmName("Empty Farm")
-            .items(List.of())
-            .totalAmount(BigDecimal.ZERO)
-            .build());
+        .thenReturn(
+            CartResponse.builder()
+                .id(UUID.randomUUID())
+                .farmerId(UUID.randomUUID())
+                .farmName("Empty Farm")
+                .items(List.of())
+                .totalAmount(BigDecimal.ZERO)
+                .build());
 
     mockMvc
-        .perform(
-            delete("/customers/carts")
-                .with(customerJwt(sub)))
+        .perform(delete("/customers/carts").with(customerJwt(sub)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.items").isEmpty())
         .andExpect(jsonPath("$.totalAmount").value(0));
