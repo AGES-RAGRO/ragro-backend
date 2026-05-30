@@ -58,6 +58,9 @@ springdoc:
     tags-sorter: alpha
     use-root-path: true
 
+swagger:
+  production-url: ${SWAGGER_PRODUCTION_URL:}
+
 ollama:
   base-url: ${OLLAMA_BASE_URL:http://ollama:11434}
   model: ${OLLAMA_MODEL:gemma2:2b}
