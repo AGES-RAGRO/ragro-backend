@@ -97,6 +97,7 @@ jobs:
           STORAGE_BUCKET=${{ secrets.STORAGE_BUCKET }}
           OLLAMA_BASE_URL=${{ secrets.OLLAMA_BASE_URL }}
           OLLAMA_MODEL=${{ secrets.OLLAMA_MODEL }}
+          SWAGGER_PRODUCTION_URL=${{ secrets.SWAGGER_PRODUCTION_URL }}
 
     - name: Deploy Amazon ECS task definition
       uses: aws-actions/amazon-ecs-deploy-task-definition@v1
