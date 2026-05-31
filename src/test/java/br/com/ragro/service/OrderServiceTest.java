@@ -377,6 +377,10 @@ class OrderServiceTest {
     assertThat(response.getStatus()).isEqualTo(OrderStatus.CANCELLED);
     assertThat(order.getCancellationReason()).isEqualTo("CHANGED_MY_MIND");
     assertThat(order.getCancellationDetails()).isEqualTo("Comprei em outro lugar");
+    // O OrderResponse deve expor o motivo/detalhes (consumido pelo card de
+    // cancelamento no mobile).
+    assertThat(response.getCancellationReason()).isEqualTo("CHANGED_MY_MIND");
+    assertThat(response.getCancellationDetails()).isEqualTo("Comprei em outro lugar");
     verify(stockMovementService, never()).registerCancelledSale(any(), any(), anyString());
   }
 
@@ -719,6 +723,8 @@ class OrderServiceTest {
     orderItem.setQuantity(new BigDecimal("2.00"));
     orderItem.setSubtotal(new BigDecimal("20.00"));
     order.getItems().add(orderItem);
+    order.setCancellationReason("CUSTOMER_CANCELLED");
+    order.setCancellationDetails("mudei de ideia");
 
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
     when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
@@ -734,6 +740,9 @@ class OrderServiceTest {
     assertThat(response.getProducerPicture()).isEqualTo("https://cdn.example.com/avatar.jpg");
     assertThat(response.getStatus()).isEqualTo(OrderStatus.PENDING);
     assertThat(response.isReviewed()).isTrue();
+    // O detalhe do cliente deve expor motivo/detalhes do cancelamento.
+    assertThat(response.getCancellationReason()).isEqualTo("CUSTOMER_CANCELLED");
+    assertThat(response.getCancellationDetails()).isEqualTo("mudei de ideia");
   }
 
   @Test
