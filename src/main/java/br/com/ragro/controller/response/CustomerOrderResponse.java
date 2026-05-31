@@ -29,4 +29,9 @@ public class CustomerOrderResponse {
   private OffsetDateTime createdAt;
   private AddressSnapshot deliveryAddress;
   private List<OrderItemResponse> items;
+  // Motivo/detalhes do cancelamento (persistidos em Order). Populados pelo mapper
+  // de detalhe para a tela do cliente exibir o card de cancelamento; nulos quando
+  // o pedido não foi cancelado.
+  private String cancellationReason;
+  private String cancellationDetails;
 }

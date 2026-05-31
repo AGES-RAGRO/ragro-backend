@@ -44,6 +44,8 @@ public class OrderMapper {
         .totalAmount(totalAmount)
         .isNew(order.getStatus() == OrderStatus.PENDING && !order.isSeenByFarmer())
         .createdAt(order.getCreatedAt())
+        .cancellationReason(order.getCancellationReason())
+        .cancellationDetails(order.getCancellationDetails())
         .items(
             order.getItems().stream()
                 .map(item -> toOrderItemResponse(item, storage))
@@ -84,6 +86,8 @@ public class OrderMapper {
         .reviewed(reviewed)
         .createdAt(order.getCreatedAt())
         .deliveryAddress(order.getDeliveryAddressSnapshot())
+        .cancellationReason(order.getCancellationReason())
+        .cancellationDetails(order.getCancellationDetails())
         .items(
             order.getItems().stream()
                 .map(item -> toOrderItemResponse(item, storage))
