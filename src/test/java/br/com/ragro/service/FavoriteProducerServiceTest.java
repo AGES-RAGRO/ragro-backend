@@ -36,6 +36,7 @@ class FavoriteProducerServiceTest {
   @Mock private FavoriteProducerRepository favoriteProducerRepository;
   @Mock private ProducerRepository producerRepository;
   @Mock private UserService userService;
+  @Mock private MinioStorageService minioStorageService;
 
   private FavoriteProducerService favoriteProducerService;
   private Jwt jwt;
@@ -43,7 +44,8 @@ class FavoriteProducerServiceTest {
   @BeforeEach
   void setUp() {
     favoriteProducerService =
-        new FavoriteProducerService(favoriteProducerRepository, producerRepository, userService);
+        new FavoriteProducerService(
+            favoriteProducerRepository, producerRepository, userService, minioStorageService);
     jwt = Jwt.withTokenValue("token").header("alg", "RS256").claim("sub", "sub").build();
   }
 

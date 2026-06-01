@@ -25,6 +25,7 @@ public class FavoriteProducerService {
   private final FavoriteProducerRepository favoriteProducerRepository;
   private final ProducerRepository producerRepository;
   private final UserService userService;
+  private final MinioStorageService minioStorageService;
 
   @Transactional
   public void favoriteProducer(UUID producerId, Jwt jwt) {
@@ -83,7 +84,8 @@ public class FavoriteProducerService {
         .producerId(producer.getId())
         .producerName(producer.getUser().getName())
         .farmName(producer.getFarmName())
-        .avatarUrl(producer.getAvatarS3())
+        .avatarUrl(minioStorageService.composePublicUrl(producer.getAvatarS3()))
+        .coverUrl(minioStorageService.composePublicUrl(producer.getDisplayPhotoS3()))
         .averageRating(producer.getAverageRating())
         .build();
   }

@@ -24,6 +24,8 @@ import br.com.ragro.repository.OrderItemRepository;
 import br.com.ragro.repository.OrderRepository;
 import br.com.ragro.repository.ProductRepository;
 import br.com.ragro.service.api.LlmRerankerPort;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -35,6 +37,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -49,6 +52,9 @@ class RecommendationServiceTest {
   @Mock private OrderItemRepository orderItemRepository;
   @Mock private ProductRepository productRepository;
   @Mock private LlmRerankerPort llmRerankerPort;
+  @Mock private MinioStorageService minioStorageService;
+
+  @Spy private MeterRegistry meterRegistry = new SimpleMeterRegistry();
 
   @InjectMocks private RecommendationService recommendationService;
 

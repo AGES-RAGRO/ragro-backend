@@ -39,6 +39,7 @@ public class CartService {
   private final CartRepository cartRepository;
   private final CartItemRepository cartItemRepository;
   private final PaymentMethodRepository paymentMethodRepository;
+  private final MinioStorageService minioStorageService;
 
   @Transactional
   public CartResponse addItem(Jwt jwt, AddToCartRequest request) {
@@ -82,7 +83,8 @@ public class CartService {
     updateOrAddItem(cart, product, request);
 
     Cart savedCart = cartRepository.saveAndFlush(cart);
-    return CartMapper.toResponse(savedCart, findPrimaryPaymentMethod(savedCart.getFarmer()));
+    return CartMapper.toResponse(
+            savedCart, findPrimaryPaymentMethod(savedCart.getFarmer()), minioStorageService);
   }
 
   @Transactional(readOnly = true)
@@ -94,7 +96,8 @@ public class CartService {
 
     return cartRepository
         .findByCustomerIdAndActiveTrue(user.getId())
-        .map(cart -> CartMapper.toResponse(cart, findPrimaryPaymentMethod(cart.getFarmer())))
+        .map(cart -> CartMapper.toResponse(
+            cart, findPrimaryPaymentMethod(cart.getFarmer()), minioStorageService))
         .orElseThrow(() -> new NotFoundException("Carrinho não encontrado ou vazio"));
   }
 
@@ -134,7 +137,8 @@ public class CartService {
     cartItemRepository.save(item);
 
     Cart savedCart = cartRepository.saveAndFlush(item.getCart());
-    return CartMapper.toResponse(savedCart, findPrimaryPaymentMethod(savedCart.getFarmer()));
+    return CartMapper.toResponse(
+            savedCart, findPrimaryPaymentMethod(savedCart.getFarmer()), minioStorageService);
   }
 
   @Transactional
@@ -152,7 +156,8 @@ public class CartService {
     cart.setActive(false);
     cart.getItems().forEach(item -> item.setActive(false));
 
-    CartResponse response = CartMapper.toResponse(cart, findPrimaryPaymentMethod(cart.getFarmer()));
+    CartResponse response = CartMapper.toResponse(
+            cart, findPrimaryPaymentMethod(cart.getFarmer()), minioStorageService);
 
     cartRepository.delete(cart);
     cartRepository.flush();
@@ -251,14 +256,16 @@ public class CartService {
     if (!hasActiveItems) {
       cart.setActive(false);
       CartResponse response =
-          CartMapper.toResponse(cart, findPrimaryPaymentMethod(cart.getFarmer()));
+          CartMapper.toResponse(
+            cart, findPrimaryPaymentMethod(cart.getFarmer()), minioStorageService);
       cartRepository.delete(cart);
       cartRepository.flush();
       return response;
     }
 
     Cart savedCart = cartRepository.saveAndFlush(cart);
-    return CartMapper.toResponse(savedCart, findPrimaryPaymentMethod(savedCart.getFarmer()));
+    return CartMapper.toResponse(
+            savedCart, findPrimaryPaymentMethod(savedCart.getFarmer()), minioStorageService);
   }
 
   private PaymentMethod findPrimaryPaymentMethod(Producer farmer) {

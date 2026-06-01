@@ -36,6 +36,8 @@ public class SecurityConfig {
                 authorize
                     .requestMatchers(HttpMethod.GET, "/actuator/health")
                     .permitAll()
+                    .requestMatchers(HttpMethod.GET, "/media/**")
+                    .permitAll()
                     .requestMatchers(HttpMethod.POST, "/auth/register/customer")
                     .permitAll()
                     .requestMatchers(HttpMethod.POST, "/auth/password/forgot")

@@ -18,6 +18,7 @@ import br.com.ragro.repository.OrderItemRepository;
 import br.com.ragro.repository.OrderRepository;
 import br.com.ragro.repository.ProductRepository;
 import br.com.ragro.service.api.LlmRerankerPort;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -59,6 +60,8 @@ public class RecommendationService {
   private final OrderItemRepository orderItemRepository;
   private final ProductRepository productRepository;
   private final LlmRerankerPort llmRerankerPort;
+  private final MeterRegistry meterRegistry;
+  private final MinioStorageService minioStorageService;
 
   @Transactional(readOnly = true)
   public RecommendationResponse getRecommendations(RecommendationRequest request, Jwt jwt) {
@@ -171,7 +174,7 @@ public class RecommendationService {
     try {
       List<RankedItem> llmRanked = llmRerankerPort.rerank(candidates, features);
       if (llmRanked == null || llmRanked.isEmpty()) {
-        return buildHeuristicRecommendations(scoreMap, productCache, reasonMap, limit);
+        return heuristicFallback(scoreMap, productCache, reasonMap, limit, "empty");
       }
       List<RecommendationProductResponse> llmResult =
           llmRanked.stream()
@@ -183,18 +186,38 @@ public class RecommendationService {
                       RecommendationMapper.toResponse(
                           productCache.get(item.getProductId()),
                           (int) (item.getScore() * 100),
-                          RecommendationReason.LLM_RERANKED))
+                          RecommendationReason.LLM_RERANKED,
+                          minioStorageService))
               .collect(Collectors.toList());
-      return llmResult.isEmpty()
-          ? buildHeuristicRecommendations(scoreMap, productCache, reasonMap, limit)
-          : llmResult;
+      if (llmResult.isEmpty()) {
+        return heuristicFallback(scoreMap, productCache, reasonMap, limit, "empty_after_filter");
+      }
+      meterRegistry.counter("ragro.recommendation.rerank", "outcome", "ai").increment();
+      return llmResult;
     } catch (LlmInvalidOutputException e) {
       log.warn("LLM returned invalid output for customer {}: {}", customerId, e.getMessage());
-      return buildHeuristicRecommendations(scoreMap, productCache, reasonMap, limit);
+      return heuristicFallback(scoreMap, productCache, reasonMap, limit, "invalid_output");
     } catch (Exception e) {
       log.warn("LLM reranking failed, using heuristic fallback: {}", e.getMessage());
-      return buildHeuristicRecommendations(scoreMap, productCache, reasonMap, limit);
+      return heuristicFallback(scoreMap, productCache, reasonMap, limit, "error");
     }
+  }
+
+  /**
+   * Aplica a ordenação heurística e registra a métrica de fallback, tornando observável quando a IA
+   * NÃO reordenou (Ollama fora, saída inválida, flag desligada, etc.).
+   */
+  private List<RecommendationProductResponse> heuristicFallback(
+      Map<UUID, int[]> scoreMap,
+      Map<UUID, Product> productCache,
+      Map<UUID, RecommendationReason> reasonMap,
+      int limit,
+      String reason) {
+    meterRegistry
+        .counter("ragro.recommendation.rerank", "outcome", "fallback", "reason", reason)
+        .increment();
+    log.info("Recommendation rerank fallback (heuristic ordering). reason={}", reason);
+    return buildHeuristicRecommendations(scoreMap, productCache, reasonMap, limit);
   }
 
   private List<RecommendationProductResponse> buildHeuristicRecommendations(
@@ -213,7 +236,7 @@ public class RecommendationService {
               UUID pid = entry.getKey();
               Product product = productCache.get(pid);
               return RecommendationMapper.toResponse(
-                  product, scoreMap.get(pid)[0], reasonMap.get(pid));
+                  product, scoreMap.get(pid)[0], reasonMap.get(pid), minioStorageService);
             })
         .collect(Collectors.toList());
   }
