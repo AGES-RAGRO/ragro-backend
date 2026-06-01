@@ -16,8 +16,13 @@ FROM eclipse-temurin:21-jre-alpine
 
 WORKDIR /app
 
+# Run as a non-root user (defense in depth: a compromised process can't write outside /app).
+RUN addgroup -S app && adduser -S app -G app
+
 # Copy JAR from builder
 COPY --from=builder /app/target/*.jar app.jar
+
+USER app
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
@@ -26,5 +31,6 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
 # Expose port
 EXPOSE 8080
 
-# Run application
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# Cap the heap against the container's cgroup memory limit so the JVM isn't OOM-killed by ECS
+# (JDK default is 25%; 75% leaves headroom for metaspace/non-heap/Ollama client buffers).
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75.0", "-jar", "app.jar"]

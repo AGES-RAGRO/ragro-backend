@@ -1,8 +1,6 @@
 package br.com.ragro.repository;
 
 import br.com.ragro.domain.StockMovement;
-import br.com.ragro.domain.enums.StockMovementReason;
-import br.com.ragro.domain.enums.StockMovementType;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
@@ -21,10 +19,6 @@ public interface StockMovementRepository
   List<StockMovement> findAllByProductId(UUID productId);
 
   Page<StockMovement> findAllByProductId(UUID productId, Pageable pageable);
-
-  List<StockMovement> findAllByProductIdAndType(UUID productId, StockMovementType type);
-
-  List<StockMovement> findAllByProductIdAndReason(UUID productId, StockMovementReason reason);
 
   // ── Dashboard Queries ────────────────────────────────────────────────
 

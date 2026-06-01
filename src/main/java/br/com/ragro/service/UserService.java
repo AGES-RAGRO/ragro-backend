@@ -1,6 +1,5 @@
 package br.com.ragro.service;
 
-import br.com.ragro.controller.request.UpdateUserRequest;
 import br.com.ragro.domain.User;
 import br.com.ragro.exception.UnauthorizedException;
 import br.com.ragro.repository.UserRepository;
@@ -46,15 +45,6 @@ public class UserService {
               user.setAuthSub(sub);
               return userRepository.save(user);
             });
-  }
-
-  @Transactional
-  public User updateUser(User user, UpdateUserRequest request) {
-    user.setName(request.getName().trim());
-    if (request.getPhone() != null) {
-      user.setPhone(request.getPhone().trim());
-    }
-    return userRepository.saveAndFlush(user);
   }
 
   @Transactional

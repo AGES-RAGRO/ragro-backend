@@ -2,7 +2,6 @@ package br.com.ragro.validation;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -25,23 +24,5 @@ class CnpjValidatorTest {
       })
   void isValidCnpj_shouldReturnFalse_forInvalidCnpjs(String cnpj) {
     assertThat(CnpjValidator.isValidCnpj(cnpj)).isFalse();
-  }
-
-  @Test
-  void isValid_shouldReturnTrue_forNull() {
-    CnpjValidator validator = new CnpjValidator();
-    assertThat(validator.isValid(null, null)).isTrue();
-  }
-
-  @Test
-  void isValid_shouldReturnTrue_forBlank() {
-    CnpjValidator validator = new CnpjValidator();
-    assertThat(validator.isValid("   ", null)).isTrue();
-  }
-
-  @Test
-  void isValid_shouldStripFormatting_beforeValidating() {
-    CnpjValidator validator = new CnpjValidator();
-    assertThat(validator.isValid("11.222.333/0001-81", null)).isTrue();
   }
 }

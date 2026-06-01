@@ -1,18 +1,9 @@
 package br.com.ragro.validation;
 
-import jakarta.validation.ConstraintValidator;
-import jakarta.validation.ConstraintValidatorContext;
+/** Utility for CNPJ check-digit validation. Reused by {@link FiscalNumberValidator}. */
+public final class CnpjValidator {
 
-public class CnpjValidator implements ConstraintValidator<ValidCnpj, String> {
-
-  @Override
-  public boolean isValid(String value, ConstraintValidatorContext context) {
-    if (value == null || value.isBlank()) {
-      return true;
-    }
-    String digits = value.replaceAll("\\D", "");
-    return isValidCnpj(digits);
-  }
+  private CnpjValidator() {}
 
   static boolean isValidCnpj(String digits) {
     if (digits.length() != 14) {

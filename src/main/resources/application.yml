@@ -61,13 +61,11 @@ keycloak:
 
 minio:
   endpoint: ${STORAGE_ENDPOINT:http://localhost:9000}
-  public-url: ${STORAGE_PUBLIC_URL:}
   media-public-url: ${MEDIA_PUBLIC_URL:http://localhost:8080}
   region: ${STORAGE_REGION:us-east-1}
   access-key: ${STORAGE_ACCESS_KEY:minioadmin}
   secret-key: ${STORAGE_SECRET_KEY:minioadmin}
   bucket: ${STORAGE_BUCKET:ragro-media}
-  presigned-expiry-seconds: ${STORAGE_PRESIGNED_EXPIRY_SECONDS:3600}
 
 springdoc:
   api-docs:

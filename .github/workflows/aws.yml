@@ -90,17 +90,22 @@ jobs:
           KEYCLOAK_JWK_SET_URI=${{ secrets.KEYCLOAK_JWK_SET_URI }}
           KEYCLOAK_SERVER_URL=${{ secrets.KEYCLOAK_SERVER_URL }}
           KEYCLOAK_PUBLIC_URL=${{ secrets.KEYCLOAK_PUBLIC_URL }}
+          KEYCLOAK_ADMIN=${{ secrets.KEYCLOAK_ADMIN }}
+          KEYCLOAK_ADMIN_PASSWORD=${{ secrets.KEYCLOAK_ADMIN_PASSWORD }}
           STORAGE_ENDPOINT=${{ secrets.STORAGE_ENDPOINT }}
           STORAGE_REGION=${{ secrets.STORAGE_REGION }}
           STORAGE_ACCESS_KEY=${{ secrets.STORAGE_ACCESS_KEY }}
           STORAGE_SECRET_KEY=${{ secrets.STORAGE_SECRET_KEY }}
           STORAGE_BUCKET=${{ secrets.STORAGE_BUCKET }}
+          MEDIA_PUBLIC_URL=${{ secrets.MEDIA_PUBLIC_URL }}
           OLLAMA_BASE_URL=${{ secrets.OLLAMA_BASE_URL }}
           OLLAMA_MODEL=${{ secrets.OLLAMA_MODEL }}
           SWAGGER_PRODUCTION_URL=${{ secrets.SWAGGER_PRODUCTION_URL }}
           CORS_ALLOWED_ORIGIN_PATTERNS=${{ secrets.CORS_ALLOWED_ORIGIN_PATTERNS }}
           GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API_KEY }}
-          MEDIA_PUBLIC_URL=${{ secrets.MEDIA_PUBLIC_URL }}
+          SPRINGDOC_SWAGGER_UI_ENABLED=false
+          SPRINGDOC_API_DOCS_ENABLED=false
+          RAGRO_FLYWAY_REPAIR_ON_BOOT=false
 
     - name: Deploy Amazon ECS task definition
       uses: aws-actions/amazon-ecs-deploy-task-definition@v1

@@ -15,17 +15,11 @@ import org.springframework.data.repository.query.Param;
 public interface ProducerRepository
     extends JpaRepository<Producer, UUID>, JpaSpecificationExecutor<Producer> {
 
-  Optional<Producer> findByFiscalNumber(String fiscalNumber);
-
   boolean existsByFiscalNumber(String fiscalNumber);
 
   @EntityGraph(attributePaths = {"user", "user.addresses"})
   @Query("SELECT p FROM Producer p ORDER BY p.averageRating DESC")
   Page<Producer> findAllUsersSortedByRating(Pageable pageable);
-
-  @EntityGraph(attributePaths = {"user", "user.addresses"})
-  @Query("SELECT p FROM Producer p WHERE p.user.active = true ORDER BY p.averageRating DESC")
-  Page<Producer> findAllActiveSortedByRating(Pageable pageable);
 
   @EntityGraph(attributePaths = {"user", "user.addresses"})
   List<Producer> findAllByUserActiveTrue();

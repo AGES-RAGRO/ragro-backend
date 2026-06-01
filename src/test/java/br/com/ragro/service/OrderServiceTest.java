@@ -411,6 +411,13 @@ class OrderServiceTest {
     order.setStatus(OrderStatus.CONFIRMED);
     order.setDeliveryAddressSnapshot(AddressSnapshot.builder().city("Test City").build());
     order.setPaymentMethod(paymentMethod);
+    OrderItem orderItem = new OrderItem();
+    orderItem.setProduct(product);
+    orderItem.setProductNameSnapshot("Product Test");
+    orderItem.setUnitPriceSnapshot(new BigDecimal("10.00"));
+    orderItem.setQuantity(new BigDecimal("2.00"));
+    orderItem.setSubtotal(new BigDecimal("20.00"));
+    order.getItems().add(orderItem);
 
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
     when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
@@ -419,6 +426,9 @@ class OrderServiceTest {
     OrderResponse response = orderService.cancelOrderAsCustomer(order.getId(), jwt(), null);
 
     assertThat(response.getStatus()).isEqualTo(OrderStatus.CANCELLED);
+    // Cancelling a CONFIRMED order must credit the stock that confirmation debited.
+    verify(stockMovementService)
+        .registerCancelledSale(eq(product), eq(new BigDecimal("2.00")), anyString());
   }
 
   @Test
@@ -501,6 +511,13 @@ class OrderServiceTest {
     order.setStatus(OrderStatus.IN_DELIVERY);
     order.setDeliveryAddressSnapshot(AddressSnapshot.builder().city("Test City").build());
     order.setPaymentMethod(paymentMethod);
+    OrderItem orderItem = new OrderItem();
+    orderItem.setProduct(product);
+    orderItem.setProductNameSnapshot("Product Test");
+    orderItem.setUnitPriceSnapshot(new BigDecimal("10.00"));
+    orderItem.setQuantity(new BigDecimal("2.00"));
+    orderItem.setSubtotal(new BigDecimal("20.00"));
+    order.getItems().add(orderItem);
 
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
     when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
@@ -509,6 +526,9 @@ class OrderServiceTest {
     OrderResponse response = orderService.refuseOrderAsFarmer(order.getId(), jwt(), null);
 
     assertThat(response.getStatus()).isEqualTo(OrderStatus.CANCELLED);
+    // Refusing an IN_DELIVERY order must credit the stock that confirmation debited.
+    verify(stockMovementService)
+        .registerCancelledSale(eq(product), eq(new BigDecimal("2.00")), anyString());
   }
 
   @Test
