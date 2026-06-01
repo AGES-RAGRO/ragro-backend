@@ -10,7 +10,6 @@ import br.com.ragro.controller.response.ProducerResponse;
 import br.com.ragro.service.CustomerService;
 import br.com.ragro.service.ProducerRegistrationService;
 import br.com.ragro.service.ProducerService;
-import br.com.ragro.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -45,7 +44,6 @@ public class AdminController {
   private final ProducerRegistrationService producerRegistrationService;
 
   public AdminController(
-      UserService userService,
       CustomerService customerService,
       ProducerService producerService,
       ProducerRegistrationService producerRegistrationService) {

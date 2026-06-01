@@ -7,13 +7,11 @@ import br.com.ragro.exception.NotFoundException;
 import io.minio.BucketExistsArgs;
 import io.minio.GetObjectArgs;
 import io.minio.GetObjectResponse;
-import io.minio.GetPresignedObjectUrlArgs;
 import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
 import io.minio.RemoveObjectArgs;
 import io.minio.errors.ErrorResponseException;
-import io.minio.http.Method;
 import jakarta.annotation.PostConstruct;
 import java.io.IOException;
 import java.io.InputStream;
@@ -22,7 +20,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.Set;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -34,15 +31,10 @@ public class MinioStorageService {
       Set.of("image/jpeg", "image/png", "image/webp");
 
   private final MinioClient minioClient;
-  private final MinioClient minioPresignClient;
   private final MinioProperties properties;
 
-  public MinioStorageService(
-      MinioClient minioClient,
-      @Qualifier("minioPresignClient") MinioClient minioPresignClient,
-      MinioProperties properties) {
+  public MinioStorageService(MinioClient minioClient, MinioProperties properties) {
     this.minioClient = minioClient;
-    this.minioPresignClient = minioPresignClient;
     this.properties = properties;
   }
 
@@ -130,37 +122,6 @@ public class MinioStorageService {
       sb.append(URLEncoder.encode(segments[i], StandardCharsets.UTF_8).replace("+", "%20"));
     }
     return sb.toString();
-  }
-
-  /**
-   * Generates a temporary presigned URL for an object (signed with {@code minioPresignClient}). Kept
-   * for cases needing direct, temporary storage access; the default media read path is now the proxy
-   * via {@link #composePublicUrl(String)}.
-   */
-  public String composePresignedUrl(String objectKey) {
-    if (objectKey == null || objectKey.isBlank()) {
-      return null;
-    }
-    if (objectKey.startsWith("http://") || objectKey.startsWith("https://")) {
-      return objectKey;
-    }
-    try {
-      return minioPresignClient.getPresignedObjectUrl(
-          GetPresignedObjectUrlArgs.builder()
-              .method(Method.GET)
-              .bucket(properties.getBucket())
-              .object(objectKey)
-              .expiry(properties.getPresignedExpirySeconds())
-              .build());
-    } catch (Exception e) {
-      log.error(
-          "Failed to generate presigned URL for object '{}' in bucket '{}': {}",
-          objectKey,
-          properties.getBucket(),
-          e.getMessage(),
-          e);
-      throw new InternalServerException("Falha ao gerar URL presigned", e);
-    }
   }
 
   /**

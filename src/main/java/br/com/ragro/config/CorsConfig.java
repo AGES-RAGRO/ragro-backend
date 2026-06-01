@@ -34,7 +34,10 @@ public class CorsConfig {
         Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
     configuration.setAllowedHeaders(Arrays.asList("Content-Type", "Authorization"));
     configuration.setExposedHeaders(Arrays.asList("Authorization"));
-    configuration.setAllowCredentials(true);
+    // API is a stateless bearer-token resource server (Authorization header, no cookies),
+    // so credentialed CORS is unnecessary. Keeping it false avoids the wildcard-pattern +
+    // allowCredentials combination that would let any matching origin make credentialed calls.
+    configuration.setAllowCredentials(false);
     configuration.setMaxAge(3600L);
 
     UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

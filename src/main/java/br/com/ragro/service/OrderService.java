@@ -121,9 +121,9 @@ public class OrderService {
 
   /**
    * Legacy cancel entry-point (backward compatible with {@code PATCH /orders/{id}/cancel}). Routes
-   * to the role-specific flow: CUSTOMER cancels their own order, FARMER refuses an incoming one. No
-   * stock movement: per decision D26, PENDING orders never debit stock, so cancelling must not
-   * credit it back.
+   * to the role-specific flow: CUSTOMER cancels their own order, FARMER refuses an incoming one.
+   * Stock is credited back only for orders that had already debited it (CONFIRMED/IN_DELIVERY);
+   * PENDING orders never debit stock (D26), so cancelling them leaves stock untouched.
    */
   @Transactional
   public OrderResponse cancelOrder(UUID orderId, Jwt jwt, CancelOrderRequest request) {
@@ -137,7 +137,10 @@ public class OrderService {
     throw new ForbiddenException("Apenas consumidores ou produtores podem cancelar pedidos");
   }
 
-  /** Customer cancels their own PENDING order. Does not touch stock (D26). */
+  /**
+   * Customer cancels their own order (PENDING, CONFIRMED or IN_DELIVERY). Stock debited at
+   * confirmation is restored via {@link #applyCancellation}; PENDING orders never debited it.
+   */
   @Transactional
   public OrderResponse cancelOrderAsCustomer(UUID orderId, Jwt jwt, CancelOrderRequest request) {
     User user = userService.getAuthenticatedUser(jwt);
@@ -236,6 +239,8 @@ public class OrderService {
     if (order.getStatus() == OrderStatus.CANCELLED) {
       return; // idempotent: already cancelled, don't re-apply or duplicate history
     }
+
+    OrderStatus previousStatus = order.getStatus();
     order.setStatus(OrderStatus.CANCELLED);
 
     String reason = defaultReason;
@@ -250,6 +255,19 @@ public class OrderService {
     }
     order.setCancellationReason(reason);
     order.setCancellationDetails(details);
+
+    // Restore stock that was debited at confirmation. Per decision D26 a PENDING order never
+    // debits stock, so we only credit it back when the order had already moved to CONFIRMED or
+    // IN_DELIVERY (where confirmOrder ran registerSale). Without this, cancelling a confirmed
+    // order silently loses the debited quantity.
+    if (previousStatus == OrderStatus.CONFIRMED || previousStatus == OrderStatus.IN_DELIVERY) {
+      order
+          .getItems()
+          .forEach(
+              item ->
+                  stockMovementService.registerCancelledSale(
+                      item.getProduct(), item.getQuantity(), "Pedido cancelado"));
+    }
 
     OrderStatusHistory history = new OrderStatusHistory();
     history.setOrder(order);
