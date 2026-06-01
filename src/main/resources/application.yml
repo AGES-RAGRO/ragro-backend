@@ -43,6 +43,14 @@ spring:
           temperature: 0.2
           format: json
 
+# Timeouts do cliente HTTP do Ollama. O Spring AI 1.0.3 não expõe timeout via
+# propriedade (só base-url), então OllamaConfig aplica estes valores ao RestClient
+# do OllamaApi. O read-timeout precisa cobrir a inferência da LLM em CPU
+# (gemma2:2b leva ~10s+), bem acima do default de 10s do cliente HTTP.
+ollama:
+  connect-timeout-ms: ${OLLAMA_CONNECT_TIMEOUT_MS:2000}
+  read-timeout-ms: ${OLLAMA_READ_TIMEOUT_MS:60000}
+
 keycloak:
   server-url: ${KEYCLOAK_SERVER_URL:http://localhost:8180}
   public-url: ${KEYCLOAK_PUBLIC_URL:http://localhost:8180}

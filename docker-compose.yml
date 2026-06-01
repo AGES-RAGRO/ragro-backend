@@ -122,7 +122,9 @@ services:
       STORAGE_SECRET_KEY: minioadmin
       STORAGE_BUCKET: ragro-media
       MEDIA_PUBLIC_URL: ${MEDIA_PUBLIC_URL:-http://localhost:8080}
-      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+      # Endpoint INTERNO (rede docker). Literal, como STORAGE_ENDPOINT/KEYCLOAK_SERVER_URL —
+      # NÃO interpolar do .env, senão o OLLAMA_BASE_URL de dev-local (localhost) vaza pro container.
+      OLLAMA_BASE_URL: http://ollama:11434
       OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma2:2b}
       OLLAMA_CONNECT_TIMEOUT_MS: ${OLLAMA_CONNECT_TIMEOUT_MS:-2000}
       OLLAMA_READ_TIMEOUT_MS: ${OLLAMA_READ_TIMEOUT_MS:-30000}
