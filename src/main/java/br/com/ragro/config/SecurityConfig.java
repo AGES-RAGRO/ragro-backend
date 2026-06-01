@@ -2,6 +2,7 @@ package br.com.ragro.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -20,7 +21,45 @@ import org.springframework.web.cors.CorsConfigurationSource;
 @EnableMethodSecurity
 public class SecurityConfig {
 
+  /**
+   * Public endpoints, handled by a chain without the OAuth2 resource server so a presented token
+   * is ignored (a stale token must not 401 a {@code permitAll} route). Not {@code /co2/**}: {@code
+   * POST /co2/record-savings} is authenticated.
+   */
+  private static final String[] PUBLIC_MATCHERS = {
+    "/actuator/health",
+    "/media/**",
+    "/auth/register/customer",
+    "/auth/password/forgot",
+    "/auth/config",
+    "/v3/api-docs",
+    "/v3/api-docs/**",
+    "/swagger-ui",
+    "/swagger-ui.html",
+    "/swagger-ui/**",
+    "/swagger-resources",
+    "/swagger-resources/**",
+    "/webjars/**",
+    "/co2/options",
+    "/co2/total-saved",
+    "/co2/calculate"
+  };
+
   @Bean
+  @Order(1)
+  public SecurityFilterChain publicSecurityFilterChain(
+      HttpSecurity http, CorsConfigurationSource corsConfigurationSource) throws Exception {
+    return http.securityMatcher(PUBLIC_MATCHERS)
+        .csrf(AbstractHttpConfigurer::disable)
+        .sessionManagement(
+            session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        .cors(cors -> cors.configurationSource(corsConfigurationSource))
+        .authorizeHttpRequests(authorize -> authorize.anyRequest().permitAll())
+        .build();
+  }
+
+  @Bean
+  @Order(2)
   public SecurityFilterChain securityFilterChain(
       HttpSecurity http,
       CorsConfigurationSource corsConfigurationSource,
@@ -34,30 +73,6 @@ public class SecurityConfig {
         .authorizeHttpRequests(
             authorize ->
                 authorize
-                    .requestMatchers(HttpMethod.GET, "/actuator/health")
-                    .permitAll()
-                    .requestMatchers(HttpMethod.GET, "/media/**")
-                    .permitAll()
-                    .requestMatchers(HttpMethod.POST, "/auth/register/customer")
-                    .permitAll()
-                    .requestMatchers(HttpMethod.POST, "/auth/password/forgot")
-                    .permitAll()
-                    .requestMatchers(HttpMethod.GET, "/auth/config")
-                    .permitAll()
-                    .requestMatchers("/v3/api-docs", "/v3/api-docs/**")
-                    .permitAll()
-                    .requestMatchers("/swagger-ui", "/swagger-ui.html", "/swagger-ui/**")
-                    .permitAll()
-                    .requestMatchers("/swagger-resources", "/swagger-resources/**")
-                    .permitAll()
-                    .requestMatchers("/webjars/**")
-                    .permitAll()
-                    .requestMatchers(HttpMethod.GET, "/co2/options")
-                    .permitAll()
-                    .requestMatchers(HttpMethod.GET, "/co2/total-saved")
-                    .permitAll()
-                    .requestMatchers(HttpMethod.POST, "/co2/calculate")
-                    .permitAll()
                     .requestMatchers("/admin/**")
                     .hasRole("ADMIN")
                     .requestMatchers(HttpMethod.GET, "/search")

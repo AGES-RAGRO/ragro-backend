@@ -115,6 +115,35 @@ class AuthControllerTest {
   }
 
   @Test
+  void registerCustomer_shouldIgnoreStaleBearerToken_andReachController() throws Exception {
+    // A stale token on this public route must be ignored, not rejected with 401.
+    UUID id = UUID.randomUUID();
+    CustomerRegistrationResponse response =
+        CustomerRegistrationResponse.builder()
+            .id(id)
+            .name("Maria Silva")
+            .email("maria@example.com")
+            .phone("51987654321")
+            .type("customer")
+            .active(true)
+            .fiscalNumber("52998224725")
+            .createdAt(OffsetDateTime.now())
+            .updatedAt(OffsetDateTime.now())
+            .build();
+    when(customerRegistrationService.register(any())).thenReturn(response);
+
+    mockMvc
+        .perform(
+            post("/auth/register/customer")
+                .with(csrf())
+                .header("Authorization", "Bearer not.a.valid.token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(validRegistrationRequest())))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.id").value(id.toString()));
+  }
+
+  @Test
   void registerCustomer_shouldReturn400_whenCpfIsArithmeticallyInvalid() throws Exception {
     CustomerRegistrationRequest request = validRegistrationRequest();
     request.setFiscalNumber("12345678901");
