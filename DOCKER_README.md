@@ -1,95 +1,95 @@
 # Ragro Backend - Docker Setup
 
-## Requisitos
+## Requirements
 
 - Docker 20.10+
 - Docker Compose 2.0+
 
-## Execucao Rapida
+## Quick Start
 
-Para subir a aplicacao com um unico comando:
+Bring up the application with a single command:
 
 ```bash
 docker compose up --build
 ```
 
-Isso ira:
-1. **Construir** a imagem Docker do backend
-2. **Iniciar** o PostgreSQL com o schema executado automaticamente
-3. **Criar** o banco `keycloak` dentro do PostgreSQL (via `data/00-create-keycloak-db.sh`)
-4. **Iniciar** o Keycloak 26 com o realm `ragro` pre-configurado
-5. **Aguardar** o banco estar pronto
-6. **Subir** o backend conectado ao banco e ao Keycloak
+This will:
+1. **Build** the backend Docker image
+2. **Start** PostgreSQL with the schema applied automatically
+3. **Create** the `keycloak` database inside PostgreSQL (via `data/00-create-keycloak-db.sh`)
+4. **Start** Keycloak 26 with the pre-configured `ragro` realm
+5. **Wait** for the database to be ready
+6. **Start** the backend connected to the database and Keycloak
 
-## Acesso a Aplicacao
+## Application Access
 
 - **Backend**: http://localhost:8080
 - **Swagger UI**: http://localhost:8080/swagger-ui.html
 - **Health Check**: http://localhost:8080/actuator/health
 - **Keycloak Admin Console**: http://localhost:8180
-  - Usuario: `admin`
-  - Senha: `admin`
+  - User: `admin`
+  - Password: `admin`
 - **PostgreSQL**: localhost:5432
-  - Usuario: `postgres`
-  - Senha: `postgres`
-  - Bancos: `gearheads` (aplicacao), `keycloak` (Keycloak)
+  - User: `postgres`
+  - Password: `postgres`
+  - Databases: `gearheads` (application), `keycloak` (Keycloak)
 
-## Estrutura Docker
+## Docker Structure
 
 ### Dockerfile
 
-- **Image Base**: `eclipse-temurin:21-jre-alpine` (Java 21 optimizado)
-- **Build**: Multi-stage com Maven 3.9 para reduzir tamanho final
-- **Health Check**: Validacao automatica a cada 30s via `/actuator/health`
+- **Base image**: `eclipse-temurin:21-jre-alpine` (optimized Java 21)
+- **Build**: multi-stage with Maven 3.9 to reduce final size
+- **Health Check**: automatic validation every 30s via `/actuator/health`
 
 ### docker-compose.yml
 
-#### Servico: `postgres`
-- Imagem: `postgres:16-alpine`
+#### Service: `postgres`
+- Image: `postgres:16-alpine`
 - Volumes:
-  - Dados persistidos em `postgres_data:/var/lib/postgresql/data`
-  - Init script: `data/00-create-keycloak-db.sh` (cria banco `keycloak`)
-- Health Check: Valida conexao com o banco
+  - Data persisted in `postgres_data:/var/lib/postgresql/data`
+  - Init script: `data/00-create-keycloak-db.sh` (creates the `keycloak` database)
+- Health Check: validates the database connection
 
-#### Servico: `keycloak`
-- Imagem: `quay.io/keycloak/keycloak:26.0`
-- Modo: `start-dev` com `--import-realm`
-- Banco: PostgreSQL compartilhado (database `keycloak`)
-- Porta: `8180`
-- Realm: Importado de `keycloak/ragro-realm.json` contendo:
-  - Client `ragro-app` (publico, Direct Access Grants habilitado)
-  - Grupos: `ADMIN`, `CUSTOMER`, `FARMER`
-  - Mapper: `groups` claim no JWT
-  - Usuarios de teste pre-configurados
-- Depends On: PostgreSQL (aguarda health check)
+#### Service: `keycloak`
+- Image: `quay.io/keycloak/keycloak:26.0`
+- Mode: `start-dev` with `--import-realm`
+- Database: shared PostgreSQL (`keycloak` database)
+- Port: `8180`
+- Realm: imported from `keycloak/ragro-realm.json`, containing:
+  - `ragro-app` client (public, Direct Access Grants enabled)
+  - Groups: `ADMIN`, `CUSTOMER`, `FARMER`
+  - Mapper: `groups` claim in the JWT
+  - Pre-configured test users
+- Depends on: PostgreSQL (waits for health check)
 
-#### Servico: `backend`
-- Build a partir do `Dockerfile`
-- Migrações executadas automaticamente via Flyway (`src/main/resources/db/migration`)
-- Variaveis de ambiente:
+#### Service: `backend`
+- Built from `Dockerfile`
+- Migrations run automatically via Flyway (`src/main/resources/db/migration`)
+- Environment variables:
   - `SPRING_DATASOURCE_URL`: jdbc:postgresql://postgres:5432/gearheads
-  - `KEYCLOAK_SERVER_URL`: http://keycloak:8180 (comunicacao interna)
+  - `KEYCLOAK_SERVER_URL`: http://keycloak:8180 (internal communication)
   - `KEYCLOAK_PUBLIC_URL`: http://localhost:8180 (Swagger UI / browser)
   - `KEYCLOAK_ISSUER_URI`: http://keycloak:8180/realms/ragro
   - `KEYCLOAK_JWK_SET_URI`: http://keycloak:8180/realms/ragro/protocol/openid-connect/certs
-- Depends On: PostgreSQL (aguarda health check)
-- Redes: Isolado em `ragro-network`
+- Depends on: PostgreSQL (waits for health check)
+- Network: isolated in `ragro-network`
 
-## Arquivos Docker
+## Docker Files
 
 ```
-/Dockerfile                       - Imagem Docker do backend (multi-stage)
-/docker-compose.yml               - Orquestracao: postgres + keycloak + backend
-/docker-compose.test.yml          - Orquestracao para testes
-/.dockerignore                    - Arquivos ignorados no build
-/src/main/resources/db/migration/ - Migrations Flyway (schema e seed)
-/data/00-create-keycloak-db.sh    - Init script: cria banco keycloak no postgres
-/keycloak/ragro-realm.json        - Realm Keycloak pre-configurado
+/Dockerfile                       - Backend Docker image (multi-stage)
+/docker-compose.yml               - Orchestration: postgres + keycloak + backend
+/docker-compose.test.yml          - Orchestration for tests
+/.dockerignore                    - Files ignored in the build
+/src/main/resources/db/migration/ - Flyway migrations (schema and seed)
+/data/00-create-keycloak-db.sh    - Init script: creates keycloak database in postgres
+/keycloak/ragro-realm.json        - Pre-configured Keycloak realm
 ```
 
-## Configuracao no application.yml
+## Configuration in application.yml
 
-As variaveis de ambiente sao definidas em `src/main/resources/application.yml`:
+Environment variables are defined in `src/main/resources/application.yml`:
 
 ```yaml
 spring:
@@ -113,53 +113,53 @@ keycloak:
     password: ${KEYCLOAK_ADMIN_PASSWORD:admin}
 ```
 
-- **Em Docker**: Usa valores do `docker-compose.yml`
-- **Local**: Usa defaults (localhost)
+- **In Docker**: uses values from `docker-compose.yml`
+- **Local**: uses defaults (localhost)
 
-## Comandos Uteis
+## Useful Commands
 
-### Subir tudo
+### Start everything
 ```bash
 docker compose up --build
 ```
 
-### Subir em background
+### Start in background
 ```bash
 docker compose up --build -d
 ```
 
-### Ver logs
+### View logs
 ```bash
 docker compose logs -f backend
 docker compose logs -f keycloak
 docker compose logs -f postgres
 ```
 
-### Parar tudo
+### Stop everything
 ```bash
 docker compose down
 ```
 
-### Remover volumes (limpar dados e recriar realm)
+### Remove volumes (clear data and recreate realm)
 ```bash
 docker compose down -v
 ```
 
-### Reconstruir imagens
+### Rebuild images
 ```bash
 docker compose build --no-cache
 ```
 
-### Subir apenas infraestrutura (para dev local)
+### Start infrastructure only (for local dev)
 ```bash
 docker compose up postgres keycloak -d
 ```
 
 ## Troubleshooting
 
-### Porta 5432, 8080 ou 8180 ja em uso
+### Port 5432, 8080, or 8180 already in use
 
-Edite `docker-compose.yml` para usar portas diferentes:
+Edit `docker-compose.yml` to use different ports:
 
 ```yaml
 ports:
@@ -168,48 +168,48 @@ ports:
   - "8181:8180"  # Keycloak
 ```
 
-### Backend nao conecta ao PostgreSQL
+### Backend can't connect to PostgreSQL
 
-Verifique se o servico postgres esta healthy:
+Check that the postgres service is healthy:
 
 ```bash
 docker compose ps
 ```
 
-O backend aguarda o health check do postgres (ate 5 tentativas de 10s cada = ~50s).
+The backend waits for the postgres health check (up to 5 retries of 10s each = ~50s).
 
-### Keycloak nao importa o realm
+### Keycloak doesn't import the realm
 
-Se o realm nao aparece no Keycloak admin console:
+If the realm doesn't appear in the Keycloak admin console:
 
-1. Verifique se `keycloak/ragro-realm.json` existe
-2. Recrie os volumes: `docker compose down -v && docker compose up --build`
-3. O realm so e importado na primeira inicializacao
+1. Verify `keycloak/ragro-realm.json` exists
+2. Recreate the volumes: `docker compose down -v && docker compose up --build`
+3. The realm is imported only on first startup
 
-### Swagger UI retorna "Failed to fetch" ao autenticar
+### Swagger UI returns "Failed to fetch" on auth
 
-Verifique se a variavel `KEYCLOAK_PUBLIC_URL` esta como `http://localhost:8180` (nao o hostname interno `keycloak`).
+Verify `KEYCLOAK_PUBLIC_URL` is `http://localhost:8180` (not the internal hostname `keycloak`).
 
-### Reimicializar com novo schema
+### Reinitialize with a new schema
 
 ```bash
 docker compose down -v
 docker compose up --build
 ```
 
-Isso remove todos os volumes, forca reconstrucao, o schema e reinserido e o realm e reimportado.
+This removes all volumes, forces a rebuild, reapplies the schema, and reimports the realm.
 
 ## Performance
 
-- **Multi-stage build**: Reduz tamanho final da imagem (~200MB vs ~500MB)
-- **Alpine Linux**: Imagem minima do Java 21
-- **PostgreSQL compartilhado**: Keycloak e a aplicacao usam o mesmo container PostgreSQL com bancos separados
-- **Network isolation**: Servicos isolados em rede customizada
-- **Health checks**: Garante readiness antes de iniciar dependencias
+- **Multi-stage build**: reduces final image size (~200MB vs ~500MB)
+- **Alpine Linux**: minimal Java 21 image
+- **Shared PostgreSQL**: Keycloak and the application share one PostgreSQL container with separate databases
+- **Network isolation**: services isolated in a custom network
+- **Health checks**: ensure readiness before starting dependencies
 
-## Seguranca em Producao
+## Production Security
 
-Para producao, considere:
+For production, consider:
 
 ```yaml
 # docker-compose.yml
@@ -219,7 +219,7 @@ environment:
   KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
 ```
 
-Use um arquivo `.env` (nao versionado):
+Use an `.env` file (not versioned):
 
 ```
 POSTGRES_PASSWORD=senha_segura
@@ -227,8 +227,8 @@ SPRING_DATASOURCE_PASSWORD=senha_segura
 KEYCLOAK_ADMIN_PASSWORD=senha_segura
 ```
 
-Alem disso:
-- Altere `sslRequired` para `external` no realm Keycloak
-- Restrinja `webOrigins` no client `ragro-app` para dominios especificos
-- Desabilite o Swagger UI em producao
-- Use Docker Secrets ou um gerenciador de secrets externo
+Also:
+- Set `sslRequired` to `external` in the Keycloak realm
+- Restrict `webOrigins` on the `ragro-app` client to specific domains
+- Disable Swagger UI in production
+- Use Docker Secrets or an external secrets manager

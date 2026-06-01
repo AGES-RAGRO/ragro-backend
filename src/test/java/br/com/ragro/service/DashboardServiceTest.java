@@ -245,11 +245,7 @@ class DashboardServiceTest {
     when(stockMovementRepository.sumAddedStockByMonth(eq(producerId), eq(year), eq(month)))
         .thenReturn(new BigDecimal("50.00"));
 
-    // Total current stock = 100 + 150 = 250
-    // Total sold = 100
-    // Total added = 50
-    // Total initial = 250 + 100 - 50 = 300
-    // Percentage = 100 / 300 * 100 = 33.33%
+    // initial = 250 current + 100 sold - 50 added = 300; sold% = 100/300 = 33.33%
 
     ProducerDashboardResponse response =
         dashboardService.getProducerDashboard(producerId, month, year);
@@ -295,11 +291,7 @@ class DashboardServiceTest {
     when(stockMovementRepository.sumAddedStockByMonth(any(), anyInt(), anyInt()))
         .thenReturn(new BigDecimal("100.00"));
 
-    // Total current stock = 100
-    // Total sold = 300
-    // Total added = 100
-    // Total initial = 100 + 300 - 100 = 300
-    // Percentage = 300 / 300 * 100 = 100.00
+    // initial = 100 current + 300 sold - 100 added = 300; sold% = 300/300 = 100.00
 
     ProducerDashboardResponse response = dashboardService.getProducerDashboard(producerId, 3, 2024);
 
@@ -398,7 +390,6 @@ class DashboardServiceTest {
     DashboardWeeklyResponse response = dashboardService.getWeeklyDashboard(producerId);
 
     assertThat(response.getDailySales()).hasSize(7);
-    // All 7 days should be present
     for (int i = 0; i < 7; i++) {
       assertThat(response.getDailySales().get(i).getFullDate()).isEqualTo(sevenDaysAgo.plusDays(i));
     }

@@ -21,13 +21,13 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 /**
- * Reranker de recomendações baseado em LLM, implementado sobre o Spring AI ({@link ChatClient} +
- * saída estruturada). Substitui a integração artesanal com {@code RestClient}: o provider (Ollama)
- * é auto-configurado via {@code spring.ai.ollama.*} e o JSON é mapeado por {@code .entity(...)}.
+ * LLM-based recommendation reranker built on Spring AI ({@link ChatClient} + structured output).
+ * The provider (Ollama) is auto-configured via {@code spring.ai.ollama.*} and JSON is mapped by
+ * {@code .entity(...)}.
  *
- * <p>Ativável por {@code ragro.recommendations.rerank.enabled} (default {@code true}); quando
- * desativado, o {@link DisabledRerankerAdapter} assume e o {@code RecommendationService} usa a
- * ordenação heurística.
+ * <p>Toggled by {@code ragro.recommendations.rerank.enabled} (default {@code true}); when disabled,
+ * {@link DisabledRerankerAdapter} takes over and {@code RecommendationService} uses heuristic
+ * ordering.
  */
 @Service
 @ConditionalOnProperty(
@@ -39,8 +39,8 @@ public class SpringAiRerankerAdapter implements LlmRerankerPort {
 
   private static final Logger log = LoggerFactory.getLogger(SpringAiRerankerAdapter.class);
 
-  // Payload enviado ao LLM contém apenas nome/categoria/preço de produto e o score heurístico —
-  // sem telefone, CPF, endereço ou dados de pagamento.
+  // The payload sent to the LLM holds only product name/category/price and the heuristic score —
+  // no phone, CPF, address or payment data.
   private static final int MAX_CANDIDATES_TO_LLM = 50;
 
   private final ChatClient chatClient;
@@ -68,8 +68,8 @@ public class SpringAiRerankerAdapter implements LlmRerankerPort {
     try {
       output = chatClient.prompt().user(prompt).call().entity(RerankOutput.class);
     } catch (RuntimeException e) {
-      // Falha de conexão/timeout/parse do Spring AI: converte em saída inválida para o
-      // RecommendationService aplicar o fallback heurístico de forma controlada.
+      // Spring AI connection/timeout/parse failure: convert to invalid output so
+      // RecommendationService applies the heuristic fallback in a controlled way.
       throw new LlmInvalidOutputException("LLM rerank call failed: " + e.getMessage(), e);
     }
 
@@ -153,7 +153,7 @@ public class SpringAiRerankerAdapter implements LlmRerankerPort {
     return sb.toString();
   }
 
-  // Visível no pacote para teste unitário direto da validação/mapeamento.
+  // Package-visible for direct unit testing of validation/mapping.
   List<RankedItem> parse(RerankOutput output, List<Candidate> candidates) {
     if (output == null || output.ranked() == null || output.ranked().isEmpty()) {
       throw new LlmInvalidOutputException("LLM returned empty ranked list");

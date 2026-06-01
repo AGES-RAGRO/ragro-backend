@@ -130,8 +130,7 @@ class OrderServiceTest {
     paymentMethod.setType("PIX");
     paymentMethod.setActive(true);
 
-    // Mapper agora resolve URLs via MinioStorageService. Para simplificar
-    // assertions, devolvemos a chave/URL crua sem composição.
+    // Mapper resolves URLs via MinioStorageService; return the raw key to keep assertions simple.
     lenient()
         .when(storageService.composePublicUrl(anyString()))
         .thenAnswer(invocation -> invocation.getArgument(0));
@@ -377,8 +376,7 @@ class OrderServiceTest {
     assertThat(response.getStatus()).isEqualTo(OrderStatus.CANCELLED);
     assertThat(order.getCancellationReason()).isEqualTo("CHANGED_MY_MIND");
     assertThat(order.getCancellationDetails()).isEqualTo("Comprei em outro lugar");
-    // O OrderResponse deve expor o motivo/detalhes (consumido pelo card de
-    // cancelamento no mobile).
+    // OrderResponse must expose the reason/details (consumed by the mobile cancellation card).
     assertThat(response.getCancellationReason()).isEqualTo("CHANGED_MY_MIND");
     assertThat(response.getCancellationDetails()).isEqualTo("Comprei em outro lugar");
     verify(stockMovementService, never()).registerCancelledSale(any(), any(), anyString());
@@ -740,7 +738,7 @@ class OrderServiceTest {
     assertThat(response.getProducerPicture()).isEqualTo("https://cdn.example.com/avatar.jpg");
     assertThat(response.getStatus()).isEqualTo(OrderStatus.PENDING);
     assertThat(response.isReviewed()).isTrue();
-    // O detalhe do cliente deve expor motivo/detalhes do cancelamento.
+    // The customer detail must expose the cancellation reason/details.
     assertThat(response.getCancellationReason()).isEqualTo("CUSTOMER_CANCELLED");
     assertThat(response.getCancellationDetails()).isEqualTo("mudei de ideia");
   }

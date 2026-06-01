@@ -9,10 +9,9 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 /**
- * Implementação no-op do reranker, ativada quando {@code
- * ragro.recommendations.rerank.enabled=false}. Retorna lista vazia para que o {@code
- * RecommendationService} use exclusivamente a ordenação heurística. Garante que sempre exista
- * exatamente um bean de {@link LlmRerankerPort}.
+ * No-op reranker, active when {@code ragro.recommendations.rerank.enabled=false}. Returns an empty
+ * list so {@code RecommendationService} relies solely on heuristic ordering, and guarantees exactly
+ * one {@link LlmRerankerPort} bean always exists.
  */
 @Service
 @ConditionalOnProperty(

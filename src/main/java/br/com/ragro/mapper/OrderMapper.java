@@ -16,9 +16,9 @@ import java.util.stream.Collectors;
 public class OrderMapper {
 
   /**
-   * Mapeia um pedido para a resposta do produtor (rota POST/PATCH /orders). Resolve URLs públicas
-   * das fotos de produtos via {@link MinioStorageService} quando informado; aceita {@code null}
-   * para chamadas legadas / testes onde a URL crua é aceitável.
+   * Maps an order to the producer-facing response (POST/PATCH /orders). Resolves public product
+   * photo URLs via {@link MinioStorageService} when provided; accepts {@code null} for legacy calls
+   * or tests where the raw key is acceptable.
    */
   public static OrderResponse toResponse(Order order, MinioStorageService storage) {
     if (order == null) {
@@ -54,14 +54,10 @@ public class OrderMapper {
   }
 
   /**
-   * Mapeia um pedido para a resposta do consumidor. Usado tanto pela listagem (GET
-   * /orders/consumer) quanto pela tela de detalhe (GET /orders/customer/{id}). A tela de detalhe
-   * consome todos os campos (itens, endereço, total, contato do produtor); a lista usa apenas id,
-   * price, producerName, producerPicture e status — os demais são ignorados pelo card mas mantêm o
-   * contrato do endpoint coerente.
-   *
-   * <p>Quando {@code storage != null}, resolve URLs públicas para foto do produtor e foto de cada
-   * item.
+   * Maps an order to the consumer-facing response, used by both the list (GET /orders/consumer) and
+   * the detail screen (GET /orders/customer/{id}). The detail screen consumes every field; the list
+   * only uses id, price, producerName, producerPicture and status. When {@code storage != null},
+   * resolves public URLs for the producer photo and each item photo.
    */
   public static CustomerOrderResponse toCustomerOrderResponse(
       Order order, MinioStorageService storage, boolean reviewed) {
@@ -114,7 +110,7 @@ public class OrderMapper {
   }
 
   private static String resolveProducerPicture(Order order) {
-    // Prioriza avatar (foto circular do perfil) sobre displayPhoto (cover/background).
+    // Prefer the avatar (circular profile photo) over displayPhoto (cover/background).
     String picture = order.getFarmer().getAvatarS3();
     if (picture == null || picture.isBlank()) {
       picture = order.getFarmer().getDisplayPhotoS3();
@@ -123,8 +119,8 @@ public class OrderMapper {
   }
 
   /**
-   * Foto preferida do produto: primeira em {@link Product#getPhotos()} (ordenadas por
-   * displayOrder), com fallback para {@code imageS3} legado.
+   * Preferred product photo: the first in {@link Product#getPhotos()} (ordered by displayOrder),
+   * falling back to the legacy {@code imageS3}.
    */
   private static String resolveProductPhoto(Product product) {
     if (product == null) {

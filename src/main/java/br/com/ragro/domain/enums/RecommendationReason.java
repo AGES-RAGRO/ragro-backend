@@ -1,15 +1,15 @@
 package br.com.ragro.domain.enums;
 
 public enum RecommendationReason {
-  /** Sinal 1 (peso 3): produto do mesmo produtor que o cliente ja comprou. */
+  /** Signal 1 (weight 3): product from a producer the customer has already bought from. */
   PURCHASE_HISTORY,
-  /** Sinal 2 (peso 2): produto que co-ocorre nos mesmos pedidos do historico do cliente. */
+  /** Signal 2 (weight 2): product that co-occurs in the customer's past orders. */
   CO_OCCURRENCE,
-  /** Sinal 3 (peso 2): produto de categoria preferida do cliente. */
+  /** Signal 3 (weight 2): product in a category the customer prefers. */
   CATEGORY_PREFERENCE,
-  /** Sinal 4 (peso 1): produto mais pedido na plataforma nos ultimos 90 dias. */
+  /** Signal 4 (weight 1): most ordered product on the platform in the last 90 days. */
   TRENDING,
-  /** Sinal 5 (peso 1): produto recem-cadastrado (ultimos 30 dias). */
+  /** Signal 5 (weight 1): recently added product (last 30 days). */
   FRESHNESS,
   LLM_RERANKED
 }

@@ -11,9 +11,8 @@ import lombok.experimental.UtilityClass;
 public class RecommendationMapper {
 
   /**
-   * Mapeia um produto recomendado para a resposta. Compõe a URL pública da imagem via {@link
-   * MinioStorageService} quando informado; aceita {@code null} (URL crua) para chamadas legadas /
-   * testes.
+   * Maps a recommended product to its response. Composes the public image URL via {@link
+   * MinioStorageService} when provided; accepts {@code null} (raw key) for legacy calls or tests.
    */
   public RecommendationProductResponse toResponse(
       Product product, int score, RecommendationReason reason, MinioStorageService storage) {

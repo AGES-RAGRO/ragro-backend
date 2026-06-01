@@ -19,25 +19,24 @@ public class MinioProperties {
   @NotBlank private String endpoint;
 
   /**
-   * URL pública que clientes (browser/app) usam pra alcançar o storage. Diferente de {@link
-   * #endpoint} apenas quando o backend acessa o storage por um hostname interno (ex.: docker-compose
-   * usa {@code minio:9000}, mas o browser do dev precisa de {@code localhost:9000}). Quando vazio,
-   * presigned URLs são geradas com o {@link #endpoint}.
+   * Public URL clients (browser/app) use to reach storage. Differs from {@link #endpoint} only when
+   * the backend reaches storage via an internal hostname (e.g. docker-compose uses {@code
+   * minio:9000} but the dev browser needs {@code localhost:9000}). When empty, presigned URLs use
+   * {@link #endpoint}.
    */
   private String publicUrl;
 
   /**
-   * URL base pública usada para compor as URLs de mídia servidas pelo proxy do backend (endpoint
-   * {@code GET /media/**}). Em dev é a própria API ({@code http://localhost:8080}); em prod, o
-   * domínio público da API ou CDN. Diferente de {@link #publicUrl} (que era usada para presigned
-   * URLs direto no storage), esta aponta para o backend.
+   * Public base URL used to build media URLs served by the backend proxy ({@code GET /media/**}).
+   * In dev it is the API itself ({@code http://localhost:8080}); in prod the public API domain or
+   * CDN. Unlike {@link #publicUrl} (used for presigned storage URLs), this points at the backend.
    */
   @NotBlank private String mediaPublicUrl = "http://localhost:8080";
 
   /**
-   * Região do storage usada na assinatura AWS Signature V4. Setar explicitamente faz o SDK pular a
-   * discovery automática (que tenta uma chamada HTTP) e deixa o signing 100% local. Em S3 real
-   * precisa bater com a região do bucket; em MinIO local qualquer valor serve.
+   * Storage region for AWS Signature V4. Setting it explicitly makes the SDK skip auto-discovery
+   * (which issues an HTTP call) and keeps signing fully local. On real S3 it must match the bucket
+   * region; on local MinIO any value works.
    */
   @NotBlank private String region = "us-east-1";
 
@@ -48,8 +47,7 @@ public class MinioProperties {
   @NotBlank private String bucket;
 
   /**
-   * Time-to-live (em segundos) para presigned URLs geradas para leitura de objetos. Default: 3600
-   * (1 hora). Mínimo: 60s. Máximo: 604800s (7 dias, limite do AWS Signature V4).
+   * Time-to-live (seconds) for presigned read URLs. Max 604800s is the AWS Signature V4 limit.
    */
   @Min(60)
   @Max(604800)

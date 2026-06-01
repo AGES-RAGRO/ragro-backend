@@ -120,10 +120,10 @@ public class OrderService {
   }
 
   /**
-   * Legacy cancel entry-point (backward compatible with the existing {@code PATCH
-   * /orders/{id}/cancel}). Routes to the role-specific flow: - CUSTOMER → cancel own PENDING order
-   * (no stock movement). - FARMER → refuse own PENDING order (no stock movement). See decision D26:
-   * PENDING orders never debit stock, so cancelling one must NOT credit it back.
+   * Legacy cancel entry-point (backward compatible with {@code PATCH /orders/{id}/cancel}). Routes
+   * to the role-specific flow: CUSTOMER cancels their own order, FARMER refuses an incoming one. No
+   * stock movement: per decision D26, PENDING orders never debit stock, so cancelling must not
+   * credit it back.
    */
   @Transactional
   public OrderResponse cancelOrder(UUID orderId, Jwt jwt, CancelOrderRequest request) {
@@ -234,7 +234,7 @@ public class OrderService {
 
   private void applyCancellation(Order order, CancelOrderRequest request, String defaultReason) {
     if (order.getStatus() == OrderStatus.CANCELLED) {
-      return; // idempotente: já cancelado, não re-aplica nem duplica histórico
+      return; // idempotent: already cancelled, don't re-apply or duplicate history
     }
     order.setStatus(OrderStatus.CANCELLED);
 
@@ -357,7 +357,7 @@ public class OrderService {
 
     order.setStatus(newStatus);
     if (newStatus == OrderStatus.DELIVERED) {
-      // Registra o momento da entrega — as métricas do dashboard filtram por deliveredAt.
+      // Record the delivery time — dashboard metrics filter by deliveredAt.
       order.setDeliveredAt(OffsetDateTime.now());
     }
     Order updatedOrder = orderRepository.saveAndFlush(order);

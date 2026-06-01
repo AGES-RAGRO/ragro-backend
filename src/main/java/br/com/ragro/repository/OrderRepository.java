@@ -17,7 +17,7 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
 
   List<Order> findByFarmerIdOrderByCreatedAtDesc(UUID farmerId);
 
-  // ── Query para o algoritmo de recomendação ────────────────────────────
+  // ── Recommendation algorithm query ────────────────────────────
 
   @Query(
       """

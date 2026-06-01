@@ -28,9 +28,7 @@ public class OrderResponse {
   private Boolean isNew;
   private OffsetDateTime createdAt;
   private List<OrderItemResponse> items;
-  // Motivo/detalhes do cancelamento (persistidos em Order). Consumidos pela tela
-  // de detalhe do produtor para exibir o card de cancelamento; nulos quando o
-  // pedido não foi cancelado.
+  // Cancellation reason/details (persisted on Order); null when the order was not cancelled.
   private String cancellationReason;
   private String cancellationDetails;
 }

@@ -145,12 +145,12 @@ class ProducerServiceTest {
     Producer located =
         buildLocatableProducer(withCoords, new BigDecimal("-30.0346"), new BigDecimal("-51.2177"));
 
-    // sem endereço primário → lat/lng nulos → filtrado
+    // no primary address → null lat/lng → filtered out
     Producer withoutPrimary =
         buildProducerEntity(
             noPrimaryAddress, buildUser(noPrimaryAddress, TypeUser.FARMER, "Sem Primario"));
 
-    // endereço primário porém sem coordenadas → filtrado
+    // primary address but no coordinates → filtered out
     Producer withoutCoords = buildLocatableProducer(nullCoords, null, null);
 
     when(producerRepository.findAllByUserActiveTrue())
