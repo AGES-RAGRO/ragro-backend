@@ -27,6 +27,14 @@ public class MinioProperties {
   private String publicUrl;
 
   /**
+   * URL base pública usada para compor as URLs de mídia servidas pelo proxy do backend (endpoint
+   * {@code GET /media/**}). Em dev é a própria API ({@code http://localhost:8080}); em prod, o
+   * domínio público da API ou CDN. Diferente de {@link #publicUrl} (que era usada para presigned
+   * URLs direto no storage), esta aponta para o backend.
+   */
+  @NotBlank private String mediaPublicUrl = "http://localhost:8080";
+
+  /**
    * Região do storage usada na assinatura AWS Signature V4. Setar explicitamente faz o SDK pular a
    * discovery automática (que tenta uma chamada HTTP) e deixa o signing 100% local. Em S3 real
    * precisa bater com a região do bucket; em MinIO local qualquer valor serve.

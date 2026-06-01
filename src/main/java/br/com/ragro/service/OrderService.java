@@ -32,6 +32,7 @@ import br.com.ragro.repository.OrderStatusHistoryRepository;
 import br.com.ragro.repository.PaymentMethodRepository;
 import br.com.ragro.repository.ReviewRepository;
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -219,6 +220,7 @@ public class OrderService {
     }
 
     order.setStatus(OrderStatus.DELIVERED);
+    order.setDeliveredAt(OffsetDateTime.now());
 
     OrderStatusHistory history = new OrderStatusHistory();
     history.setOrder(order);
@@ -354,6 +356,10 @@ public class OrderService {
     }
 
     order.setStatus(newStatus);
+    if (newStatus == OrderStatus.DELIVERED) {
+      // Registra o momento da entrega — as métricas do dashboard filtram por deliveredAt.
+      order.setDeliveredAt(OffsetDateTime.now());
+    }
     Order updatedOrder = orderRepository.saveAndFlush(order);
 
     OrderStatusHistory history = new OrderStatusHistory();
@@ -526,7 +532,8 @@ public class OrderService {
     }
 
     Cart savedCart = cartRepository.saveAndFlush(cart);
-    return CartMapper.toResponse(savedCart, findPrimaryPaymentMethod(savedCart.getFarmer()));
+    return CartMapper.toResponse(
+        savedCart, findPrimaryPaymentMethod(savedCart.getFarmer()), storageService);
   }
 
   private PaymentMethod findPrimaryPaymentMethod(Producer farmer) {

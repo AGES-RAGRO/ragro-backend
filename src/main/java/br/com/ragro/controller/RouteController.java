@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -22,10 +23,11 @@ public class RouteController {
   private final GoogleMapsService googleMapsService;
 
   @PostMapping("/optimize")
+  @PreAuthorize("hasRole('FARMER')")
   @Operation(
       summary = "Optimize route",
       description =
-          "Calculates the most efficient route passing through all waypoints and returns the distance, duration, and encoded polyline for the map.")
+          "Calculates the most efficient route passing through all waypoints and returns the distance, duration, and encoded polyline for the map. Restricted to producers (FARMER).")
   public ResponseEntity<RouteResponseDTO> optimizeRoute(
       @Valid @RequestBody RouteRequestDTO request) {
     return ResponseEntity.ok(googleMapsService.optimizeRoute(request));

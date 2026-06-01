@@ -31,6 +31,18 @@ spring:
           issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/ragro}
           jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost:8180/realms/ragro/protocol/openid-connect/certs}
 
+  ai:
+    ollama:
+      base-url: ${OLLAMA_BASE_URL:http://ollama:11434}
+      init:
+        # Não tenta baixar o modelo no startup (evita falha quando o Ollama está fora).
+        pull-model-strategy: never
+      chat:
+        options:
+          model: ${OLLAMA_MODEL:gemma2:2b}
+          temperature: 0.2
+          format: json
+
 keycloak:
   server-url: ${KEYCLOAK_SERVER_URL:http://localhost:8180}
   public-url: ${KEYCLOAK_PUBLIC_URL:http://localhost:8180}
@@ -42,6 +54,7 @@ keycloak:
 minio:
   endpoint: ${STORAGE_ENDPOINT:http://localhost:9000}
   public-url: ${STORAGE_PUBLIC_URL:}
+  media-public-url: ${MEDIA_PUBLIC_URL:http://localhost:8080}
   region: ${STORAGE_REGION:us-east-1}
   access-key: ${STORAGE_ACCESS_KEY:minioadmin}
   secret-key: ${STORAGE_SECRET_KEY:minioadmin}
@@ -64,11 +77,11 @@ swagger:
 cors:
   allowed-origin-patterns: ${CORS_ALLOWED_ORIGIN_PATTERNS:http://localhost:*}
 
-ollama:
-  base-url: ${OLLAMA_BASE_URL:http://ollama:11434}
-  model: ${OLLAMA_MODEL:gemma2:2b}
-  connect-timeout-ms: ${OLLAMA_CONNECT_TIMEOUT_MS:2000}
-  read-timeout-ms: ${OLLAMA_READ_TIMEOUT_MS:30000}
+ragro:
+  recommendations:
+    rerank:
+      # Liga/desliga o reranker por IA. Desligado, usa só a ordenação heurística.
+      enabled: ${RECOMMENDATION_RERANK_ENABLED:true}
 
 server:
   error:

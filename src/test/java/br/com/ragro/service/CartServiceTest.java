@@ -43,6 +43,7 @@ class CartServiceTest {
   @Mock private CartRepository cartRepository;
   @Mock private CartItemRepository cartItemRepository;
   @Mock private PaymentMethodRepository paymentMethodRepository;
+  @Mock private MinioStorageService minioStorageService;
 
   @InjectMocks private CartService cartService;
 

@@ -35,7 +35,7 @@ class RecommendationMapperTest {
     product.getCategories().add(category);
 
     RecommendationProductResponse response =
-        RecommendationMapper.toResponse(product, 95, RecommendationReason.PURCHASE_HISTORY);
+        RecommendationMapper.toResponse(product, 95, RecommendationReason.PURCHASE_HISTORY, null);
 
     assertThat(response.getId()).isEqualTo(productId);
     assertThat(response.getName()).isEqualTo("Morango Orgânico");
@@ -63,7 +63,7 @@ class RecommendationMapperTest {
     product.setFarmer(farmer);
 
     RecommendationProductResponse response =
-        RecommendationMapper.toResponse(product, 10, RecommendationReason.TRENDING);
+        RecommendationMapper.toResponse(product, 10, RecommendationReason.TRENDING, null);
 
     assertThat(response.getCategoryNames()).isEmpty();
   }

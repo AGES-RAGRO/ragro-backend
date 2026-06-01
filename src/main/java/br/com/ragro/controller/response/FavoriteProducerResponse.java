@@ -23,5 +23,7 @@ public class FavoriteProducerResponse {
 
   private String avatarUrl;
 
+  private String coverUrl;
+
   private BigDecimal averageRating;
 }

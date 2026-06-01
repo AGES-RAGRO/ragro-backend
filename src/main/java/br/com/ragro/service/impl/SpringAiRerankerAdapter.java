@@ -1,14 +1,10 @@
 package br.com.ragro.service.impl;
 
-import br.com.ragro.config.OllamaProperties;
 import br.com.ragro.domain.llm.Candidate;
 import br.com.ragro.domain.llm.CustomerFeatures;
 import br.com.ragro.domain.llm.RankedItem;
 import br.com.ragro.exception.LlmInvalidOutputException;
 import br.com.ragro.service.api.LlmRerankerPort;
-import br.com.ragro.service.impl.ollama.OllamaChatResponse;
-import br.com.ragro.service.impl.ollama.OllamaRankedOutput;
-import br.com.ragro.service.impl.ollama.OllamaRankedOutput.OllamaRankedEntry;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.ArrayList;
@@ -16,31 +12,42 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.MediaType;
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestClient;
 
+/**
+ * Reranker de recomendações baseado em LLM, implementado sobre o Spring AI ({@link ChatClient} +
+ * saída estruturada). Substitui a integração artesanal com {@code RestClient}: o provider (Ollama)
+ * é auto-configurado via {@code spring.ai.ollama.*} e o JSON é mapeado por {@code .entity(...)}.
+ *
+ * <p>Ativável por {@code ragro.recommendations.rerank.enabled} (default {@code true}); quando
+ * desativado, o {@link DisabledRerankerAdapter} assume e o {@code RecommendationService} usa a
+ * ordenação heurística.
+ */
 @Service
-public class OllamaRerankerAdapter implements LlmRerankerPort {
+@ConditionalOnProperty(
+    prefix = "ragro.recommendations.rerank",
+    name = "enabled",
+    havingValue = "true",
+    matchIfMissing = true)
+public class SpringAiRerankerAdapter implements LlmRerankerPort {
 
-  private static final Logger log = LoggerFactory.getLogger(OllamaRerankerAdapter.class);
+  private static final Logger log = LoggerFactory.getLogger(SpringAiRerankerAdapter.class);
 
-  // Payload sent to Ollama contains only product/producer names, categories, prices and
-  // heuristic scores — no phone, CPF, address, or payment data.
+  // Payload enviado ao LLM contém apenas nome/categoria/preço de produto e o score heurístico —
+  // sem telefone, CPF, endereço ou dados de pagamento.
   private static final int MAX_CANDIDATES_TO_LLM = 50;
 
-  private final RestClient ollamaRestClient;
-  private final OllamaProperties properties;
+  private final ChatClient chatClient;
   private final ObjectMapper objectMapper;
 
-  public OllamaRerankerAdapter(
-      RestClient ollamaRestClient, OllamaProperties properties, ObjectMapper objectMapper) {
-    this.ollamaRestClient = ollamaRestClient;
-    this.properties = properties;
+  public SpringAiRerankerAdapter(ChatModel chatModel, ObjectMapper objectMapper) {
+    this.chatClient = ChatClient.create(chatModel);
     this.objectMapper = objectMapper;
   }
 
@@ -57,22 +64,18 @@ public class OllamaRerankerAdapter implements LlmRerankerPort {
 
     String prompt = buildPrompt(limited, features);
 
-    Map<String, Object> requestBody = new LinkedHashMap<>();
-    requestBody.put("model", properties.getModel());
-    requestBody.put("messages", List.of(Map.of("role", "user", "content", prompt)));
-    requestBody.put("format", "json");
-    requestBody.put("stream", false);
+    RerankOutput output;
+    try {
+      output = chatClient.prompt().user(prompt).call().entity(RerankOutput.class);
+    } catch (RuntimeException e) {
+      // Falha de conexão/timeout/parse do Spring AI: converte em saída inválida para o
+      // RecommendationService aplicar o fallback heurístico de forma controlada.
+      throw new LlmInvalidOutputException("LLM rerank call failed: " + e.getMessage(), e);
+    }
 
-    OllamaChatResponse response =
-        ollamaRestClient
-            .post()
-            .uri("/api/chat")
-            .contentType(MediaType.APPLICATION_JSON)
-            .body(requestBody)
-            .retrieve()
-            .body(OllamaChatResponse.class);
-
-    return parseResponse(response, limited);
+    List<RankedItem> ranked = parse(output, limited);
+    log.info("LLM rerank applied to {} candidates ({} ranked)", limited.size(), ranked.size());
+    return ranked;
   }
 
   private String buildPrompt(List<Candidate> candidates, CustomerFeatures features) {
@@ -139,67 +142,38 @@ public class OllamaRerankerAdapter implements LlmRerankerPort {
       throw new LlmInvalidOutputException("Failed to serialize candidates for prompt", e);
     }
 
-    sb.append("\n\nReturn a JSON object with a 'ranked' array containing all ")
+    sb.append("\n\nRules:\n")
+        .append("- Re-rank ALL ")
         .append(candidates.size())
-        .append(" products re-ordered by relevance:\n")
-        .append(
-            "{\"ranked\":[{\"productId\":\"uuid\",\"score\":0.95,"
-                + "\"reason\":\"short reason in Portuguese\"}]}\n\n")
-        .append("Rules:\n")
-        .append("- Include ALL ")
-        .append(candidates.size())
-        .append(" products from the input\n")
+        .append(" provided products; do NOT invent new ones\n")
         .append("- score must be a decimal between 0.0 and 1.0\n")
         .append("- reason must be a short phrase in Portuguese (max 80 characters)\n")
-        .append("- Do NOT invent products; only re-rank the provided candidates\n")
         .append("- productId values must match exactly the provided UUIDs");
 
     return sb.toString();
   }
 
-  private List<RankedItem> parseResponse(OllamaChatResponse response, List<Candidate> candidates) {
-    if (response == null || response.getMessage() == null) {
-      throw new LlmInvalidOutputException("Empty or null response from Ollama");
-    }
-
-    String content = response.getMessage().getContent();
-    if (content == null || content.isBlank()) {
-      throw new LlmInvalidOutputException("Empty content in Ollama response");
-    }
-
-    if (content.startsWith("```")) {
-      int nl = content.indexOf('\n');
-      if (nl != -1) content = content.substring(nl + 1).trim();
-      if (content.endsWith("```"))
-        content = content.substring(0, content.lastIndexOf("```")).trim();
-    }
-
-    OllamaRankedOutput output;
-    try {
-      output = objectMapper.readValue(content, OllamaRankedOutput.class);
-    } catch (JsonProcessingException e) {
-      throw new LlmInvalidOutputException("Failed to parse LLM JSON output: " + e.getMessage(), e);
-    }
-
-    if (output.getRanked() == null || output.getRanked().isEmpty()) {
+  // Visível no pacote para teste unitário direto da validação/mapeamento.
+  List<RankedItem> parse(RerankOutput output, List<Candidate> candidates) {
+    if (output == null || output.ranked() == null || output.ranked().isEmpty()) {
       throw new LlmInvalidOutputException("LLM returned empty ranked list");
     }
 
     Map<UUID, Candidate> candidateMap =
-        candidates.stream().collect(Collectors.toMap(Candidate::getProductId, Function.identity()));
+        candidates.stream().collect(Collectors.toMap(Candidate::getProductId, c -> c));
 
     List<RankedItem> result = new ArrayList<>();
-    for (OllamaRankedEntry entry : output.getRanked()) {
-      if (entry.getProductId() == null) {
-        throw new LlmInvalidOutputException("Missing productId in ranked entry");
+    for (RerankOutput.RerankEntry entry : output.ranked()) {
+      if (entry.productId() == null) {
+        continue;
       }
 
       UUID productId;
       try {
-        productId = UUID.fromString(entry.getProductId());
+        productId = UUID.fromString(entry.productId());
       } catch (IllegalArgumentException e) {
-        throw new LlmInvalidOutputException(
-            "Invalid UUID in LLM output: " + entry.getProductId(), e);
+        log.warn("LLM returned invalid UUID {}, skipping", entry.productId());
+        continue;
       }
 
       Candidate candidate = candidateMap.get(productId);
@@ -208,12 +182,12 @@ public class OllamaRerankerAdapter implements LlmRerankerPort {
         continue;
       }
 
-      double raw = entry.getScore() != null ? entry.getScore() : 0.0;
+      double raw = entry.score() != null ? entry.score() : 0.0;
       double clamped = Math.max(0.0, Math.min(1.0, raw));
       RankedItem rankedItem = new RankedItem();
       rankedItem.setProductId(productId);
       rankedItem.setScore(clamped);
-      rankedItem.setReason(entry.getReason() != null ? entry.getReason() : "");
+      rankedItem.setReason(entry.reason() != null ? entry.reason() : "");
       rankedItem.setCandidate(candidate);
       result.add(rankedItem);
     }
