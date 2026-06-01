@@ -123,44 +123,6 @@
       "groups": [
         "ADMIN"
       ]
-    },
-    {
-      "id": "10000000-0000-0000-0000-000000000002",
-      "username": "customer@ragro.com.br",
-      "email": "customer@ragro.com.br",
-      "firstName": "Customer",
-      "lastName": "Test",
-      "enabled": true,
-      "emailVerified": true,
-      "credentials": [
-        {
-          "type": "password",
-          "value": "Test@123",
-          "temporary": false
-        }
-      ],
-      "groups": [
-        "CUSTOMER"
-      ]
-    },
-    {
-      "id": "10000000-0000-0000-0000-000000000003",
-      "username": "farmer@ragro.com.br",
-      "email": "farmer@ragro.com.br",
-      "firstName": "Farmer",
-      "lastName": "Test",
-      "enabled": true,
-      "emailVerified": true,
-      "credentials": [
-        {
-          "type": "password",
-          "value": "Test@123",
-          "temporary": false
-        }
-      ],
-      "groups": [
-        "FARMER"
-      ]
     }
   ]
 }
