@@ -100,6 +100,7 @@ jobs:
           SWAGGER_PRODUCTION_URL=${{ secrets.SWAGGER_PRODUCTION_URL }}
           CORS_ALLOWED_ORIGIN_PATTERNS=${{ secrets.CORS_ALLOWED_ORIGIN_PATTERNS }}
           GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API_KEY }}
+          MEDIA_PUBLIC_URL=${{ secrets.MEDIA_PUBLIC_URL }}
 
     - name: Deploy Amazon ECS task definition
       uses: aws-actions/amazon-ecs-deploy-task-definition@v1
