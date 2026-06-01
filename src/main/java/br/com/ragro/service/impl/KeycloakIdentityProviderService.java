@@ -1,6 +1,7 @@
 package br.com.ragro.service.impl;
 
 import br.com.ragro.exception.BusinessException;
+import br.com.ragro.exception.InternalServerException;
 import br.com.ragro.service.api.IdentityProviderService;
 import java.net.URI;
 import java.util.HashMap;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
 @Service
@@ -160,17 +162,27 @@ public class KeycloakIdentityProviderService implements IdentityProviderService 
     form.add("password", adminPassword);
 
     @SuppressWarnings("unchecked")
-    Map<String, Object> tokenResponse =
-        restClient
-            .post()
-            .uri(serverUrl + "/realms/master/protocol/openid-connect/token")
-            .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-            .body(form)
-            .retrieve()
-            .body(Map.class);
+    Map<String, Object> tokenResponse;
+    try {
+      tokenResponse =
+          restClient
+              .post()
+              .uri(serverUrl + "/realms/master/protocol/openid-connect/token")
+              .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+              .body(form)
+              .retrieve()
+              .body(Map.class);
+    } catch (RestClientException e) {
+      // Without this, the raw error bubbles up unhandled and Spring's ERROR dispatch is rejected
+      // by security as a misleading 401. Surface a clear, logged 500 naming the likely config.
+      log.error("Failed to obtain Keycloak admin token from {}: {}", serverUrl, e.getMessage());
+      throw new InternalServerException(
+          "Falha ao autenticar no provedor de identidade (admin). "
+              + "Verifique KEYCLOAK_SERVER_URL e as credenciais de admin.");
+    }
 
     if (tokenResponse == null || !tokenResponse.containsKey("access_token")) {
-      throw new BusinessException("Failed to obtain Keycloak admin token");
+      throw new InternalServerException("Failed to obtain Keycloak admin token");
     }
 
     return (String) tokenResponse.get("access_token");

@@ -23,10 +23,13 @@ public class SecurityConfig {
 
   /**
    * Public endpoints, handled by a chain without the OAuth2 resource server so a presented token
-   * is ignored (a stale token must not 401 a {@code permitAll} route). Not {@code /co2/**}: {@code
+   * is ignored (a stale token must not 401 a {@code permitAll} route). {@code /error} is included
+   * so an unhandled exception surfaces as its real status instead of a misleading 401 (Spring
+   * Security filters the ERROR dispatch by default). Not {@code /co2/**}: {@code
    * POST /co2/record-savings} is authenticated.
    */
   private static final String[] PUBLIC_MATCHERS = {
+    "/error",
     "/actuator/health",
     "/media/**",
     "/auth/register/customer",
