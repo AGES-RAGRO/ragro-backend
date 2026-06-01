@@ -4,9 +4,9 @@ import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import java.util.List;
 
 /**
- * Saída estruturada esperada do LLM reranker. O Spring AI ({@code .entity(...)}) gera o JSON Schema
- * a partir deste tipo e desserializa a resposta do modelo automaticamente — sem parsing manual de
- * JSON/markdown.
+ * Structured output expected from the LLM reranker. Spring AI ({@code .entity(...)}) generates the
+ * JSON Schema from this type and deserializes the model response automatically, with no manual
+ * JSON/markdown parsing.
  */
 public record RerankOutput(
     @JsonPropertyDescription(

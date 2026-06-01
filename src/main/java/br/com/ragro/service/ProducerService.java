@@ -98,8 +98,8 @@ public class ProducerService {
               BigDecimal lat = null;
               BigDecimal lng = null;
               if (primaryAddress != null) {
-                // Auto-cura: geocoda na primeira leitura quando o endereço não tem
-                // coordenadas (ex.: cadastro feito com a chave do Maps ausente).
+                // Self-heal: geocode on first read when the address has no coordinates
+                // (e.g. registered while the Maps key was missing).
                 ensureGeocoded(primaryAddress);
                 lat = primaryAddress.getLatitude();
                 lng = primaryAddress.getLongitude();
@@ -119,8 +119,8 @@ public class ProducerService {
   }
 
   /**
-   * Geocoda e persiste as coordenadas de um endereço que ainda não as tem. Tolerante a falhas:
-   * mantém as coordenadas nulas (e o produtor será filtrado do mapa) se o geocoding não retornar.
+   * Geocodes and persists coordinates for an address that lacks them. Fault-tolerant: leaves
+   * coordinates null (and the producer is filtered out of the map) if geocoding returns nothing.
    */
   private void ensureGeocoded(Address address) {
     if (address.getLatitude() != null && address.getLongitude() != null) {

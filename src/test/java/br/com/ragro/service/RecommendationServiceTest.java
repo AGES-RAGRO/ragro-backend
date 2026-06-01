@@ -58,14 +58,14 @@ class RecommendationServiceTest {
 
   @InjectMocks private RecommendationService recommendationService;
 
-  // ─── Cenário 1: Happy path ───────────────────────────────────────────────────
+  // ─── Scenario 1: Happy path ───────────────────────────────────────────────────
   @Test
   void recommend_happyPath_returnsTopScoredProducts() {
     User customer = buildCustomer();
     UUID farmerId = UUID.randomUUID();
     UUID purchasedId = UUID.randomUUID();
-    Product historyProduct = buildProduct(farmerId); // sinal 1 → score 3
-    Product trendingProduct = buildProduct(farmerId); // sinal 4 → score 1
+    Product historyProduct = buildProduct(farmerId); // signal 1 → score 3
+    Product trendingProduct = buildProduct(farmerId); // signal 4 → score 1
 
     stubCustomer(customer);
     stubPurchasedIds(customer.getId(), List.of(purchasedId));
@@ -73,9 +73,9 @@ class RecommendationServiceTest {
     when(productRepository.findAllByFarmerIdAndActiveTrue(farmerId))
         .thenReturn(List.of(historyProduct));
     stubCoOccurrence(customer.getId(), List.of(purchasedId), List.of());
-    // Sinal 3: produtos comprados sem categorias → findAllById retorna produto sem cats
+    // Signal 3: purchased products without categories → findAllById returns one with no categories
     when(productRepository.findAllById(List.of(purchasedId)))
-        .thenReturn(List.of(buildProduct(farmerId))); // produto sem categorias
+        .thenReturn(List.of(buildProduct(farmerId)));
     stubTrending(List.of(trendingProduct));
     stubRecentProducts(List.of());
 
@@ -88,7 +88,7 @@ class RecommendationServiceTest {
     assertThat(recs.get(0).getReason()).isEqualTo(RecommendationReason.PURCHASE_HISTORY);
   }
 
-  // ─── Cenário 2: Cliente novo — fallback TRENDING + FRESHNESS ────────────────
+  // ─── Scenario 2: New customer — fallback to TRENDING + FRESHNESS ────────────────
   @Test
   void recommend_newCustomer_fallbackToTrendingAndFreshness() {
     User customer = buildCustomer();
@@ -113,7 +113,7 @@ class RecommendationServiceTest {
         .containsAnyOf(RecommendationReason.TRENDING, RecommendationReason.FRESHNESS);
   }
 
-  // ─── Cenário 3: Limite é aplicado corretamente ──────────────────────────────
+  // ─── Scenario 3: Limit is applied correctly ──────────────────────────────
   @Test
   void recommend_limitIsApplied() {
     User customer = buildCustomer();
@@ -140,7 +140,7 @@ class RecommendationServiceTest {
     assertThat(response.getTotal()).isEqualTo(3);
   }
 
-  // ─── Cenário 4: Produtos já comprados não aparecem ──────────────────────────
+  // ─── Scenario 4: Already-purchased products do not appear ──────────────────────────
   @Test
   void recommend_deduplicatesPurchasedProducts() {
     User customer = buildCustomer();
@@ -165,7 +165,7 @@ class RecommendationServiceTest {
     assertThat(response.getTotal()).isZero();
   }
 
-  // ─── Cenário 5: excludeProductIds são removidos ─────────────────────────────
+  // ─── Scenario 5: excludeProductIds are removed ─────────────────────────────
   @Test
   void recommend_excludeProductIds_areRemoved() {
     User customer = buildCustomer();
@@ -189,13 +189,13 @@ class RecommendationServiceTest {
         .contains(normalProduct.getId());
   }
 
-  // ─── Cenário 6: Score acumula quando produto aparece em múltiplos sinais ────
+  // ─── Scenario 6: Score accumulates when a product appears in multiple signals ────
   @Test
   void recommend_productAppearsInMultipleSignals_scoreAccumulates() {
     User customer = buildCustomer();
     UUID farmerId = UUID.randomUUID();
     UUID purchasedId = UUID.randomUUID();
-    // Produto aparece em PURCHASE_HISTORY (3) + TRENDING (1) → score = 4
+    // Product appears in PURCHASE_HISTORY (3) + TRENDING (1) → score = 4
     Product sharedProduct = buildProduct(farmerId);
 
     stubCustomer(customer);
@@ -216,13 +216,13 @@ class RecommendationServiceTest {
     assertThat(response.getRecommendations().get(0).getScore()).isEqualTo(4);
   }
 
-  // ─── Cenário 7: Reason é o sinal de maior peso ──────────────────────────────
+  // ─── Scenario 7: Reason is the highest-weight signal ──────────────────────────────
   @Test
   void recommend_reasonIsHighestWeightSignal() {
     User customer = buildCustomer();
     UUID farmerId = UUID.randomUUID();
     UUID purchasedId = UUID.randomUUID();
-    // Produto em TRENDING (1) e PURCHASE_HISTORY (3) → reason = PURCHASE_HISTORY
+    // Product in TRENDING (1) and PURCHASE_HISTORY (3) → reason = PURCHASE_HISTORY
     Product p = buildProduct(farmerId);
 
     stubCustomer(customer);
@@ -242,7 +242,7 @@ class RecommendationServiceTest {
         .isEqualTo(RecommendationReason.PURCHASE_HISTORY);
   }
 
-  // ─── Cenário 8: ForbiddenException para FARMER ──────────────────────────────
+  // ─── Scenario 8: ForbiddenException for FARMER ──────────────────────────────
   @Test
   void recommend_forbiddenForFarmer() {
     User farmer = new User();
@@ -255,7 +255,7 @@ class RecommendationServiceTest {
         .hasMessage("Recomendações disponíveis apenas para consumidores");
   }
 
-  // ─── Cenário 9: Plataforma vazia — retorna lista vazia sem erro ─────────────
+  // ─── Scenario 9: Empty platform — returns empty list without error ─────────────
   @Test
   void recommend_emptyPlatform_returnsEmpty() {
     User customer = buildCustomer();
@@ -272,7 +272,7 @@ class RecommendationServiceTest {
     assertThat(response.getTotal()).isZero();
   }
 
-  // ─── Cenário 10: Cliente comprou tudo — retorna vazio ───────────────────────
+  // ─── Scenario 10: Customer bought everything — returns empty ───────────────────────
   @Test
   void recommend_customerBoughtEverything_returnsEmpty() {
     User customer = buildCustomer();
@@ -296,7 +296,7 @@ class RecommendationServiceTest {
     assertThat(response.getRecommendations()).isEmpty();
   }
 
-  // ─── Cenário 11: Co-ocorrência acumula peso 2 ───────────────────────────────
+  // ─── Scenario 11: Co-occurrence accumulates weight 2 ───────────────────────────────
   @Test
   void recommend_coOccurrenceProductsGetWeight2() {
     User customer = buildCustomer();
@@ -307,13 +307,13 @@ class RecommendationServiceTest {
     stubCustomer(customer);
     stubPurchasedIds(customer.getId(), List.of(purchasedId));
     stubFarmerIds(customer.getId(), List.of());
-    // Sinal 2: co-ocorrência retorna o coProduct
+    // Signal 2: co-occurrence returns coProduct
     stubCoOccurrence(customer.getId(), List.of(purchasedId), List.of(coProduct.getId()));
-    // findAllById é chamado com a lista de IDs co-ocorrentes (sinal 2)
+    // findAllById called with the co-occurring IDs (signal 2)
     when(productRepository.findAllById(List.of(coProduct.getId()))).thenReturn(List.of(coProduct));
-    // Sinal 3: findAllById com purchasedIds para extrair categorias
+    // Signal 3: findAllById with purchasedIds to extract categories (none here)
     when(productRepository.findAllById(List.of(purchasedId)))
-        .thenReturn(List.of(buildProduct(farmerId))); // sem categorias
+        .thenReturn(List.of(buildProduct(farmerId)));
     stubTrending(List.of());
     stubRecentProducts(List.of());
 
@@ -326,7 +326,7 @@ class RecommendationServiceTest {
         .isEqualTo(RecommendationReason.CO_OCCURRENCE);
   }
 
-  // ─── Cenário 12: Categoria preferida extraída corretamente do histórico ──────
+  // ─── Scenario 12: Preferred category extracted correctly from history ──────
   @Test
   void recommend_categoryPreference_usesHistoryCategories() {
     User customer = buildCustomer();
@@ -347,7 +347,7 @@ class RecommendationServiceTest {
     stubFarmerIds(customer.getId(), List.of(farmerId));
     when(productRepository.findAllByFarmerIdAndActiveTrue(farmerId)).thenReturn(List.of());
     stubCoOccurrence(customer.getId(), List.of(purchasedId), List.of());
-    // findAllById para extrair categorias do histórico
+    // findAllById to extract categories from history
     when(productRepository.findAllById(List.of(purchasedId))).thenReturn(List.of(purchasedProduct));
     when(productRepository.findActiveProductsByCategoryIds(List.of(42)))
         .thenReturn(List.of(categoryProduct));
@@ -364,7 +364,7 @@ class RecommendationServiceTest {
     assertThat(response.getRecommendations().get(0).getScore()).isEqualTo(2);
   }
 
-  // ─── Cenário 13: LLM responde OK → source = LLM_RERANKED ────────────────────
+  // ─── Scenario 13: LLM responds OK → source = LLM_RERANKED ────────────────────
   @Test
   void recommend_llmRespondsOk_sourceIsLlmReranked() {
     User customer = buildCustomer();
@@ -392,7 +392,7 @@ class RecommendationServiceTest {
     assertThat(response.getRecommendations().get(0).getScore()).isEqualTo(90);
   }
 
-  // ─── Cenário 14: LLM timeout → fallback heurístico ──────────────────────────
+  // ─── Scenario 14: LLM timeout → heuristic fallback ──────────────────────────
   @Test
   void recommend_llmTimeout_fallbackToHeuristic() {
     User customer = buildCustomer();
@@ -415,7 +415,7 @@ class RecommendationServiceTest {
         .isEqualTo(RecommendationReason.TRENDING);
   }
 
-  // ─── Cenário 15: LLM retorna JSON malformado → fallback heurístico ──────────
+  // ─── Scenario 15: LLM returns malformed JSON → heuristic fallback ──────────
   @Test
   void recommend_llmInvalidJson_fallbackToHeuristic() {
     User customer = buildCustomer();
@@ -439,7 +439,7 @@ class RecommendationServiceTest {
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // Builders e stubs
+  // Builders and stubs
   // ─────────────────────────────────────────────────────────────────────────────
 
   private User buildCustomer() {

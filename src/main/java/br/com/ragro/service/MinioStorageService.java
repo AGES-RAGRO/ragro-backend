@@ -101,11 +101,11 @@ public class MinioStorageService {
   }
 
   /**
-   * Compõe a URL pública e estável de um objeto, servida pelo proxy de mídia do backend (endpoint
-   * {@code GET /media/**}). Diferente das presigned URLs, esta URL não expira e não está atrelada ao
-   * host que a assinou — então sobrevive à reescrita {@code localhost -> 10.0.2.2} feita pelo app no
-   * emulador Android, e funciona igual em web/iOS/prod. Mantém comportamento de passagem quando o
-   * valor já é uma URL http(s) absoluta (dados legados) ou nulo/vazio.
+   * Composes a stable public URL for an object, served by the backend media proxy ({@code GET
+   * /media/**}). Unlike presigned URLs, it never expires and is not tied to the signing host, so it
+   * survives the {@code localhost -> 10.0.2.2} rewrite the app does on the Android emulator and
+   * works the same on web/iOS/prod. Passes the value through unchanged when it is already an
+   * absolute http(s) URL (legacy data) or null/blank.
    */
   public String composePublicUrl(String objectKey) {
     if (objectKey == null || objectKey.isBlank()) {
@@ -119,7 +119,7 @@ public class MinioStorageService {
     return normalizedBase + "/media/" + encodeObjectKey(objectKey);
   }
 
-  /** URL-encoda cada segmento do objectKey preservando as barras como separadores de path. */
+  /** URL-encodes each segment of the object key, keeping slashes as path separators. */
   private String encodeObjectKey(String objectKey) {
     String[] segments = objectKey.split("/", -1);
     StringBuilder sb = new StringBuilder();
@@ -133,9 +133,9 @@ public class MinioStorageService {
   }
 
   /**
-   * Gera uma presigned URL temporária para um objeto (assina com o {@code minioPresignClient}).
-   * Preservado para casos que precisem de acesso direto e temporário ao storage; o caminho padrão de
-   * leitura de mídia agora é o proxy via {@link #composePublicUrl(String)}.
+   * Generates a temporary presigned URL for an object (signed with {@code minioPresignClient}). Kept
+   * for cases needing direct, temporary storage access; the default media read path is now the proxy
+   * via {@link #composePublicUrl(String)}.
    */
   public String composePresignedUrl(String objectKey) {
     if (objectKey == null || objectKey.isBlank()) {
@@ -164,11 +164,10 @@ public class MinioStorageService {
   }
 
   /**
-   * Baixa um objeto do storage para ser servido pelo proxy de mídia. Usa o client interno (que fala
-   * com o storage pelo endpoint interno) e abre o stream dos bytes via {@code getObject}. O
-   * Content-Type e o Content-Length são lidos dos headers da própria resposta (evita um
-   * {@code statObject} extra — menos latência e sem race TOCTOU entre stat e get). Lança {@link
-   * NotFoundException} quando o objeto não existe.
+   * Downloads an object from storage to be served by the media proxy. Uses the internal client and
+   * streams the bytes via {@code getObject}. Content-Type and Content-Length are read from the
+   * response headers, avoiding an extra {@code statObject} (less latency and no TOCTOU race between
+   * stat and get). Throws {@link NotFoundException} when the object does not exist.
    */
   public MediaResource download(String objectKey) {
     if (objectKey == null || objectKey.isBlank()) {

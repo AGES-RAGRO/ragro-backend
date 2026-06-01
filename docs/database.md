@@ -653,7 +653,7 @@ Logs CO2 saved by choosing an optimized route over a non-optimized one.
 ---
 
 #### `co2_emissions`
-Logs each CO2 emission ("gasto") computed for a route, linked to the vehicle preference used in the calculation. Emission (kg) = `route_distance_km / average_consumption × fuel emission factor`; `0` for electric vehicles.
+Logs each CO2 emission computed for a route, linked to the vehicle preference used in the calculation. Emission (kg) = `route_distance_km / average_consumption × fuel emission factor`; `0` for electric vehicles.
 
 | Column | Type | Required | Description |
 |--------|------|----------|-------------|

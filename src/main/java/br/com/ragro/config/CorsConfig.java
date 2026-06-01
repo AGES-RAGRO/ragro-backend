@@ -13,9 +13,8 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 public class CorsConfig {
 
   /**
-   * Lista de patterns permitidos como Origin separados por vírgula. Aceita curingas
-   * ({@code http://localhost:*}) e domínios completos. Em dev pode ficar só com localhost; em
-   * prod deve incluir a URL pública do API Gateway e a URL do frontend.
+   * Comma-separated allowed Origin patterns. Accepts wildcards ({@code http://localhost:*}) and
+   * full domains. In prod this must include the public API Gateway and frontend URLs.
    */
   @Value("${cors.allowed-origin-patterns:http://localhost:*}")
   private String allowedOriginPatterns;

@@ -43,7 +43,7 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
   List<Product> searchActiveMarketplaceProducts(
       @Param("query") String query, @Param("category") String category);
 
-  // ── Queries para o algoritmo de recomendação ──────────────────────────
+  // ── Recommendation algorithm queries ──────────────────────────
 
   @Query(
       """

@@ -11,7 +11,7 @@ public class MinioConfig {
 
   private final MinioProperties properties;
 
-  /** Client usado para upload/delete/list — fala com o storage pelo endpoint interno. */
+  /** Client for upload/delete/list, talking to storage over the internal endpoint. */
   @Bean
   public MinioClient minioClient() {
     return MinioClient.builder()
@@ -22,15 +22,11 @@ public class MinioConfig {
   }
 
   /**
-   * Client dedicado para gerar presigned URLs. Quando {@code publicUrl} está definido, assina com
-   * ele (importante em dev: backend acessa MinIO via {@code minio:9000} dentro do docker, mas a URL
-   * embutida nas respostas deve ser {@code localhost:9000} pra browser/app conseguirem alcançar).
-   * Em produção, {@code publicUrl} fica vazio e a assinatura cai no {@link #minioClient()}.
-   *
-   * <p>Setar {@code region} é essencial aqui: sem isso, o SDK tenta uma chamada HTTP de discovery
-   * no endpoint antes de assinar, e como o presign endpoint geralmente não é alcançável do backend
-   * (ex.: {@code localhost:9000} de dentro do container), a chamada falha com {@code Connection
-   * refused}.
+   * Dedicated client for presigned URLs. When {@code publicUrl} is set it signs with that host (in
+   * dev the backend reaches MinIO via {@code minio:9000}, but embedded URLs must be {@code
+   * localhost:9000} for the browser/app); in prod {@code publicUrl} is empty and it matches {@link
+   * #minioClient()}. Setting {@code region} is essential: otherwise the SDK issues a discovery HTTP
+   * call to the (often unreachable) presign endpoint and fails with Connection refused.
    */
   @Bean
   public MinioClient minioPresignClient() {

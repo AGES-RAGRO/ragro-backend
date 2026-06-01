@@ -23,9 +23,9 @@ import org.springframework.web.servlet.HandlerMapping;
 import org.springframework.web.util.UriUtils;
 
 /**
- * Proxy público de leitura de mídia. Faz streaming dos objetos do storage (MinIO/S3) pela mesma
- * porta da API, evitando expor o storage diretamente e o acoplamento host/assinatura das presigned
- * URLs (que quebrava no emulador Android, onde o app reescreve {@code localhost -> 10.0.2.2}).
+ * Public read-only media proxy. Streams storage objects (MinIO/S3) through the API port instead of
+ * exposing the storage directly. Avoids the host/signature coupling of presigned URLs, which broke
+ * on the Android emulator where the app rewrites {@code localhost -> 10.0.2.2}.
  */
 @RestController
 @RequiredArgsConstructor
@@ -35,14 +35,14 @@ public class MediaController {
   private static final AntPathMatcher PATH_MATCHER = new AntPathMatcher();
 
   /**
-   * Tipos seguros para servir inline (o browser renderiza como imagem, nunca como documento ativo).
-   * SVG fica DE FORA de propósito: SVG pode conter scripts e, servido same-origin, vira vetor de XSS
-   * stored. Qualquer Content-Type fora desta lista é forçado a download (attachment + octet-stream).
+   * Content types safe to serve inline (rendered as an image, never as an active document). SVG is
+   * deliberately excluded: it can contain scripts and, served same-origin, becomes a stored XSS
+   * vector. Anything outside this list is forced to download (attachment + octet-stream).
    */
   private static final Set<String> INLINE_SAFE_CONTENT_TYPES =
       Set.of("image/jpeg", "image/png", "image/webp", "image/gif");
 
-  // CSP defensiva: mesmo que algo ative o parser do browser, nada de script/objeto/frame roda.
+  // Defensive CSP: even if something triggers the browser parser, no script/object/frame can run.
   private static final String MEDIA_CSP = "default-src 'none'; sandbox; frame-ancestors 'none'";
 
   private final MinioStorageService storageService;
@@ -58,7 +58,7 @@ public class MediaController {
     MediaResource media = storageService.download(objectKey);
     try {
       String rawType = media.contentType() == null ? "" : media.contentType().toLowerCase();
-      // Normaliza removendo parâmetros (ex.: "image/jpeg; charset=utf-8" -> "image/jpeg").
+      // Strip parameters (e.g. "image/jpeg; charset=utf-8" -> "image/jpeg").
       String baseType = rawType.contains(";") ? rawType.substring(0, rawType.indexOf(';')).trim() : rawType.trim();
       boolean inlineSafe = INLINE_SAFE_CONTENT_TYPES.contains(baseType);
 
@@ -70,7 +70,7 @@ public class MediaController {
           ResponseEntity.ok()
               .contentType(mediaType)
               .cacheControl(CacheControl.maxAge(Duration.ofHours(1)).cachePublic())
-              // Anti-XSS: não deixa o browser "adivinhar" o tipo nem executar conteúdo ativo.
+              // Anti-XSS: stop the browser from sniffing the type or running active content.
               .header(HttpHeaders.CONTENT_DISPOSITION, disposition)
               .header("X-Content-Type-Options", "nosniff")
               .header("Content-Security-Policy", MEDIA_CSP);
@@ -79,7 +79,7 @@ public class MediaController {
       }
       return builder.body(new InputStreamResource(media.stream()));
     } catch (RuntimeException e) {
-      // Garante que o stream (conexão com o storage) não vaze se a montagem da resposta falhar.
+      // Ensure the stream (storage connection) does not leak if building the response fails.
       closeQuietly(media);
       throw e;
     }
@@ -101,7 +101,7 @@ public class MediaController {
     }
   }
 
-  /** Extrai o objectKey (o que vem depois de {@code /media/}), decodificando o URL-encoding. */
+  /** Extracts the object key (the part after {@code /media/}), URL-decoded. */
   private String extractObjectKey(HttpServletRequest request) {
     String path =
         (String) request.getAttribute(HandlerMapping.PATH_WITHIN_HANDLER_MAPPING_ATTRIBUTE);

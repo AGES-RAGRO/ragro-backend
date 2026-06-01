@@ -11,17 +11,13 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestClient;
 
 /**
- * Configuração do cliente HTTP do Ollama (reranker de recomendações via Spring AI).
+ * Ollama HTTP client config for the recommendation reranker (Spring AI).
  *
- * <p>O Spring AI 1.0.3 só expõe {@code spring.ai.ollama.base-url} por propriedade — NÃO há
- * configuração de timeout. O default do cliente HTTP (~10s) é menor que a inferência da LLM em CPU
- * (gemma2:2b leva ~10s+ só no aquecimento; com o prompt real de até 50 candidatos, mais), então
- * toda chamada estourava por timeout e o {@code RecommendationService} caía no fallback heurístico.
- *
- * <p>Esta classe sobrepõe o bean {@link OllamaApi} (o autoconfig o declara como {@code
- * ConditionalOnMissingBean}) com um {@link RestClient.Builder} que carrega connect/read-timeout
- * explícitos. Afeta SOMENTE o cliente do Ollama — o {@code KeycloakIdentityProviderService} usa um
- * {@code RestClient} próprio e não é tocado.
+ * <p>Spring AI 1.0.3 only exposes {@code spring.ai.ollama.base-url}, with no timeout property. The
+ * client's ~10s default is shorter than CPU LLM inference, so every call timed out and
+ * {@code RecommendationService} fell back to the heuristic. This overrides the {@link OllamaApi}
+ * bean (declared {@code ConditionalOnMissingBean} by autoconfig) with explicit connect/read
+ * timeouts. Only affects the Ollama client.
  */
 @Configuration
 @ConditionalOnProperty(

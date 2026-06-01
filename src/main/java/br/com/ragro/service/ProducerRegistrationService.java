@@ -141,7 +141,7 @@ public class ProducerRegistrationService {
 
   private void applyRegistrationPaymentMethod(
       Producer savedProducer, ProducerRegistrationRequest request) {
-    // Passo 1: validações
+    // Step 1: validate
     Set<String> seenTypes = new HashSet<>();
     for (PaymentMethodRequest pmRequest : request.getPaymentMethods()) {
       if (!seenTypes.add(pmRequest.getType())) {
@@ -156,7 +156,7 @@ public class ProducerRegistrationService {
       throw new BusinessException("Both pix and bank_account payment methods are required");
     }
 
-    // Passo 2: persistir
+    // Step 2: persist
     for (PaymentMethodRequest pmRequest : request.getPaymentMethods()) {
       PaymentMethod pm = new PaymentMethod();
       pm.setFarmer(savedProducer);

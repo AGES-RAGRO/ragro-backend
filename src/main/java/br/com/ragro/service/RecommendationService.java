@@ -204,8 +204,8 @@ public class RecommendationService {
   }
 
   /**
-   * Aplica a ordenação heurística e registra a métrica de fallback, tornando observável quando a IA
-   * NÃO reordenou (Ollama fora, saída inválida, flag desligada, etc.).
+   * Applies heuristic ordering and records the fallback metric, making it observable when the AI did
+   * NOT rerank (Ollama down, invalid output, flag off, etc.).
    */
   private List<RecommendationProductResponse> heuristicFallback(
       Map<UUID, int[]> scoreMap,
