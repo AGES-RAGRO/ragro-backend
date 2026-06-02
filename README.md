@@ -76,6 +76,34 @@ open http://localhost:8180  # admin / admin
 
 ---
 
+## LLM Re-Ranker (Ollama)
+
+A local AI model (Ollama) re-ranks product recommendations.
+
+### First-time setup
+
+The `gemma2:2b` model is pulled automatically on first run — no manual action needed. The Ollama container pulls it (~1.6 GB) only when not already cached.
+
+To pull it manually:
+
+```bash
+docker compose up -d ollama
+docker exec -it ragro-ollama ollama pull gemma2:2b
+```
+
+### Verification
+
+```bash
+docker exec -it ragro-ollama ollama list
+# Should show: gemma2:2b   ...   1.6 GB
+```
+
+### Fallback
+
+If Ollama is unavailable, recommendations fall back to the heuristic algorithm with no loss of functionality.
+
+---
+
 ## Local Development (without Docker for the backend)
 
 **1. Start the infrastructure (database + Keycloak)**

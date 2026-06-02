@@ -1,62 +1,62 @@
-#### Descrição
+#### Description
 
 <!--
-Descreva de forma objetiva o que este PR faz e por quê.
-Exemplo: Este PR adiciona/corrige/remove [feature/bug/comportamento].
+Briefly describe what this PR does and why.
+Example: This PR adds/fixes/removes [feature/bug/behavior].
 -->
 
-#### Task relacionada
+#### Related task
 
 <!--
-Adicione o link ou identificador da task, issue, card ou ticket.
-Exemplo: #45
+Add the link or identifier of the task, issue, card, or ticket.
+Example: #45
 -->
 
-#### Tipo de alteração
+#### Type of change
 
 - [ ] 🍕 Feature
 - [ ] 🐛 Bug Fix
-- [ ] 📝 Atualização de documentação
-- [ ] 🎨 Ajuste de estilo
-- [ ] 🧑‍💻 Refatoração
-- [ ] 🔥 Melhoria de performance
-- [ ] ✅ Testes
+- [ ] 📝 Documentation update
+- [ ] 🎨 Style adjustment
+- [ ] 🧑‍💻 Refactor
+- [ ] 🔥 Performance improvement
+- [ ] ✅ Tests
 - [ ] 🤖 Build
 - [ ] 🔁 CI
 - [ ] 📦 Chore
 - [ ] ⏩ Revert
 
 <!--
-Marque com um "x" a opção correspondente.
+Mark the matching option with an "x".
 -->
 
-#### Prints / evidências
+#### Screenshots / evidence
 
 <!--
-Inclua prints, vídeos ou evidências visuais quando necessário.
+Include screenshots, videos, or visual evidence when relevant.
 -->
 
-#### Como validar
+#### How to validate
 
 <!--
-Descreva o passo a passo para testar este PR.
+Describe the step-by-step to test this PR.
 
-1. Faça...
-2. Acesse...
-3. Valide...
+1. Do...
+2. Go to...
+3. Validate...
 -->
 
-#### Observações
+#### Notes
 
 <!--
-Inclua informações importantes para o review, riscos, dependências,
-limitações conhecidas ou qualquer contexto adicional.
+Include important review information, risks, dependencies,
+known limitations, or any extra context.
 -->
 
 #### Checklist
 
-- [ ] 📜 O código segue os padrões e boas práticas do projeto
-- [ ] ✅ Os testes foram executados com sucesso
-- [ ] 🧪 Foram adicionados ou atualizados testes, quando necessário
-- [ ] 📕 A documentação foi atualizada, quando necessário
-- [ ] 🚨 Não há breaking changes
+- [ ] 📜 The code follows the project's standards and best practices
+- [ ] ✅ Tests ran successfully
+- [ ] 🧪 Tests were added or updated when needed
+- [ ] 📕 Documentation was updated when needed
+- [ ] 🚨 No breaking changes

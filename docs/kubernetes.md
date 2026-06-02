@@ -1,112 +1,112 @@
 # Kubernetes - RAGro Backend
 
-## Arquitetura
+## Architecture
 
-O cluster possui 3 servicos:
-- **Backend (Spring Boot)** - API exposta via LoadBalancer na porta 8080
-- **Keycloak** - Servidor de autenticacao exposto via LoadBalancer na porta 8180
-- **PostgreSQL** - Banco de dados acessivel apenas internamente (ClusterIP) na porta 5432, com disco persistente de 1Gi
+The cluster has 3 services:
+- **Backend (Spring Boot)** - API exposed via LoadBalancer on port 8080
+- **Keycloak** - Authentication server exposed via LoadBalancer on port 8180
+- **PostgreSQL** - Database, internal-only (ClusterIP) on port 5432, with a 1Gi persistent disk
 
-O Backend e o Keycloak dependem do PostgreSQL. Um initContainer aguarda o Postgres estar disponivel antes de iniciar cada um.
+Backend and Keycloak depend on PostgreSQL. An initContainer waits for Postgres to be available before starting each one.
 
-## Arquivos
+## Files
 
-| Arquivo | Recurso | Descricao |
+| File | Resource | Description |
 |---|---|---|
-| `00-namespace.yaml` | Namespace | Isola todos os recursos no namespace `ragro` |
-| `01-secrets.yaml` | Secret | Credenciais do Postgres e Keycloak (base64) |
-| `02-configmap.yaml` | ConfigMap | URLs de conexao e configuracoes do Spring/Keycloak |
-| `03-pvc.yaml` | PersistentVolumeClaim | 1Gi de disco para dados do Postgres |
-| `04-postgres-initdb-configmap.yaml` | ConfigMap | Script shell para criar o banco do Keycloak |
-| `04b-postgres-initdb-sql.yaml` | ConfigMap | Schema SQL e seed de usuarios |
-| `05-postgres-deployment.yaml` | Deployment + Service | Banco de dados (acesso interno) |
-| `06-keycloak-deployment.yaml` | Deployment + Service | Servidor de autenticacao (acesso externo) |
-| `07-backend-deployment.yaml` | Deployment + Service | API Spring Boot (acesso externo) |
+| `00-namespace.yaml` | Namespace | Isolates all resources in the `ragro` namespace |
+| `01-secrets.yaml` | Secret | Postgres and Keycloak credentials (base64) |
+| `02-configmap.yaml` | ConfigMap | Connection URLs and Spring/Keycloak configuration |
+| `03-pvc.yaml` | PersistentVolumeClaim | 1Gi disk for Postgres data |
+| `04-postgres-initdb-configmap.yaml` | ConfigMap | Shell script to create the Keycloak database |
+| `04b-postgres-initdb-sql.yaml` | ConfigMap | SQL schema and user seed |
+| `05-postgres-deployment.yaml` | Deployment + Service | Database (internal access) |
+| `06-keycloak-deployment.yaml` | Deployment + Service | Authentication server (external access) |
+| `07-backend-deployment.yaml` | Deployment + Service | Spring Boot API (external access) |
 
 ## Services
 
-| Service | Tipo | Porta | Acesso |
+| Service | Type | Port | Access |
 |---|---|---|---|
-| `backend-service` | LoadBalancer | 8080 | Publico |
-| `keycloak-service` | LoadBalancer | 8180 | Publico |
-| `postgres-service` | ClusterIP | 5432 | Apenas interno |
+| `backend-service` | LoadBalancer | 8080 | Public |
+| `keycloak-service` | LoadBalancer | 8180 | Public |
+| `postgres-service` | ClusterIP | 5432 | Internal only |
 
-## Rodando localmente (Minikube)
+## Running locally (Minikube)
 
-### Pre-requisitos
+### Prerequisites
 
 - [Minikube](https://minikube.sigs.k8s.io/docs/start/)
 - [kubectl](https://kubernetes.io/docs/tasks/tools/)
 - Docker
 
-### Passos
+### Steps
 
 ```bash
-# 1. Iniciar o Minikube
+# 1. Start Minikube
 minikube start
 
-# 2. Buildar a imagem do backend dentro do Minikube
+# 2. Build the backend image inside Minikube
 eval $(minikube docker-env)
 docker build -t ragro-backend:latest .
 
-# 3. Aplicar todos os manifests
+# 3. Apply all manifests
 kubectl apply -f k8s/
 
-# 4. Verificar se os pods estao rodando
+# 4. Check that the pods are running
 kubectl get pods -n ragro
 
-# 5. Expor os services via port-forward
+# 5. Expose the services via port-forward
 kubectl port-forward svc/backend-service 8080:8080 -n ragro &
 kubectl port-forward svc/keycloak-service 8180:8180 -n ragro &
 ```
 
-Acesse:
+Access:
 - Backend / Swagger: `http://localhost:8080/swagger-ui/index.html`
 - Keycloak: `http://localhost:8180`
 
-## Deploy na AWS (EKS)
+## Deploy on AWS (EKS)
 
-### Pre-requisitos
+### Prerequisites
 
-- Cluster EKS configurado
-- `kubectl` apontando para o cluster
-- Imagem do backend em um registry (ECR)
+- Configured EKS cluster
+- `kubectl` pointing to the cluster
+- Backend image in a registry (ECR)
 
-### Passos
+### Steps
 
 ```bash
-# 1. Atualizar a imagem no 07-backend-deployment.yaml para o ECR
+# 1. Update the image in 07-backend-deployment.yaml to the ECR one
 #    image: <account-id>.dkr.ecr.<region>.amazonaws.com/ragro-backend:latest
 
-# 2. Remover imagePullPolicy: Never (ou trocar para Always)
+# 2. Remove imagePullPolicy: Never (or change it to Always)
 
-# 3. Aplicar
+# 3. Apply
 kubectl apply -f k8s/
 
-# 4. Obter os endpoints publicos (ELB)
+# 4. Get the public endpoints (ELB)
 kubectl get svc -n ragro
 ```
 
-A coluna `EXTERNAL-IP` mostrara os endpoints dos Load Balancers.
+The `EXTERNAL-IP` column shows the Load Balancer endpoints.
 
-## Comandos uteis
+## Useful commands
 
 ```bash
-# Ver todos os recursos do namespace
+# List all resources in the namespace
 kubectl get all -n ragro
 
-# Ver logs de um pod
-kubectl logs -f <nome-do-pod> -n ragro
+# View a pod's logs
+kubectl logs -f <pod-name> -n ragro
 
-# Ver detalhes de um pod (util para debug)
-kubectl describe pod <nome-do-pod> -n ragro
+# View pod details (useful for debugging)
+kubectl describe pod <pod-name> -n ragro
 
-# Entrar no container (equivalente a docker exec)
-kubectl exec -it <nome-do-pod> -n ragro -- /bin/sh
+# Enter the container (like docker exec)
+kubectl exec -it <pod-name> -n ragro -- /bin/sh
 
-# Reiniciar um deployment
-kubectl rollout restart deployment/<nome> -n ragro
+# Restart a deployment
+kubectl rollout restart deployment/<name> -n ragro
 
-# Deletar tudo
+# Delete everything
 kubectl delete -f k8s/
 ```

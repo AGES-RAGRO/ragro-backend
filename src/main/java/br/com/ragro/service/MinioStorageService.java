@@ -3,25 +3,28 @@ package br.com.ragro.service;
 import br.com.ragro.config.MinioProperties;
 import br.com.ragro.exception.BusinessException;
 import br.com.ragro.exception.InternalServerException;
+import br.com.ragro.exception.NotFoundException;
 import io.minio.BucketExistsArgs;
+import io.minio.GetObjectArgs;
+import io.minio.GetObjectResponse;
 import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
 import io.minio.RemoveObjectArgs;
-import io.minio.SetBucketPolicyArgs;
+import io.minio.errors.ErrorResponseException;
 import jakarta.annotation.PostConstruct;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Set;
 import java.util.UUID;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class MinioStorageService {
 
   private static final Set<String> ALLOWED_CONTENT_TYPES =
@@ -30,6 +33,11 @@ public class MinioStorageService {
   private final MinioClient minioClient;
   private final MinioProperties properties;
 
+  public MinioStorageService(MinioClient minioClient, MinioProperties properties) {
+    this.minioClient = minioClient;
+    this.properties = properties;
+  }
+
   @PostConstruct
   public void bootstrapBucket() {
     String bucket = properties.getBucket();
@@ -37,13 +45,11 @@ public class MinioStorageService {
       boolean exists = minioClient.bucketExists(BucketExistsArgs.builder().bucket(bucket).build());
       if (!exists) {
         minioClient.makeBucket(MakeBucketArgs.builder().bucket(bucket).build());
-        log.info("MinIO bucket '{}' created", bucket);
+        log.info("Storage bucket '{}' created", bucket);
       }
-      minioClient.setBucketPolicy(
-          SetBucketPolicyArgs.builder().bucket(bucket).config(publicReadPolicy(bucket)).build());
-      log.info("MinIO bucket '{}' ready (anonymous read-only)", bucket);
+      log.info("Storage bucket '{}' ready (private; reads via /media/** proxy)", bucket);
     } catch (Exception e) {
-      log.error("Failed to bootstrap MinIO bucket '{}': {}", bucket, e.getMessage(), e);
+      log.error("Failed to bootstrap storage bucket '{}': {}", bucket, e.getMessage(), e);
     }
   }
 
@@ -61,10 +67,8 @@ public class MinioStorageService {
 
     try (InputStream stream = file.getInputStream()) {
       minioClient.putObject(
-          PutObjectArgs.builder()
-              .bucket(properties.getBucket())
-              .object(objectKey)
-              .stream(stream, file.getSize(), -1)
+          PutObjectArgs.builder().bucket(properties.getBucket()).object(objectKey).stream(
+                  stream, file.getSize(), -1)
               .contentType(contentType)
               .build());
     } catch (IOException e) {
@@ -88,6 +92,13 @@ public class MinioStorageService {
     }
   }
 
+  /**
+   * Composes a stable public URL for an object, served by the backend media proxy ({@code GET
+   * /media/**}). Unlike presigned URLs, it never expires and is not tied to the signing host, so it
+   * survives the {@code localhost -> 10.0.2.2} rewrite the app does on the Android emulator and
+   * works the same on web/iOS/prod. Passes the value through unchanged when it is already an
+   * absolute http(s) URL (legacy data) or null/blank.
+   */
   public String composePublicUrl(String objectKey) {
     if (objectKey == null || objectKey.isBlank()) {
       return null;
@@ -95,7 +106,62 @@ public class MinioStorageService {
     if (objectKey.startsWith("http://") || objectKey.startsWith("https://")) {
       return objectKey;
     }
-    return properties.getPublicUrl() + "/" + properties.getBucket() + "/" + objectKey;
+    String base = properties.getMediaPublicUrl();
+    String normalizedBase = base.endsWith("/") ? base.substring(0, base.length() - 1) : base;
+    return normalizedBase + "/media/" + encodeObjectKey(objectKey);
+  }
+
+  /** URL-encodes each segment of the object key, keeping slashes as path separators. */
+  private String encodeObjectKey(String objectKey) {
+    String[] segments = objectKey.split("/", -1);
+    StringBuilder sb = new StringBuilder();
+    for (int i = 0; i < segments.length; i++) {
+      if (i > 0) {
+        sb.append('/');
+      }
+      sb.append(URLEncoder.encode(segments[i], StandardCharsets.UTF_8).replace("+", "%20"));
+    }
+    return sb.toString();
+  }
+
+  /**
+   * Downloads an object from storage to be served by the media proxy. Uses the internal client and
+   * streams the bytes via {@code getObject}. Content-Type and Content-Length are read from the
+   * response headers, avoiding an extra {@code statObject} (less latency and no TOCTOU race between
+   * stat and get). Throws {@link NotFoundException} when the object does not exist.
+   */
+  public MediaResource download(String objectKey) {
+    if (objectKey == null || objectKey.isBlank()) {
+      throw new NotFoundException("Mídia não encontrada");
+    }
+    String bucket = properties.getBucket();
+    try {
+      GetObjectResponse stream =
+          minioClient.getObject(GetObjectArgs.builder().bucket(bucket).object(objectKey).build());
+      String contentTypeHeader = stream.headers().get("Content-Type");
+      String contentLengthHeader = stream.headers().get("Content-Length");
+      String contentType =
+          (contentTypeHeader != null && !contentTypeHeader.isBlank())
+              ? contentTypeHeader
+              : "application/octet-stream";
+      long size = -1;
+      if (contentLengthHeader != null && !contentLengthHeader.isBlank()) {
+        try {
+          size = Long.parseLong(contentLengthHeader.trim());
+        } catch (NumberFormatException ignored) {
+          size = -1;
+        }
+      }
+      return new MediaResource(stream, contentType, size);
+    } catch (ErrorResponseException e) {
+      String code = e.errorResponse() != null ? e.errorResponse().code() : null;
+      if ("NoSuchKey".equals(code) || "NoSuchObject".equals(code) || "ResourceNotFound".equals(code)) {
+        throw new NotFoundException("Mídia não encontrada");
+      }
+      throw new InternalServerException("Falha ao ler mídia do storage", e);
+    } catch (Exception e) {
+      throw new InternalServerException("Falha ao ler mídia do storage", e);
+    }
   }
 
   private String extensionFor(String contentType) {
@@ -107,16 +173,4 @@ public class MinioStorageService {
     };
   }
 
-  private String publicReadPolicy(String bucket) {
-    return "{"
-        + "\"Version\":\"2012-10-17\","
-        + "\"Statement\":[{"
-        + "\"Effect\":\"Allow\","
-        + "\"Principal\":{\"AWS\":[\"*\"]},"
-        + "\"Action\":[\"s3:GetObject\"],"
-        + "\"Resource\":[\"arn:aws:s3:::"
-        + bucket
-        + "/*\"]"
-        + "}]}";
-  }
 }

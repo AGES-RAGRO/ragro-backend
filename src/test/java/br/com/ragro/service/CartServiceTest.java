@@ -43,6 +43,7 @@ class CartServiceTest {
   @Mock private CartRepository cartRepository;
   @Mock private CartItemRepository cartItemRepository;
   @Mock private PaymentMethodRepository paymentMethodRepository;
+  @Mock private MinioStorageService minioStorageService;
 
   @InjectMocks private CartService cartService;
 
@@ -94,13 +95,16 @@ class CartServiceTest {
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
     when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
     when(productRepository.findById(productA.getId())).thenReturn(Optional.of(productA));
-    when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId())).thenReturn(Optional.empty());
-    
-    when(cartRepository.save(any(Cart.class))).thenAnswer(i -> {
-        Cart c = i.getArgument(0);
-        c.setId(UUID.randomUUID());
-        return c;
-    });
+    when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId()))
+        .thenReturn(Optional.empty());
+
+    when(cartRepository.save(any(Cart.class)))
+        .thenAnswer(
+            i -> {
+              Cart c = i.getArgument(0);
+              c.setId(UUID.randomUUID());
+              return c;
+            });
 
     when(cartRepository.saveAndFlush(any(Cart.class))).thenAnswer(i -> i.getArgument(0));
 
@@ -126,13 +130,14 @@ class CartServiceTest {
     existingCart.setId(UUID.randomUUID());
     existingCart.setFarmer(farmerA);
     existingCart.setCustomer(customer);
-    
+
     CartItem activeItem = new CartItem();
     activeItem.setProduct(productA);
     activeItem.setActive(true);
     existingCart.getItems().add(activeItem);
 
-    when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId())).thenReturn(Optional.of(existingCart));
+    when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId()))
+        .thenReturn(Optional.of(existingCart));
 
     AddToCartRequest req = new AddToCartRequest();
     req.setProductId(productB.getId());
@@ -145,87 +150,91 @@ class CartServiceTest {
 
   @Test
   void addItem_shouldAllowFarmerChangeIfCartIsEmpty() {
-      when(userService.getAuthenticatedUser(any())).thenReturn(user);
-      when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
-      when(productRepository.findById(productB.getId())).thenReturn(Optional.of(productB));
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
+    when(productRepository.findById(productB.getId())).thenReturn(Optional.of(productB));
 
-      Cart existingCart = new Cart();
-      existingCart.setId(UUID.randomUUID());
-      existingCart.setFarmer(farmerA);
-      existingCart.setCustomer(customer);
-      existingCart.setItems(new ArrayList<>()); // Empty
+    Cart existingCart = new Cart();
+    existingCart.setId(UUID.randomUUID());
+    existingCart.setFarmer(farmerA);
+    existingCart.setCustomer(customer);
+    existingCart.setItems(new ArrayList<>()); // Empty
 
-      when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId())).thenReturn(Optional.of(existingCart));
-      when(cartRepository.saveAndFlush(any())).thenAnswer(i -> i.getArgument(0));
+    when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId()))
+        .thenReturn(Optional.of(existingCart));
+    when(cartRepository.saveAndFlush(any())).thenAnswer(i -> i.getArgument(0));
 
-      AddToCartRequest req = new AddToCartRequest();
-      req.setProductId(productB.getId());
-      req.setQuantity(new BigDecimal("1"));
+    AddToCartRequest req = new AddToCartRequest();
+    req.setProductId(productB.getId());
+    req.setQuantity(new BigDecimal("1"));
 
-      CartResponse response = cartService.addItem(jwt(), req);
+    CartResponse response = cartService.addItem(jwt(), req);
 
-      assertThat(response.getFarmerId()).isEqualTo(farmerB.getId());
+    assertThat(response.getFarmerId()).isEqualTo(farmerB.getId());
   }
 
   @Test
   void addItem_shouldIncrementQuantity_whenItemAlreadyInCart() {
-      when(userService.getAuthenticatedUser(any())).thenReturn(user);
-      when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
-      when(productRepository.findById(productA.getId())).thenReturn(Optional.of(productA));
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
+    when(productRepository.findById(productA.getId())).thenReturn(Optional.of(productA));
 
-      Cart existingCart = new Cart();
-      existingCart.setId(UUID.randomUUID());
-      existingCart.setFarmer(farmerA);
-      existingCart.setCustomer(customer);
+    Cart existingCart = new Cart();
+    existingCart.setId(UUID.randomUUID());
+    existingCart.setFarmer(farmerA);
+    existingCart.setCustomer(customer);
 
-      CartItem existingItem = new CartItem();
-      existingItem.setId(UUID.randomUUID());
-      existingItem.setCart(existingCart);
-      existingItem.setProduct(productA);
-      existingItem.setQuantity(new BigDecimal("2"));
-      existingItem.setActive(true);
-      existingCart.getItems().add(existingItem);
+    CartItem existingItem = new CartItem();
+    existingItem.setId(UUID.randomUUID());
+    existingItem.setCart(existingCart);
+    existingItem.setProduct(productA);
+    existingItem.setQuantity(new BigDecimal("2"));
+    existingItem.setActive(true);
+    existingCart.getItems().add(existingItem);
 
-      when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId())).thenReturn(Optional.of(existingCart));
-      when(cartItemRepository.findByCartIdAndProductIdAndActiveTrue(existingCart.getId(), productA.getId()))
-          .thenReturn(Optional.of(existingItem));
-      when(cartRepository.saveAndFlush(any())).thenAnswer(i -> i.getArgument(0));
+    when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId()))
+        .thenReturn(Optional.of(existingCart));
+    when(cartItemRepository.findByCartIdAndProductIdAndActiveTrue(
+            existingCart.getId(), productA.getId()))
+        .thenReturn(Optional.of(existingItem));
+    when(cartRepository.saveAndFlush(any())).thenAnswer(i -> i.getArgument(0));
 
-      AddToCartRequest req = new AddToCartRequest();
-      req.setProductId(productA.getId());
-      req.setQuantity(new BigDecimal("3")); // 2 + 3 = 5
+    AddToCartRequest req = new AddToCartRequest();
+    req.setProductId(productA.getId());
+    req.setQuantity(new BigDecimal("3")); // 2 + 3 = 5
 
-      CartResponse response = cartService.addItem(jwt(), req);
+    CartResponse response = cartService.addItem(jwt(), req);
 
-      assertThat(response.getItems().get(0).getQuantity()).isEqualByComparingTo("5");
-      verify(cartItemRepository).save(existingItem);
+    assertThat(response.getItems().get(0).getQuantity()).isEqualByComparingTo("5");
+    verify(cartItemRepository).save(existingItem);
   }
 
   @Test
   void addItem_shouldThrowException_whenStockIsInsufficient() {
-      when(userService.getAuthenticatedUser(any())).thenReturn(user);
-      when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
-      when(productRepository.findById(productA.getId())).thenReturn(Optional.of(productA));
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
+    when(productRepository.findById(productA.getId())).thenReturn(Optional.of(productA));
 
-      Cart existingCart = new Cart();
-      existingCart.setId(UUID.randomUUID());
-      existingCart.setFarmer(farmerA);
+    Cart existingCart = new Cart();
+    existingCart.setId(UUID.randomUUID());
+    existingCart.setFarmer(farmerA);
 
-      CartItem existingItem = new CartItem();
-      existingItem.setProduct(productA);
-      existingItem.setQuantity(new BigDecimal("8")); // Stock is 10
-      existingItem.setActive(true);
-      existingCart.getItems().add(existingItem);
+    CartItem existingItem = new CartItem();
+    existingItem.setProduct(productA);
+    existingItem.setQuantity(new BigDecimal("8")); // Stock is 10
+    existingItem.setActive(true);
+    existingCart.getItems().add(existingItem);
 
-      when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId())).thenReturn(Optional.of(existingCart));
+    when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId()))
+        .thenReturn(Optional.of(existingCart));
 
-      AddToCartRequest req = new AddToCartRequest();
-      req.setProductId(productA.getId());
-      req.setQuantity(new BigDecimal("3")); // 8 + 3 = 11 > 10
+    AddToCartRequest req = new AddToCartRequest();
+    req.setProductId(productA.getId());
+    req.setQuantity(new BigDecimal("3")); // 8 + 3 = 11 > 10
 
-      assertThatThrownBy(() -> cartService.addItem(jwt(), req))
-          .isInstanceOf(BusinessException.class)
-          .hasMessageContaining("excede o estoque disponível");
+    assertThatThrownBy(() -> cartService.addItem(jwt(), req))
+        .isInstanceOf(BusinessException.class)
+        .hasMessageContaining("excede o estoque disponível");
   }
 
   @Test
@@ -518,7 +527,11 @@ class CartServiceTest {
   }
 
   private Jwt jwt() {
-    return new Jwt("token", Instant.now(), Instant.now().plusSeconds(300),
-        Map.of("alg", "none"), Map.of("sub", "sub"));
+    return new Jwt(
+        "token",
+        Instant.now(),
+        Instant.now().plusSeconds(300),
+        Map.of("alg", "none"),
+        Map.of("sub", "sub"));
   }
 }

@@ -4,7 +4,6 @@ import br.com.ragro.controller.request.AvailabilityRequest;
 import br.com.ragro.controller.request.PaymentMethodRequest;
 import br.com.ragro.controller.request.ProducerFilter;
 import br.com.ragro.controller.request.ProducerUpdateRequest;
-import br.com.ragro.domain.specification.ProducerSpecification;
 import br.com.ragro.controller.response.MarketplaceProducerResponse;
 import br.com.ragro.controller.response.ProducerGetResponse;
 import br.com.ragro.controller.response.ProducerPublicProfileResponse;
@@ -16,6 +15,7 @@ import br.com.ragro.domain.Producer;
 import br.com.ragro.domain.ProducerProfile;
 import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.TypeUser;
+import br.com.ragro.domain.specification.ProducerSpecification;
 import br.com.ragro.exception.BusinessException;
 import br.com.ragro.exception.ForbiddenException;
 import br.com.ragro.exception.NotFoundException;
@@ -26,7 +26,11 @@ import br.com.ragro.repository.FarmerAvailabilityRepository;
 import br.com.ragro.repository.PaymentMethodRepository;
 import br.com.ragro.repository.ProducerProfileRepository;
 import br.com.ragro.repository.ProducerRepository;
+import br.com.ragro.repository.ReviewRepository;
 import br.com.ragro.repository.UserRepository;
+import com.google.maps.model.LatLng;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
 import java.util.HashSet;
@@ -54,6 +58,8 @@ public class ProducerService {
   private final UserService userService;
   private final MinioStorageService minioStorageService;
   private final ProducerMapper producerMapper;
+  private final ReviewRepository reviewRepository;
+  private final GoogleMapsService googleMapsService;
 
   public ProducerResponse getProducerById(UUID id) {
     var producer =
@@ -76,6 +82,74 @@ public class ProducerService {
     return producerRepository
         .findAll(ProducerSpecification.withFilter(filter), pageable)
         .map(producerMapper::toMarketplaceResponse);
+  }
+
+  @Transactional
+  public List<br.com.ragro.controller.response.LocationResponse> getProducerLocations() {
+    return producerRepository.findAllByUserActiveTrue().stream()
+        .map(
+            producer -> {
+              Address primaryAddress =
+                  producer.getUser().getAddresses().stream()
+                      .filter(Address::isPrimary)
+                      .findFirst()
+                      .orElse(null);
+
+              BigDecimal lat = null;
+              BigDecimal lng = null;
+              if (primaryAddress != null) {
+                // Self-heal: geocode on first read when the address has no coordinates
+                // (e.g. registered while the Maps key was missing).
+                ensureGeocoded(primaryAddress);
+                lat = primaryAddress.getLatitude();
+                lng = primaryAddress.getLongitude();
+              }
+
+              return br.com.ragro.controller.response.LocationResponse.builder()
+                  .id(producer.getId())
+                  .farmName(producer.getFarmName())
+                  .latitude(lat)
+                  .longitude(lng)
+                  .avatarUrl(minioStorageService.composePublicUrl(producer.getAvatarS3()))
+                  .coverUrl(minioStorageService.composePublicUrl(producer.getDisplayPhotoS3()))
+                  .build();
+            })
+        .filter(loc -> loc.getLatitude() != null && loc.getLongitude() != null)
+        .toList();
+  }
+
+  /**
+   * Geocodes and persists coordinates for an address that lacks them. Fault-tolerant: leaves
+   * coordinates null (and the producer is filtered out of the map) if geocoding returns nothing.
+   */
+  private void ensureGeocoded(Address address) {
+    if (address.getLatitude() != null && address.getLongitude() != null) {
+      return;
+    }
+    String fullAddress = buildFullAddress(address);
+    if (fullAddress.isBlank()) {
+      return;
+    }
+    LatLng latLng = googleMapsService.geocodeAddress(fullAddress);
+    if (latLng != null) {
+      address.setLatitude(BigDecimal.valueOf(latLng.lat));
+      address.setLongitude(BigDecimal.valueOf(latLng.lng));
+      addressRepository.save(address);
+    }
+  }
+
+  private String buildFullAddress(Address address) {
+    if (address.getStreet() == null || address.getCity() == null) {
+      return "";
+    }
+    return String.format(
+        "%s, %s - %s, %s - %s, %s",
+        address.getStreet(),
+        address.getNumber(),
+        address.getNeighborhood(),
+        address.getCity(),
+        address.getState(),
+        address.getZipCode());
   }
 
   @Transactional(readOnly = true)
@@ -123,7 +197,10 @@ public class ProducerService {
 
     ProducerProfile profile = producerProfileRepository.findById(id).orElse(null);
     Address primaryAddress = addressRepository.findByUserIdAndIsPrimaryTrue(id).orElse(null);
-    List<PaymentMethod> paymentMethods = paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(id);
+
+    List<PaymentMethod> paymentMethods =
+        paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(id);
+
     List<FarmerAvailability> availability =
         farmerAvailabilityRepository.findByFarmerIdAndActiveTrueOrderByWeekdayAsc(id);
 
@@ -223,7 +300,9 @@ public class ProducerService {
       applyAvailability(producer, request.getAvailability());
     }
 
-    List<PaymentMethod> paymentMethods = paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(id);
+    List<PaymentMethod> paymentMethods =
+        paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(id);
+
     List<FarmerAvailability> availability =
         farmerAvailabilityRepository.findByFarmerIdAndActiveTrueOrderByWeekdayAsc(id);
 
@@ -278,6 +357,25 @@ public class ProducerService {
     producer.setActive(false);
     userRepository.saveAndFlush(producer);
     return producerMapper.toResponse(producer);
+  }
+
+  @Transactional
+  public void updateReviewStats(UUID producerId) {
+    Producer producer =
+        producerRepository
+            .findById(producerId)
+            .orElseThrow(() -> new NotFoundException("Produtor não encontrado"));
+
+    long totalReviews = reviewRepository.countByFarmer_Id(producerId);
+    Double averageRating = reviewRepository.findAverageRatingByFarmerId(producerId);
+
+    producer.setTotalReviews(Math.toIntExact(totalReviews));
+    producer.setAverageRating(
+        averageRating == null
+            ? BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP)
+            : BigDecimal.valueOf(averageRating).setScale(2, RoundingMode.HALF_UP));
+
+    producerRepository.save(producer);
   }
 
   private void applyAvailability(Producer producer, List<AvailabilityRequest> availability) {

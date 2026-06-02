@@ -10,7 +10,6 @@ import br.com.ragro.controller.response.ProducerResponse;
 import br.com.ragro.service.CustomerService;
 import br.com.ragro.service.ProducerRegistrationService;
 import br.com.ragro.service.ProducerService;
-import br.com.ragro.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -45,7 +44,6 @@ public class AdminController {
   private final ProducerRegistrationService producerRegistrationService;
 
   public AdminController(
-      UserService userService,
       CustomerService customerService,
       ProducerService producerService,
       ProducerRegistrationService producerRegistrationService) {
@@ -57,18 +55,18 @@ public class AdminController {
   @GetMapping("/producers")
   @Operation(
       summary = "List all producers",
-      description = "Returns a paginated list of all producers (active and inactive), sorted by rating desc.")
+      description =
+          "Returns a paginated list of all producers (active and inactive), sorted by rating desc.")
   public ResponseEntity<PaginatedResponse<ProducerResponse>> getProducers(
-      @RequestParam(defaultValue = "0") int page,
-      @RequestParam(defaultValue = "10") int size) {
+      @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
     return ResponseEntity.ok(
         PaginatedResponse.of(producerService.getAllProducers(PageRequest.of(page, size))));
   }
 
   @GetMapping("/producers/{id}")
   @Operation(
-          summary = "Get producer details",
-          description = "Returns the details of a specific producer by ID.")
+      summary = "Get producer details",
+      description = "Returns the details of a specific producer by ID.")
   public ResponseEntity<ProducerGetResponse> getProducer(@PathVariable UUID id) {
     return ResponseEntity.ok(producerService.getProducerProfileById(id));
   }
@@ -99,7 +97,7 @@ public class AdminController {
   public ResponseEntity<ProducerResponse> activateProducer(@PathVariable UUID id) {
     return ResponseEntity.ok(producerService.activateProducer(id));
   }
-  
+
   @PatchMapping("/producers/{id}/deactivate")
   @Operation(
       summary = "Deactivate a producer",
@@ -110,8 +108,8 @@ public class AdminController {
 
   @GetMapping("/dashboard")
   @Operation(
-          summary = "Verify admin access",
-          description = "Test endpoint — returns JWT claims. Will be replaced.")
+      summary = "Verify admin access",
+      description = "Test endpoint — returns JWT claims. Will be replaced.")
   public ResponseEntity<Map<String, Object>> dashboard(@AuthenticationPrincipal Jwt jwt) {
     Map<String, Object> payload = new LinkedHashMap<>();
     payload.put("area", "ADMIN");
@@ -128,10 +126,11 @@ public class AdminController {
 
   @PostMapping("/producers")
   @Operation(
-          summary = "Register producer",
-          description = "Creates a new producer profile in the system.")
+      summary = "Register producer",
+      description = "Creates a new producer profile in the system.")
   public ResponseEntity<ProducerRegistrationResponse> register(
-          @Valid @RequestBody ProducerRegistrationRequest request) {
-    return ResponseEntity.status(HttpStatus.CREATED).body(producerRegistrationService.register(request));
+      @Valid @RequestBody ProducerRegistrationRequest request) {
+    return ResponseEntity.status(HttpStatus.CREATED)
+        .body(producerRegistrationService.register(request));
   }
 }

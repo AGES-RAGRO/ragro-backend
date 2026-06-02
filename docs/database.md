@@ -619,6 +619,57 @@ Stores data returned by the Google Maps Directions API for a route. Avoids recal
 
 ---
 
+### Sustainability (CO2)
+
+#### `vehicle_preferences`
+Stores the vehicle/fuel configuration a user last used for CO2 calculations, so it can be pre-filled on subsequent calculations. One row per user.
+
+| Column | Type | Required | Description |
+|--------|------|----------|-------------|
+| `user_id` | uuid | ✅ | Primary key — FK → `users.id` (1:1) |
+| `vehicle_type` | varchar(50) | ✅ | `MOTORCYCLE` \| `CAR` \| `VAN` \| `LIGHT_TRUCK` |
+| `fuel_type` | varchar(50) | ✅ | `GASOLINE` \| `ETHANOL` \| `DIESEL` \| `ELECTRIC` |
+| `average_consumption` | double precision | ✅ | Average consumption (km/L) used in the emission formula |
+| `created_at` | timestamptz | ✅ | Record creation timestamp |
+| `updated_at` | timestamptz | ✅ | Last update timestamp |
+
+---
+
+#### `co2_savings`
+Logs CO2 saved by choosing an optimized route over a non-optimized one.
+
+| Column | Type | Required | Description |
+|--------|------|----------|-------------|
+| `id` | uuid | ✅ | Primary key |
+| `user_id` | uuid | ✅ | FK → `users.id` |
+| `distance_optimized` | double precision | ✅ | Distance (km) of the optimized route |
+| `distance_non_optimized` | double precision | ✅ | Distance (km) of the non-optimized route |
+| `co2_saved` | double precision | ✅ | kg of CO2 saved (non-optimized − optimized) |
+| `vehicle_type` | varchar(50) | ✅ | Snapshot of the vehicle type used |
+| `fuel_type` | varchar(50) | ✅ | Snapshot of the fuel type used |
+| `average_consumption` | double precision | ✅ | Snapshot of the average consumption used |
+| `created_at` | timestamptz | ✅ | Record creation timestamp |
+
+---
+
+#### `co2_emissions`
+Logs each CO2 emission computed for a route, linked to the vehicle preference used in the calculation. Emission (kg) = `route_distance_km / average_consumption × fuel emission factor`; `0` for electric vehicles.
+
+| Column | Type | Required | Description |
+|--------|------|----------|-------------|
+| `id` | uuid | ✅ | Primary key |
+| `vehicle_preference_user_id` | uuid | ✅ | FK → `vehicle_preferences.user_id` — the vehicle config used for this calculation |
+| `route_distance_km` | double precision | ✅ | Route distance (km) used in the calculation |
+| `co2_emission` | double precision | ✅ | kg of CO2 emitted for the route |
+| `vehicle_type` | varchar(50) | ✅ | Snapshot of the vehicle type at calculation time |
+| `fuel_type` | varchar(50) | ✅ | Snapshot of the fuel type at calculation time |
+| `average_consumption` | double precision | ✅ | Snapshot of the average consumption at calculation time |
+| `created_at` | timestamptz | ✅ | Record creation timestamp |
+
+**Index:** `(vehicle_preference_user_id)` — lookups of a user's emission history.
+
+---
+
 ### Payment
 
 #### `payment_methods`

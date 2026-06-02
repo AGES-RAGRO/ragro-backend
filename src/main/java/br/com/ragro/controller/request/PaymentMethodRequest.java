@@ -9,13 +9,18 @@ import lombok.Setter;
 
 @Getter
 @Setter
-@Schema(description = "Payment method data (pix or bank_account). Send only the fields relevant to the type.")
+@Schema(
+    description =
+        "Payment method data (pix or bank_account). Send only the fields relevant to the type.")
 public class PaymentMethodRequest {
 
   @NotBlank(message = "Payment method type is required")
   @Pattern(regexp = "pix|bank_account", message = "Type must be 'pix' or 'bank_account'")
-  @Schema(description = "Payment method type", example = "pix",
-      allowableValues = {"pix", "bank_account"}, requiredMode = Schema.RequiredMode.REQUIRED)
+  @Schema(
+      description = "Payment method type",
+      example = "pix",
+      allowableValues = {"pix", "bank_account"},
+      requiredMode = Schema.RequiredMode.REQUIRED)
   private String type;
 
   // ── PIX ──────────────────────────────────────────────────────────────────────
@@ -48,10 +53,11 @@ public class PaymentMethodRequest {
   @Schema(description = "Bank account number", example = "123456-7")
   private String accountNumber;
 
-  @Pattern(
-      regexp = "checking|savings",
-      message = "Account type must be 'checking' or 'savings'")
-  @Schema(description = "Account type", example = "checking", allowableValues = {"checking", "savings"})
+  @Pattern(regexp = "checking|savings", message = "Account type must be 'checking' or 'savings'")
+  @Schema(
+      description = "Account type",
+      example = "checking",
+      allowableValues = {"checking", "savings"})
   private String accountType;
 
   @Size(max = 120, message = "Holder name must contain at most 120 characters")

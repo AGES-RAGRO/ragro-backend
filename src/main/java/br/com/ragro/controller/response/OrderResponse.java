@@ -25,7 +25,10 @@ public class OrderResponse {
   private PaymentStatus paymentStatus;
   private String notes;
   private BigDecimal totalAmount;
+  private Boolean isNew;
   private OffsetDateTime createdAt;
   private List<OrderItemResponse> items;
-
+  // Cancellation reason/details (persisted on Order); null when the order was not cancelled.
+  private String cancellationReason;
+  private String cancellationDetails;
 }

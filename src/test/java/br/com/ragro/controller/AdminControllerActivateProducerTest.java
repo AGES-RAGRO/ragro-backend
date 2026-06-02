@@ -27,8 +27,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
-import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -36,92 +36,84 @@ import org.springframework.test.web.servlet.MvcResult;
 @Import({SecurityConfig.class, KeycloakRolesConverter.class, CorsConfig.class})
 class AdminControllerActivateProducerTest {
 
-    @Autowired
-    private MockMvc mockMvc;
+  @Autowired private MockMvc mockMvc;
 
-    @Autowired
-    private ObjectMapper objectMapper;
+  @Autowired private ObjectMapper objectMapper;
 
-    @MockBean
-    private ProducerService producerService;
+  @MockBean private ProducerService producerService;
 
-        @MockBean
-        private CustomerService customerService;
+  @MockBean private CustomerService customerService;
 
-    @MockBean
-    private UserService userService;
+  @MockBean private UserService userService;
 
-    @MockBean
-    private UserRepository userRepository;
+  @MockBean private UserRepository userRepository;
 
-    @MockBean
-    private JwtDecoder jwtDecoder;
+  @MockBean private JwtDecoder jwtDecoder;
 
-        @MockBean
-        private ProducerRegistrationService producerRegistrationService;
+  @MockBean private ProducerRegistrationService producerRegistrationService;
 
-    @Test
-    @WithMockUser(roles = "ADMIN")
-    void activateProducer_shouldReturn200WithUpdatedProducer_whenActivating() throws Exception {
-        UUID producerId = UUID.randomUUID();
-        ProducerResponse producerResponse = ProducerResponse.builder()
-                .id(producerId)
-                .name("João Farmer")
-                .email("joao@example.com")
-                .phone("51988888888")
-                .active(true)
-                .createdAt(OffsetDateTime.now().minusDays(1))
-                .updatedAt(OffsetDateTime.now())
-                .build();
+  @Test
+  @WithMockUser(roles = "ADMIN")
+  void activateProducer_shouldReturn200WithUpdatedProducer_whenActivating() throws Exception {
+    UUID producerId = UUID.randomUUID();
+    ProducerResponse producerResponse =
+        ProducerResponse.builder()
+            .id(producerId)
+            .name("João Farmer")
+            .email("joao@example.com")
+            .phone("51988888888")
+            .active(true)
+            .createdAt(OffsetDateTime.now().minusDays(1))
+            .updatedAt(OffsetDateTime.now())
+            .build();
 
-        when(producerService.activateProducer(producerId)).thenReturn(producerResponse);
+    when(producerService.activateProducer(producerId)).thenReturn(producerResponse);
 
-        MvcResult result = mockMvc
-                .perform(patch("/admin/producers/{id}/activate", producerId).with(csrf()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(producerId.toString()))
-                .andExpect(jsonPath("$.name").value("João Farmer"))
-                .andExpect(jsonPath("$.active").value(true))
-                .andReturn();
-
-        ProducerResponse response = objectMapper.readValue(
-                result.getResponse().getContentAsString(), ProducerResponse.class);
-        assertThat(response.getId()).isEqualTo(producerId);
-        assertThat(response.isActive()).isTrue();
-    }
-
-    @Test
-    @WithMockUser(roles = "ADMIN")
-    void activateProducer_shouldReturn404_whenProducerNotFound() throws Exception {
-        UUID producerId = UUID.randomUUID();
-        when(producerService.activateProducer(producerId))
-                .thenThrow(new NotFoundException("Produtor não encontrado"));
-
+    MvcResult result =
         mockMvc
-                .perform(patch("/admin/producers/{id}/activate", producerId).with(csrf()))
-                .andExpect(status().isNotFound());
-    }
+            .perform(patch("/admin/producers/{id}/activate", producerId).with(csrf()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.id").value(producerId.toString()))
+            .andExpect(jsonPath("$.name").value("João Farmer"))
+            .andExpect(jsonPath("$.active").value(true))
+            .andReturn();
 
-    @Test
-    void activateProducer_shouldReturn403_whenUserIsNotAdmin() throws Exception {
-        UUID producerId = UUID.randomUUID();
-        User activeFarmer = new User();
-        activeFarmer.setType(TypeUser.FARMER);
-        activeFarmer.setActive(true);
-        when(userRepository.findByAuthSub("some-sub")).thenReturn(java.util.Optional.of(activeFarmer));
+    ProducerResponse response =
+        objectMapper.readValue(result.getResponse().getContentAsString(), ProducerResponse.class);
+    assertThat(response.getId()).isEqualTo(producerId);
+    assertThat(response.isActive()).isTrue();
+  }
 
-        mockMvc
-                .perform(
-                        patch("/admin/producers/{id}/activate", producerId)
-                                .with(
-                                        org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors
-                                                .jwt()
-                                                .jwt(
-                                                        jwt -> jwt.claim("sub", "some-sub").claim("email",
-                                                                "farmer@test.com"))
-                                                .authorities(
-                                                        new org.springframework.security.core.authority.SimpleGrantedAuthority(
-                                                                "ROLE_FARMER"))))
-                .andExpect(status().isForbidden());
-    }
+  @Test
+  @WithMockUser(roles = "ADMIN")
+  void activateProducer_shouldReturn404_whenProducerNotFound() throws Exception {
+    UUID producerId = UUID.randomUUID();
+    when(producerService.activateProducer(producerId))
+        .thenThrow(new NotFoundException("Produtor não encontrado"));
+
+    mockMvc
+        .perform(patch("/admin/producers/{id}/activate", producerId).with(csrf()))
+        .andExpect(status().isNotFound());
+  }
+
+  @Test
+  void activateProducer_shouldReturn403_whenUserIsNotAdmin() throws Exception {
+    UUID producerId = UUID.randomUUID();
+    User activeFarmer = new User();
+    activeFarmer.setType(TypeUser.FARMER);
+    activeFarmer.setActive(true);
+    when(userRepository.findByAuthSub("some-sub")).thenReturn(java.util.Optional.of(activeFarmer));
+
+    mockMvc
+        .perform(
+            patch("/admin/producers/{id}/activate", producerId)
+                .with(
+                    org.springframework.security.test.web.servlet.request
+                        .SecurityMockMvcRequestPostProcessors.jwt()
+                        .jwt(jwt -> jwt.claim("sub", "some-sub").claim("email", "farmer@test.com"))
+                        .authorities(
+                            new org.springframework.security.core.authority.SimpleGrantedAuthority(
+                                "ROLE_FARMER"))))
+        .andExpect(status().isForbidden());
+  }
 }

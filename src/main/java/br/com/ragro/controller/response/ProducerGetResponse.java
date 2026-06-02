@@ -81,4 +81,3 @@ public class ProducerGetResponse {
   @Schema(description = "Producer availability (service hours per weekday)")
   private List<AvailabilityResponse> availability;
 }
-

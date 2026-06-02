@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import org.mockito.ArgumentMatchers;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -15,6 +14,7 @@ import br.com.ragro.controller.request.AvailabilityRequest;
 import br.com.ragro.controller.request.PaymentMethodRequest;
 import br.com.ragro.controller.request.ProducerFilter;
 import br.com.ragro.controller.request.ProducerUpdateRequest;
+import br.com.ragro.controller.response.LocationResponse;
 import br.com.ragro.controller.response.MarketplaceProducerResponse;
 import br.com.ragro.controller.response.ProducerGetResponse;
 import br.com.ragro.controller.response.ProducerPublicProfileResponse;
@@ -35,6 +35,7 @@ import br.com.ragro.repository.FarmerAvailabilityRepository;
 import br.com.ragro.repository.PaymentMethodRepository;
 import br.com.ragro.repository.ProducerProfileRepository;
 import br.com.ragro.repository.ProducerRepository;
+import br.com.ragro.repository.ReviewRepository;
 import br.com.ragro.repository.UserRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -46,6 +47,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
@@ -66,6 +68,8 @@ class ProducerServiceTest {
   @Mock private PaymentMethodRepository paymentMethodRepository;
   @Mock private UserService userService;
   @Mock private MinioStorageService minioStorageService;
+  @Mock private ReviewRepository reviewRepository;
+  @Mock private GoogleMapsService googleMapsService;
 
   private ProducerService producerService;
 
@@ -82,7 +86,80 @@ class ProducerServiceTest {
             paymentMethodRepository,
             userService,
             minioStorageService,
-            producerMapper);
+            producerMapper,
+            reviewRepository,
+            googleMapsService);
+  }
+
+  // ─── getProducerLocations ────────────────────────────────────────────────────
+
+  @Test
+  void getProducerLocations_shouldComposeAvatarAndCoverUrlsFromStorageKeys() {
+    UUID id = UUID.randomUUID();
+    Producer producer =
+        buildLocatableProducer(id, new BigDecimal("-30.0346"), new BigDecimal("-51.2177"));
+    producer.setAvatarS3("avatar-key.jpg");
+    producer.setDisplayPhotoS3("cover-key.jpg");
+
+    when(producerRepository.findAllByUserActiveTrue()).thenReturn(List.of(producer));
+    when(minioStorageService.composePublicUrl("avatar-key.jpg"))
+        .thenReturn("http://localhost:9000/ragro/avatar-key.jpg");
+    when(minioStorageService.composePublicUrl("cover-key.jpg"))
+        .thenReturn("http://localhost:9000/ragro/cover-key.jpg");
+
+    List<LocationResponse> result = producerService.getProducerLocations();
+
+    assertThat(result).hasSize(1);
+    LocationResponse location = result.get(0);
+    assertThat(location.getId()).isEqualTo(id);
+    assertThat(location.getLatitude()).isEqualByComparingTo("-30.0346");
+    assertThat(location.getLongitude()).isEqualByComparingTo("-51.2177");
+    assertThat(location.getAvatarUrl()).isEqualTo("http://localhost:9000/ragro/avatar-key.jpg");
+    assertThat(location.getCoverUrl()).isEqualTo("http://localhost:9000/ragro/cover-key.jpg");
+  }
+
+  @Test
+  void getProducerLocations_shouldReturnNullUrlsWhenProducerHasNoPhotos() {
+    UUID id = UUID.randomUUID();
+    Producer producer =
+        buildLocatableProducer(id, new BigDecimal("-30.0346"), new BigDecimal("-51.2177"));
+    producer.setAvatarS3(null);
+    producer.setDisplayPhotoS3(null);
+
+    when(producerRepository.findAllByUserActiveTrue()).thenReturn(List.of(producer));
+    when(minioStorageService.composePublicUrl(null)).thenReturn(null);
+
+    List<LocationResponse> result = producerService.getProducerLocations();
+
+    assertThat(result).hasSize(1);
+    assertThat(result.get(0).getAvatarUrl()).isNull();
+    assertThat(result.get(0).getCoverUrl()).isNull();
+  }
+
+  @Test
+  void getProducerLocations_shouldFilterOutProducersWithoutCoordinates() {
+    UUID withCoords = UUID.randomUUID();
+    UUID noPrimaryAddress = UUID.randomUUID();
+    UUID nullCoords = UUID.randomUUID();
+
+    Producer located =
+        buildLocatableProducer(withCoords, new BigDecimal("-30.0346"), new BigDecimal("-51.2177"));
+
+    // no primary address → null lat/lng → filtered out
+    Producer withoutPrimary =
+        buildProducerEntity(
+            noPrimaryAddress, buildUser(noPrimaryAddress, TypeUser.FARMER, "Sem Primario"));
+
+    // primary address but no coordinates → filtered out
+    Producer withoutCoords = buildLocatableProducer(nullCoords, null, null);
+
+    when(producerRepository.findAllByUserActiveTrue())
+        .thenReturn(List.of(located, withoutPrimary, withoutCoords));
+
+    List<LocationResponse> result = producerService.getProducerLocations();
+
+    assertThat(result).hasSize(1);
+    assertThat(result.get(0).getId()).isEqualTo(withCoords);
   }
 
   // ─── getAllProducers ─────────────────────────────────────────────────────────
@@ -171,7 +248,8 @@ class ProducerServiceTest {
   @Test
   void getActiveProducers_shouldReturnEmptyPage_whenNoProducersMatch() {
     Pageable pageable = PageRequest.of(0, 10);
-    when(producerRepository.findAll(ArgumentMatchers.<Specification<Producer>>any(), eq(pageable))).thenReturn(Page.empty(pageable));
+    when(producerRepository.findAll(ArgumentMatchers.<Specification<Producer>>any(), eq(pageable)))
+        .thenReturn(Page.empty(pageable));
 
     Page<MarketplaceProducerResponse> response =
         producerService.getActiveProducers(new ProducerFilter(), pageable);
@@ -187,13 +265,13 @@ class ProducerServiceTest {
     Producer producer = buildProducerEntity(id, buildProducer(id));
     producer.setFarmName("Fazenda Boa Terra");
     when(producerRepository.findAll(ArgumentMatchers.<Specification<Producer>>any(), eq(pageable)))
-            .thenReturn(new PageImpl<>(List.of(producer), pageable, 1));
+        .thenReturn(new PageImpl<>(List.of(producer), pageable, 1));
 
     ProducerFilter filter = new ProducerFilter();
     filter.setQuery("boa");
 
     Page<MarketplaceProducerResponse> response =
-            producerService.getActiveProducers(filter, pageable);
+        producerService.getActiveProducers(filter, pageable);
 
     assertThat(response.getContent()).hasSize(1);
     assertThat(response.getContent().getFirst().getFarmName()).isEqualTo("Fazenda Boa Terra");
@@ -202,7 +280,8 @@ class ProducerServiceTest {
   @Test
   void getActiveProducers_shouldReturnEmptyPage_whenMinRatingFilterExcludesAll() {
     Pageable pageable = PageRequest.of(0, 10);
-    when(producerRepository.findAll(ArgumentMatchers.<Specification<Producer>>any(), eq(pageable))).thenReturn(Page.empty(pageable));
+    when(producerRepository.findAll(ArgumentMatchers.<Specification<Producer>>any(), eq(pageable)))
+        .thenReturn(Page.empty(pageable));
 
     ProducerFilter filter = new ProducerFilter();
     filter.setMinRating(4.5);
@@ -216,27 +295,31 @@ class ProducerServiceTest {
   @Test
   void getActiveProducers_shouldDelegateToRepository_whenSortByName() {
     Pageable pageable = PageRequest.of(0, 10);
-    when(producerRepository.findAll(ArgumentMatchers.<Specification<Producer>>any(), eq(pageable))).thenReturn(Page.empty(pageable));
+    when(producerRepository.findAll(ArgumentMatchers.<Specification<Producer>>any(), eq(pageable)))
+        .thenReturn(Page.empty(pageable));
 
     ProducerFilter filter = new ProducerFilter();
     filter.setSortBy("name");
 
     producerService.getActiveProducers(filter, pageable);
 
-    verify(producerRepository).findAll(ArgumentMatchers.<Specification<Producer>>any(), eq(pageable));
+    verify(producerRepository)
+        .findAll(ArgumentMatchers.<Specification<Producer>>any(), eq(pageable));
   }
 
   @Test
   void getActiveProducers_shouldDelegateToRepository_whenSortByOrders() {
     Pageable pageable = PageRequest.of(0, 10);
-    when(producerRepository.findAll(ArgumentMatchers.<Specification<Producer>>any(), eq(pageable))).thenReturn(Page.empty(pageable));
+    when(producerRepository.findAll(ArgumentMatchers.<Specification<Producer>>any(), eq(pageable)))
+        .thenReturn(Page.empty(pageable));
 
     ProducerFilter filter = new ProducerFilter();
     filter.setSortBy("orders");
 
     producerService.getActiveProducers(filter, pageable);
 
-    verify(producerRepository).findAll(ArgumentMatchers.<Specification<Producer>>any(), eq(pageable));
+    verify(producerRepository)
+        .findAll(ArgumentMatchers.<Specification<Producer>>any(), eq(pageable));
   }
 
   @Test
@@ -338,7 +421,8 @@ class ProducerServiceTest {
     assertThat(response.getAvailability()).hasSize(1);
     assertThat(response.getAvailability().get(0).getOpensAt()).isEqualTo("14:00");
     assertThat(response.getAvailability().get(0).getClosesAt()).isEqualTo("18:30");
-    verify(paymentMethodRepository, never()).findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(any(UUID.class));
+    verify(paymentMethodRepository, never())
+        .findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(any(UUID.class));
   }
 
   @Test
@@ -463,7 +547,8 @@ class ProducerServiceTest {
     when(producerProfileRepository.findById(producerId)).thenReturn(Optional.of(profile));
     when(producerProfileRepository.save(profile)).thenReturn(profile);
     when(addressRepository.findByUserIdAndIsPrimaryTrue(producerId)).thenReturn(Optional.empty());
-    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(producerId)).thenReturn(List.of());
+    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(producerId))
+        .thenReturn(List.of());
 
     ProducerGetResponse response = producerService.updateProducerProfile(producerId, jwt, request);
 
@@ -528,7 +613,8 @@ class ProducerServiceTest {
     when(producerProfileRepository.save(any(ProducerProfile.class)))
         .thenAnswer(inv -> inv.getArgument(0));
     when(addressRepository.findByUserIdAndIsPrimaryTrue(producerId)).thenReturn(Optional.empty());
-    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(producerId)).thenReturn(List.of());
+    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(producerId))
+        .thenReturn(List.of());
 
     ProducerGetResponse response = producerService.updateProducerProfile(producerId, jwt, request);
 
@@ -560,7 +646,8 @@ class ProducerServiceTest {
     when(producerProfileRepository.findById(farmerId)).thenReturn(Optional.of(profile));
     when(producerProfileRepository.save(profile)).thenReturn(profile);
     when(addressRepository.findByUserIdAndIsPrimaryTrue(farmerId)).thenReturn(Optional.empty());
-    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(farmerId)).thenReturn(List.of());
+    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(farmerId))
+        .thenReturn(List.of());
 
     ProducerGetResponse response = producerService.updateProducerProfile(farmerId, jwt, request);
 
@@ -635,7 +722,8 @@ class ProducerServiceTest {
     when(producerProfileRepository.findById(producerId)).thenReturn(Optional.of(profile));
     when(producerProfileRepository.save(profile)).thenReturn(profile);
     when(addressRepository.findByUserIdAndIsPrimaryTrue(producerId)).thenReturn(Optional.empty());
-    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(producerId)).thenReturn(List.of());
+    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(producerId))
+        .thenReturn(List.of());
 
     producerService.updateProducerProfile(producerId, jwt, request);
 
@@ -676,7 +764,8 @@ class ProducerServiceTest {
     when(paymentMethodRepository.findByFarmerIdAndTypeAndActiveTrue(eq(producerId), anyString()))
         .thenReturn(Optional.empty());
     when(paymentMethodRepository.save(any(PaymentMethod.class))).thenAnswer(i -> i.getArgument(0));
-    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(producerId)).thenReturn(List.of());
+    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(producerId))
+        .thenReturn(List.of());
 
     producerService.updateProducerProfile(producerId, jwt, request);
 
@@ -737,7 +826,8 @@ class ProducerServiceTest {
     when(producerProfileRepository.findById(producerId)).thenReturn(Optional.of(profile));
     when(producerProfileRepository.save(profile)).thenReturn(profile);
     when(addressRepository.findByUserIdAndIsPrimaryTrue(producerId)).thenReturn(Optional.empty());
-    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(producerId)).thenReturn(List.of());
+    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(producerId))
+        .thenReturn(List.of());
 
     producerService.updateProducerProfile(producerId, jwt, request);
 
@@ -767,7 +857,8 @@ class ProducerServiceTest {
     when(producerProfileRepository.findById(producerId)).thenReturn(Optional.of(profile));
     when(producerProfileRepository.save(profile)).thenReturn(profile);
     when(addressRepository.findByUserIdAndIsPrimaryTrue(producerId)).thenReturn(Optional.empty());
-    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(producerId)).thenReturn(List.of());
+    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(producerId))
+        .thenReturn(List.of());
     when(farmerAvailabilityRepository.findByFarmerIdAndActiveTrueOrderByWeekdayAsc(producerId))
         .thenReturn(List.of());
 
@@ -904,7 +995,8 @@ class ProducerServiceTest {
     when(producerProfileRepository.findById(producerId)).thenReturn(Optional.of(profile));
     when(producerProfileRepository.save(profile)).thenReturn(profile);
     when(addressRepository.findByUserIdAndIsPrimaryTrue(producerId)).thenReturn(Optional.empty());
-    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(producerId)).thenReturn(List.of());
+    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(producerId))
+        .thenReturn(List.of());
     when(farmerAvailabilityRepository.findByFarmerIdAndActiveTrueOrderByWeekdayAsc(producerId))
         .thenReturn(List.of());
 
@@ -969,6 +1061,15 @@ class ProducerServiceTest {
     address.setZipCode("90010120");
     address.setPrimary(true);
     return address;
+  }
+
+  private Producer buildLocatableProducer(UUID id, BigDecimal latitude, BigDecimal longitude) {
+    User user = buildUser(id, TypeUser.FARMER, "Produtor " + id);
+    Address address = buildAddress(user);
+    address.setLatitude(latitude);
+    address.setLongitude(longitude);
+    user.getAddresses().add(address);
+    return buildProducerEntity(id, user);
   }
 
   private FarmerAvailability buildAvailability(

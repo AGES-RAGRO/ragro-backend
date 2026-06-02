@@ -18,14 +18,17 @@ public class CustomerOrderResponse {
   private String producerName;
   private String producerPicture;
   private OrderStatus status;
+  private boolean reviewed;
 
-  // Campos adicionais consumidos pela tela de detalhe (GET /orders/customer/{id}).
-  // A lista (GET /orders/consumer) preenche apenas os campos acima — os abaixo
-  // são populados somente pelo mapper de detalhe e podem vir nulos na listagem.
+  // Detail-only fields (GET /orders/customer/{id}). The list (GET /orders/consumer) fills only the
+  // fields above; these are populated only by the detail mapper and may be null in the listing.
   private UUID producerId;
   private String producerPhone;
   private BigDecimal totalAmount;
   private OffsetDateTime createdAt;
   private AddressSnapshot deliveryAddress;
   private List<OrderItemResponse> items;
+  // Cancellation reason/details (persisted on Order); null when the order was not cancelled.
+  private String cancellationReason;
+  private String cancellationDetails;
 }

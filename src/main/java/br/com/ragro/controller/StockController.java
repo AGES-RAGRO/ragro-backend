@@ -9,10 +9,10 @@ import br.com.ragro.service.StockMovementService;
 import br.com.ragro.service.StockService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springdoc.core.annotations.ParameterObject;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -34,7 +34,8 @@ public class StockController {
   @PreAuthorize("hasRole('FARMER')")
   @Operation(
       summary = "Get product movement history",
-      description = "Returns a paginated history of stock movements for a product owned by the authenticated farmer.")
+      description =
+          "Returns a paginated history of stock movements for a product owned by the authenticated farmer.")
   public ResponseEntity<PaginatedResponse<StockMovementResponse>> getProductMovements(
       @PathVariable UUID productId,
       @RequestParam(defaultValue = "0") int page,
@@ -86,4 +87,3 @@ public class StockController {
         .body(stockMovementService.registerEntry(request, jwt));
   }
 }
-

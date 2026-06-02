@@ -69,9 +69,7 @@ class StockControllerTest {
     when(stockService.getProductMovements(eq(productId), eq(0), eq(10), any())).thenReturn(page);
 
     mockMvc
-        .perform(
-            get("/producers/stock/{productId}/movements", productId)
-                .with(farmerJwt(sub)))
+        .perform(get("/producers/stock/{productId}/movements", productId).with(farmerJwt(sub)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.content.length()").value(1))
         .andExpect(jsonPath("$.content[0].productId").value(productId.toString()))
@@ -152,17 +150,14 @@ class StockControllerTest {
     when(stockMovementService.registerExit(any(), any()))
         .thenReturn(
             stockMovementResponse(
-                productId,
-                StockMovementType.EXIT,
-                StockMovementReason.SALE,
-                "Sale exit"));
+                productId, StockMovementType.EXIT, StockMovementReason.SALE, "Sale exit"));
 
     mockMvc
         .perform(
             post("/producers/stock/exit")
                 .with(farmerJwt(sub))
                 .contentType(MediaType.APPLICATION_JSON)
-                        .content(stockExitJson(productId, "2.000", "SALE")))
+                .content(stockExitJson(productId, "2.000", "SALE")))
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.type").value("EXIT"))
         .andExpect(jsonPath("$.reason").value("SALE"))
@@ -269,7 +264,8 @@ class StockControllerTest {
           "quantity": %s,
           "notes": "%s"
         }
-        """.formatted(productId, quantity, notes);
+        """
+        .formatted(productId, quantity, notes);
   }
 
   private String stockExitJson(UUID productId, String quantity, String reason) {
@@ -279,9 +275,7 @@ class StockControllerTest {
           "quantity": %s,
           "reason": "%s"
         }
-        """.formatted(productId, quantity, reason);
+        """
+        .formatted(productId, quantity, reason);
   }
 }
-
-
-

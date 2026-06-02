@@ -135,6 +135,117 @@ Verifies `ROLE_CUSTOMER` access. Returns JWT claims.
 
 ---
 
+### Producer Dashboard
+
+#### GET /producers/me/dashboard
+
+Returns the authenticated producer's financial dashboard for a selected month. Requires `ROLE_FARMER`.
+
+**Query Parameters:**
+- `month` (optional, 1-12): Month for the dashboard. Defaults to current month.
+- `year` (optional): Year for the dashboard. Defaults to current year.
+
+**Response (200 OK):**
+```json
+{
+  "month": 3,
+  "year": 2026,
+  "totalSales": "42850.00",
+  "salesMetric": {
+    "currentValue": "42850.00",
+    "previousValue": "36250.50",
+    "percentageChange": "+18.15"
+  },
+  "deliveredOrdersCount": 128,
+  "ordersMetric": {
+    "currentValue": "128",
+    "previousValue": "114",
+    "percentageChange": "+12.28"
+  },
+  "stockSoldPercentage": "85.00",
+  "stockMetric": {
+    "currentValue": "85.00",
+    "previousValue": "86.75",
+    "percentageChange": "-2.01"
+  }
+}
+```
+
+**Errors:**
+- `401 Unauthorized` — token missing or invalid
+- `403 Forbidden` — not a producer
+
+---
+
+#### GET /producers/me/dashboard/week
+
+Returns the authenticated producer's weekly sales data for the last 7 days (including today). Requires `ROLE_FARMER`.
+
+**Response (200 OK):**
+```json
+{
+  "weekStartDate": "2026-03-01",
+  "weekEndDate": "2026-03-07",
+  "dailySales": [
+    {
+      "dayOfWeek": "Sunday",
+      "date": "01/03",
+      "fullDate": "2026-03-01",
+      "orderCount": 12,
+      "salesAmount": "1250.50"
+    },
+    {
+      "dayOfWeek": "Monday",
+      "date": "02/03",
+      "fullDate": "2026-03-02",
+      "orderCount": 18,
+      "salesAmount": "1850.75"
+    },
+    {
+      "dayOfWeek": "Tuesday",
+      "date": "03/03",
+      "fullDate": "2026-03-03",
+      "orderCount": 15,
+      "salesAmount": "1650.00"
+    },
+    {
+      "dayOfWeek": "Wednesday",
+      "date": "04/03",
+      "fullDate": "2026-03-04",
+      "orderCount": 22,
+      "salesAmount": "2150.25"
+    },
+    {
+      "dayOfWeek": "Thursday",
+      "date": "05/03",
+      "fullDate": "2026-03-05",
+      "orderCount": 20,
+      "salesAmount": "2050.00"
+    },
+    {
+      "dayOfWeek": "Friday",
+      "date": "06/03",
+      "fullDate": "2026-03-06",
+      "orderCount": 25,
+      "salesAmount": "2450.75"
+    },
+    {
+      "dayOfWeek": "Saturday",
+      "date": "07/03",
+      "fullDate": "2026-03-07",
+      "orderCount": 16,
+      "salesAmount": "1448.50"
+    }
+  ]
+}
+```
+
+**Errors:**
+- `401 Unauthorized` — token missing or invalid
+- `403 Forbidden` — not a producer
+
+---
+
 ## Planned Endpoints
 
 The following endpoints are defined in the product backlog and will be implemented as the project progresses. See [backlog_ragro.md](../backlog_ragro.md) for full specifications.
@@ -165,6 +276,8 @@ The following endpoints are defined in the product backlog and will be implement
 | GET | /producers/:id/products | List active products from a producer for customers | 3 |
 | PUT | /producers/:id | Update producer profile | 1 |
 | GET | /producers/:id/reviews | List producer reviews | 8 |
+| GET | /producers/me/dashboard | Get authenticated producer's financial dashboard | 11 |
+| GET | /producers/me/dashboard/week | Get authenticated producer's weekly sales dashboard | 11 |
 
 ### Administration
 
@@ -239,5 +352,9 @@ The following endpoints are defined in the product backlog and will be implement
 
 | Method | Route | Description | Epic |
 |--------|-------|-------------|------|
-| GET | /dashboard/producer/summary | Producer financial summary | 11 |
-| GET | /dashboard/producer/sales | Producer sales history | 11 |
+| ~~GET~~ | ~~GET /dashboard/producer/summary~~ | ~~Producer financial summary~~ | ~~11~~ |
+| ~~GET~~ | ~~GET /dashboard/producer/sales~~ | ~~Producer sales history~~ | ~~11~~ |
+
+> **Note**: Financial dashboard endpoints have been replaced with the new endpoints:
+> - `GET /producers/me/dashboard` — Monthly financial summary
+> - `GET /producers/me/dashboard/week` — Weekly sales data

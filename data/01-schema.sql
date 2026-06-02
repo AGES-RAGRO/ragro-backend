@@ -40,6 +40,7 @@ CREATE TABLE "farmers" (
   "total_sales_amount" decimal(14,2) NOT NULL DEFAULT 0,
   "created_at" timestamptz NOT NULL DEFAULT now(),
   "updated_at" timestamptz NOT NULL DEFAULT now()
+  ,"seen_by_farmer" boolean NOT NULL DEFAULT false
 );
 
 CREATE TABLE "producer_profiles" (

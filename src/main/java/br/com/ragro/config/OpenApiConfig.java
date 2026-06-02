@@ -11,6 +11,7 @@ import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import io.swagger.v3.oas.models.servers.Server;
 import io.swagger.v3.oas.models.tags.Tag;
+import java.util.ArrayList;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -25,9 +26,19 @@ public class OpenApiConfig {
   @Value("${keycloak.realm:ragro}")
   private String realm;
 
+  @Value("${swagger.production-url:}")
+  private String swaggerProductionUrl;
+
   @Bean
   public OpenAPI customOpenAPI() {
     String tokenUrl = keycloakPublicUrl + "/realms/" + realm + "/protocol/openid-connect/token";
+
+    List<Server> servers = new ArrayList<>();
+    if (swaggerProductionUrl != null && !swaggerProductionUrl.isBlank()) {
+      servers.add(new Server().url(swaggerProductionUrl).description("Production Server (AWS)"));
+    }
+    servers.add(
+        new Server().url("http://localhost:8080").description("Development Server (LOCALHOST)"));
 
     return new OpenAPI()
         .info(
@@ -39,10 +50,7 @@ public class OpenApiConfig {
                         + " farmers")
                 .contact(new Contact().name("RAGRO Team").url("https://github.com/AGES-RAGRO"))
                 .license(new License().name("MIT").url("https://opensource.org/licenses/MIT")))
-        .servers(
-            List.of(
-                new Server().url("http://localhost:8080").description("Development Server"),
-                new Server().url("https://api.ragro.com.br").description("Production Server")))
+        .servers(servers)
         .tags(
             List.of(
                 new Tag()
