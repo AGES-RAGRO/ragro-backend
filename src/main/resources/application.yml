@@ -32,24 +32,30 @@ spring:
           jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost:8180/realms/ragro/protocol/openid-connect/certs}
 
   ai:
-    ollama:
-      base-url: ${OLLAMA_BASE_URL:http://ollama:11434}
-      init:
-        # Não tenta baixar o modelo no startup (evita falha quando o Ollama está fora).
-        pull-model-strategy: never
+    openai:
+      # A NVIDIA LLM API é compatível com o client OpenAI do Spring AI.
+      base-url: ${NVIDIA_BASE_URL:https://integrate.api.nvidia.com}
+      api-key: ${NVIDIA_API_KEY:}
+      # A NVIDIA LLM API não oferece embeddings — desliga p/ o autoconfig não criar o bean.
+      embedding:
+        enabled: false
       chat:
         options:
-          model: ${OLLAMA_MODEL:gemma2:2b}
+          # Modelo INSTRUCT (sem reasoning). Modelos de reasoning (ex.: stepfun-ai/step-3.7-flash)
+          # estouram tempo/tokens reordenando os ~50 candidatos (>180s, finish_reason=length) e
+          # cairiam sempre no fallback heurístico. Alternativa +qualidade/+lenta: meta/llama-3.3-70b-instruct.
+          model: ${NVIDIA_MODEL:meta/llama-3.1-8b-instruct}
           temperature: 0.2
-          format: json
+          # A NVIDIA LLM API exige max-tokens; cobre ~50 itens reordenados em JSON.
+          max-tokens: ${NVIDIA_MAX_TOKENS:4096}
 
-# Timeouts do cliente HTTP do Ollama. O Spring AI 1.0.3 não expõe timeout via
-# propriedade (só base-url), então OllamaConfig aplica estes valores ao RestClient
-# do OllamaApi. O read-timeout precisa cobrir a inferência da LLM em CPU
-# (gemma2:2b leva ~10s+), bem acima do default de 10s do cliente HTTP.
-ollama:
-  connect-timeout-ms: ${OLLAMA_CONNECT_TIMEOUT_MS:2000}
-  read-timeout-ms: ${OLLAMA_READ_TIMEOUT_MS:60000}
+# Timeouts do cliente HTTP da NVIDIA LLM API. O Spring AI 1.0.3 não expõe timeout via
+# propriedade para o client OpenAI e seu RestClient default não tem read-timeout, então
+# NvidiaChatConfig aplica estes valores ao RestClient do OpenAiApi. O read-timeout cobre a
+# inferência da LLM hospedada na NVIDIA.
+nvidia:
+  connect-timeout-ms: ${NVIDIA_CONNECT_TIMEOUT_MS:2000}
+  read-timeout-ms: ${NVIDIA_READ_TIMEOUT_MS:60000}
 
 keycloak:
   server-url: ${KEYCLOAK_SERVER_URL:http://localhost:8180}

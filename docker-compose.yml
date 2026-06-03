@@ -76,25 +76,6 @@ services:
     networks:
       - ragro-network
 
-  ollama:
-    image: ollama/ollama:latest
-    container_name: ragro-ollama
-    mem_limit: 3g
-    entrypoint: ["/bin/sh", "/entrypoint.sh"]
-    environment:
-      OLLAMA_KEEP_ALIVE: 5m
-    volumes:
-      - ollama_models:/root/.ollama
-      - ./data/ollama-entrypoint.sh:/entrypoint.sh:ro
-    healthcheck:
-      test: ["CMD-SHELL", "ollama list || exit 1"]
-      interval: 15s
-      timeout: 10s
-      retries: 5
-      start_period: 30s
-    networks:
-      - ragro-network
-
   backend:
     build:
       context: .
@@ -105,8 +86,6 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
-      ollama:
-        condition: service_started
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/gearheads
       SPRING_DATASOURCE_USERNAME: postgres
@@ -122,12 +101,9 @@ services:
       STORAGE_SECRET_KEY: minioadmin
       STORAGE_BUCKET: ragro-media
       MEDIA_PUBLIC_URL: ${MEDIA_PUBLIC_URL:-http://localhost:8080}
-      # Endpoint INTERNO (rede docker). Literal, como STORAGE_ENDPOINT/KEYCLOAK_SERVER_URL —
-      # NÃO interpolar do .env, senão o OLLAMA_BASE_URL de dev-local (localhost) vaza pro container.
-      OLLAMA_BASE_URL: http://ollama:11434
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma2:2b}
-      OLLAMA_CONNECT_TIMEOUT_MS: ${OLLAMA_CONNECT_TIMEOUT_MS:-2000}
-      OLLAMA_READ_TIMEOUT_MS: ${OLLAMA_READ_TIMEOUT_MS:-30000}
+      # Reranker via NVIDIA LLM API (Spring AI client OpenAI). A chave vem do .env (gitignored);
+      # base-url e modelo usam os defaults do application.yml.
+      NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
       GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY}
     ports:
       - "8080:8080"
@@ -137,7 +113,6 @@ services:
 volumes:
   postgres_data:
   minio_data:
-  ollama_models:
 
 networks:
   ragro-network:

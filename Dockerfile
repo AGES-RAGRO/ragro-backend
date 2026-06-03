@@ -32,5 +32,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
 EXPOSE 8080
 
 # Cap the heap against the container's cgroup memory limit so the JVM isn't OOM-killed by ECS
-# (JDK default is 25%; 75% leaves headroom for metaspace/non-heap/Ollama client buffers).
+# (JDK default is 25%; 75% leaves headroom for metaspace/non-heap/HTTP client buffers).
 ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75.0", "-jar", "app.jar"]

@@ -98,8 +98,7 @@ jobs:
           STORAGE_SECRET_KEY=${{ secrets.STORAGE_SECRET_KEY }}
           STORAGE_BUCKET=${{ secrets.STORAGE_BUCKET }}
           MEDIA_PUBLIC_URL=${{ secrets.MEDIA_PUBLIC_URL }}
-          OLLAMA_BASE_URL=${{ secrets.OLLAMA_BASE_URL }}
-          OLLAMA_MODEL=${{ secrets.OLLAMA_MODEL }}
+          NVIDIA_API_KEY=${{ secrets.NVIDIA_API_KEY }}
           SWAGGER_PRODUCTION_URL=${{ secrets.SWAGGER_PRODUCTION_URL }}
           CORS_ALLOWED_ORIGIN_PATTERNS=${{ secrets.CORS_ALLOWED_ORIGIN_PATTERNS }}
           GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API_KEY }}

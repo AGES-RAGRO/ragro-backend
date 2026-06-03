@@ -22,8 +22,8 @@ import org.springframework.stereotype.Service;
 
 /**
  * LLM-based recommendation reranker built on Spring AI ({@link ChatClient} + structured output).
- * The provider (Ollama) is auto-configured via {@code spring.ai.ollama.*} and JSON is mapped by
- * {@code .entity(...)}.
+ * The provider (NVIDIA LLM API, OpenAI-compatible) is auto-configured via {@code spring.ai.openai.*}
+ * and JSON is mapped by {@code .entity(...)}.
  *
  * <p>Toggled by {@code ragro.recommendations.rerank.enabled} (default {@code true}); when disabled,
  * {@link DisabledRerankerAdapter} takes over and {@code RecommendationService} uses heuristic
