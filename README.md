@@ -76,31 +76,35 @@ open http://localhost:8180  # admin / admin
 
 ---
 
-## LLM Re-Ranker (Ollama)
+## LLM Re-Ranker (NVIDIA LLM API)
 
-A local AI model (Ollama) re-ranks product recommendations.
+A hosted AI model re-ranks product recommendations. The NVIDIA LLM API is OpenAI-compatible, so it
+is consumed through Spring AI's OpenAI client (`spring.ai.openai.*`, base-url
+`https://integrate.api.nvidia.com`). No local model or container is required.
 
-### First-time setup
+### Setup
 
-The `gemma2:2b` model is pulled automatically on first run — no manual action needed. The Ollama container pulls it (~1.6 GB) only when not already cached.
-
-To pull it manually:
-
-```bash
-docker compose up -d ollama
-docker exec -it ragro-ollama ollama pull gemma2:2b
-```
-
-### Verification
+Get an API key at [build.nvidia.com](https://build.nvidia.com) and set it (the `.env` is
+git-ignored):
 
 ```bash
-docker exec -it ragro-ollama ollama list
-# Should show: gemma2:2b   ...   1.6 GB
+# .env
+NVIDIA_API_KEY=nvapi-...
+NVIDIA_MODEL=meta/llama-3.1-8b-instruct   # optional; this is the default (instruct, non-reasoning)
 ```
+
+> Use an **instruct** (non-reasoning) model. Reasoning models (e.g. `stepfun-ai/step-3.7-flash`)
+> generate a long chain-of-thought per request and blow the token/time budget when re-ranking ~50
+> candidates, so they always end up in the heuristic fallback. For higher quality at more latency,
+> `meta/llama-3.3-70b-instruct` is a drop-in via `NVIDIA_MODEL`.
+
+In AWS ECS the key is injected from the `NVIDIA_API_KEY` GitHub Actions secret (see
+`.github/workflows/aws.yml`).
 
 ### Fallback
 
-If Ollama is unavailable, recommendations fall back to the heuristic algorithm with no loss of functionality.
+If the NVIDIA LLM API is unavailable or no key is set, recommendations fall back to the heuristic
+algorithm with no loss of functionality.
 
 ---
 

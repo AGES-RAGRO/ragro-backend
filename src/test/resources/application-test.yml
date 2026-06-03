@@ -16,3 +16,9 @@ spring:
       resourceserver:
         jwt:
           jwk-set-uri: http://localhost:9999/mock-jwks
+
+  # Dummy key so the OpenAI/NVIDIA autoconfig builds the ChatModel bean at context startup.
+  # No test invokes the reranker, so no outbound call is ever made.
+  ai:
+    openai:
+      api-key: test-key
