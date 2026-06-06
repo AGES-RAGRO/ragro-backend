@@ -1,21 +1,8 @@
 # RAGRO — Database Documentation
 
-> PostgreSQL 16 · 21 tables · 2 triggers
+> PostgreSQL 16 · 26 tables · 2 triggers
 
-> **Note — Schema Sync**: This document is the **design reference** for the database. The runtime schema is defined by Flyway migrations in `src/main/resources/db/migration` (starting at `V1__initial_schema.sql`). If any field documented here is missing from runtime, it means the migration has not been applied yet. Known pending migrations are listed below.
-
-### Pending Schema Additions
-
-The following fields are documented here but **not yet present** in `src/main/resources/db/migration/V1__initial_schema.sql`:
-
-| Table | Column | Type | Status |
-|-------|--------|------|--------|
-| `farmers` | `story` | `text` | Pending — producer narrative for the profile page |
-| `cart_items` | `price_snapshot` | `decimal(10,2)` | Pending — price at the time the item was added |
-
-These must be added through a new Flyway migration before the corresponding features can be implemented.
-
----
+> **Note — Schema Reference**: This document serves as the **design reference** for the database schema. The actual runtime schema is defined by Flyway migrations in `src/main/resources/db/migration` (starting at `V1__initial_schema.sql`).
 
 ## Table of Contents
 
@@ -27,6 +14,7 @@ These must be added through a new Flyway migration before the corresponding feat
   - [Cart and Orders](#cart-and-orders)
   - [Reviews and Favorites](#reviews-and-favorites)
   - [Logistics](#logistics)
+  - [Sustainability (CO2)](#sustainability-co2)
   - [Payment](#payment)
 - [Triggers](#triggers)
 ---
@@ -52,13 +40,20 @@ erDiagram
         varchar fiscal_number_type
         varchar farm_name
         text description
-        text story
         text avatar_s3
         text display_photo_s3
         integer total_reviews
         decimal average_rating
         integer total_orders
         decimal total_sales_amount
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    producer_profiles {
+        uuid id PK_FK
+        text story
+        text photo_url
+        date member_since
         timestamptz created_at
         timestamptz updated_at
     }
@@ -73,6 +68,7 @@ erDiagram
         uuid user_id FK
         varchar street
         varchar number
+        varchar neighborhood
         varchar city
         char state
         char zip_code
@@ -126,6 +122,7 @@ erDiagram
         decimal quantity
         text notes
         timestamptz created_at
+        timestamptz updated_at
     }
     carts {
         uuid id PK
@@ -140,7 +137,6 @@ erDiagram
         uuid cart_id FK
         uuid product_id FK
         decimal quantity
-        decimal price_snapshot
         boolean active
     }
     orders {
@@ -156,6 +152,8 @@ erDiagram
         timestamptz delivered_at
         text notes
         text cancellation_reason
+        text cancellation_details
+        boolean seen_by_farmer
         timestamptz created_at
         timestamptz updated_at
     }
@@ -218,6 +216,48 @@ erDiagram
         decimal origin_latitude
         decimal origin_longitude
     }
+    vehicle_preferences {
+        uuid user_id PK_FK
+        varchar vehicle_type
+        varchar fuel_type
+        double average_consumption
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    co2_savings {
+        uuid id PK
+        uuid user_id FK
+        double distance_optimized
+        double distance_non_optimized
+        double co2_saved
+        varchar vehicle_type
+        varchar fuel_type
+        double average_consumption
+        timestamptz created_at
+    }
+    co2_emissions {
+        uuid id PK
+        uuid vehicle_preference_user_id FK
+        double route_distance_km
+        double co2_emission
+        varchar vehicle_type
+        varchar fuel_type
+        double average_consumption
+        timestamptz created_at
+    }
+    notifications {
+        uuid id PK
+        uuid user_id FK
+        varchar title
+        text message
+        varchar type
+        varchar reference_type
+        uuid reference_id
+        jsonb metadata
+        boolean is_read
+        timestamptz created_at
+        timestamptz read_at
+    }
     payment_methods {
         uuid id PK
         uuid farmer_id FK
@@ -235,33 +275,38 @@ erDiagram
     }
 
     users ||--o{ addresses : "has"
-users ||--|| farmers : "is"
-users ||--|| customers : "is"
-farmers ||--o{ farmer_availability : "has"
-farmers ||--o{ products : "sells"
-farmers ||--o{ delivery_routes : "creates"
-farmers ||--o{ payment_methods : "has"
-farmers ||--o{ carts : "receives from"
-farmers ||--o{ orders : "receives"
-customers ||--o{ carts : "has"
-customers ||--o{ orders : "places"
-customers ||--o{ review : "writes"
-customers ||--o{ favorites : "has"
-products ||--o{ product_photos : "has"
-products ||--o{ product_category_assignments : "belongs to"
-products ||--o{ stock_movements : "tracks"
-products ||--o{ cart_items : "is in"
-products ||--o{ order_items : "is in"
-product_categories ||--o{ product_category_assignments : "has"
-carts ||--o{ cart_items : "contains"
-orders ||--o{ order_items : "contains"
-orders ||--o{ order_status_history : "tracks"
-orders ||--|| review : "has"
-orders ||--o| delivery_route_stops : "has"
-payment_methods ||--o{ orders : "used in"
-addresses ||--o{ orders : "delivered to"
-delivery_routes ||--o{ delivery_route_stops : "has"
-delivery_routes ||--|| visual_route_information : "has"
+    users ||--|| farmers : "is"
+    users ||--|| producer_profiles : "has"
+    users ||--|| customers : "is"
+    users ||--|| vehicle_preferences : "has"
+    users ||--o{ co2_savings : "has"
+    users ||--o{ notifications : "has"
+    farmers ||--o{ farmer_availability : "has"
+    farmers ||--o{ products : "sells"
+    farmers ||--o{ delivery_routes : "creates"
+    farmers ||--o{ payment_methods : "has"
+    farmers ||--o{ carts : "receives from"
+    farmers ||--o{ orders : "receives"
+    customers ||--o{ carts : "has"
+    customers ||--o{ orders : "places"
+    customers ||--o{ review : "writes"
+    customers ||--o{ favorites : "has"
+    products ||--o{ product_photos : "has"
+    products ||--o{ product_category_assignments : "belongs to"
+    products ||--o{ stock_movements : "tracks"
+    products ||--o{ cart_items : "is in"
+    products ||--o{ order_items : "is in"
+    product_categories ||--o{ product_category_assignments : "has"
+    carts ||--o{ cart_items : "contains"
+    orders ||--o{ order_items : "contains"
+    orders ||--o{ order_status_history : "tracks"
+    orders ||--|| review : "has"
+    orders ||--o| delivery_route_stops : "has"
+    payment_methods ||--o{ orders : "used in"
+    addresses ||--o{ orders : "delivered to"
+    delivery_routes ||--o{ delivery_route_stops : "has"
+    delivery_routes ||--|| visual_route_information : "has"
+    vehicle_preferences ||--o{ co2_emissions : "used in"
 
 ---
 
@@ -269,11 +314,12 @@ delivery_routes ||--|| visual_route_information : "has"
 
 | Domain | Tables |
 |--------|--------|
-| 👤 Users and Profiles | `users` `farmers` `customers` `addresses` `farmer_availability` |
+| 👤 Users and Profiles | `users` `farmers` `producer_profiles` `customers` `addresses` `farmer_availability` `notifications` |
 | 📦 Products and Inventory | `products` `product_categories` `product_category_assignments` `product_photos` `stock_movements` |
 | 🛒 Cart and Orders | `carts` `cart_items` `orders` `order_items` `order_status_history` |
 | ⭐ Reviews and Favorites | `review` `favorites` |
 | 🚚 Logistics | `delivery_routes` `delivery_route_stops` `visual_route_information` |
+| 🌱 Sustainability (CO2) | `vehicle_preferences` `co2_savings` `co2_emissions` |
 | 💳 Payment | `payment_methods` |
 
 ---
@@ -311,7 +357,6 @@ Extended profile for farmers. The `id` is the same as `users.id` — a 1:1 relat
 | `fiscal_number_type` | varchar(5) | ✅ | Document type: `cpf` \| `cnpj` |
 | `farm_name` | varchar(150) | ✅ | Farm name displayed in the marketplace |
 | `description` | text | ❌ | Short description shown on marketplace cards |
-| `story` | text | ❌ | Full story displayed on the detailed profile |
 | `avatar_s3` | text | ❌ | Profile picture URL stored in S3 |
 | `display_photo_s3` | text | ❌ | Cover photo URL stored in S3 |
 | `total_reviews` | integer | ✅ | Denormalized counter — updated after each review |
@@ -322,6 +367,20 @@ Extended profile for farmers. The `id` is the same as `users.id` — a 1:1 relat
 | `updated_at` | timestamptz | ✅ | Last update timestamp |
 
 > **Note:** The fields `total_reviews`, `average_rating`, `total_orders`, and `total_sales_amount` are intentionally denormalized to avoid expensive `COUNT`/`AVG` queries on every profile load. Maintaining consistency of these values is the responsibility of the application layer when processing orders and reviews.
+
+---
+
+#### `producer_profiles`
+Detailed profiles/narratives for farmers. The `id` is the same as `users.id` — a 1:1 relationship.
+
+| Column | Type | Required | Description |
+|--------|------|----------|-------------|
+| `id` | uuid | ✅ | FK → `users.id` — same identifier |
+| `story` | text | ❌ | Full story/narrative displayed on the detailed profile |
+| `photo_url` | text | ❌ | Optional banner/profile image URL |
+| `member_since` | date | ❌ | Date when the farmer joined the platform |
+| `created_at` | timestamptz | ✅ | Record creation timestamp |
+| `updated_at` | timestamptz | ✅ | Last update timestamp |
 
 ---
 
@@ -347,7 +406,7 @@ User addresses. A user can have multiple; `is_primary` identifies the main one.
 | `street` | varchar(200) | ✅ | Street |
 | `number` | varchar(10) | ✅ | Number |
 | `complement` | varchar(100) | ❌ | Complement |
-| `neighborhood` | varchar(100) | ❌ | Neighborhood |
+| `neighborhood` | varchar(100) | ✅ | Neighborhood |
 | `city` | varchar(100) | ✅ | City |
 | `state` | char(2) | ✅ | State (UF) — two characters |
 | `zip_code` | char(8) | ✅ | ZIP code — exactly 8 digits, no hyphen |
@@ -373,6 +432,25 @@ Farmer availability hours by weekday. Displayed on the public profile.
 | `active` | boolean | ✅ | Allows disabling a day without removing the record |
 
 **Unique index:** `(farmer_id, weekday)` — only one schedule per day per farmer.
+
+---
+
+#### `notifications`
+Stores system and order-related notifications targeted at users.
+
+| Column | Type | Required | Description |
+|--------|------|----------|-------------|
+| `id` | uuid | ✅ | Primary key |
+| `user_id` | uuid | ✅ | FK → `users.id` — target user for the notification |
+| `title` | varchar(120) | ✅ | Notification title |
+| `message` | text | ✅ | Notification body message |
+| `type` | varchar(40) | ✅ | Notification category/type |
+| `reference_type` | varchar(40) | ❌ | Type of reference entity (e.g. `order`, `product`) |
+| `reference_id` | uuid | ❌ | ID of reference entity |
+| `metadata` | jsonb | ❌ | Additional JSON metadata |
+| `is_read` | boolean | ✅ | `true` if read, `false` otherwise |
+| `created_at` | timestamptz | ✅ | Notification creation timestamp |
+| `read_at` | timestamptz | ❌ | Timestamp when user marked notification as read |
 
 ---
 
@@ -432,17 +510,18 @@ Photo gallery per product. Display order is controlled by `display_order`.
 ---
 
 #### `stock_movements`
-Immutable log of all stock movements. Insert-only — never updated.
+Log of all stock movements. Insert-only log of stock history.
 
 | Column | Type | Required | Description |
 |--------|------|----------|-------------|
 | `id` | uuid | ✅ | Primary key |
 | `product_id` | uuid | ✅ | FK → `products.id` |
 | `type` | varchar(10) | ✅ | Direction: `entry` (incoming) \| `exit` (outgoing) |
-| `reason` | varchar(20) | ✅ | Reason: `sale` \| `loss` \| `disposal` \| `manual_entry` |
+| `reason` | varchar(20) | ✅ | Reason: `sale` \| `loss` \| `disposal` \| `manual_entry` \| `canceled_sale` |
 | `quantity` | decimal(12,3) | ✅ | Quantity moved |
 | `notes` | text | ❌ | Optional note from the farmer |
-| `created_at` | timestamptz | ✅ | Movement timestamp |
+| `created_at` | timestamptz | ✅ | Movement creation timestamp |
+| `updated_at` | timestamptz | ✅ | Last update timestamp |
 
 > **Note:** Every change to `stock_quantity` in `products` must generate a record here. This enables full stock auditing and powers the movement history for Epic 5.
 
@@ -474,7 +553,6 @@ Active cart for the customer. A `UNIQUE` index on `customer_id` ensures one cart
 | `cart_id` | uuid | ✅ | FK → `carts.id` |
 | `product_id` | uuid | ✅ | FK → `products.id` |
 | `quantity` | decimal(12,3) | ✅ | Quantity selected by the customer |
-| `price_snapshot` | decimal(10,2) | ✅ | Price at the moment the item was added to the cart |
 | `active` | boolean | ✅ | `false` = item removed or product deactivated |
 
 **Unique index:** `(cart_id, product_id)` — no duplicate items in the same cart.
@@ -497,7 +575,9 @@ Order generated from the cart. Immutable after creation — status changes are t
 | `scheduled_for` | timestamptz | ❌ | Scheduled delivery date and time |
 | `delivered_at` | timestamptz | ❌ | Actual delivery date and time |
 | `notes` | text | ❌ | Customer notes |
-| `cancellation_reason` | text | ❌ | Filled only when `status = cancelled` |
+| `cancellation_reason` | text | ❌ | Short reason or code for the cancellation (e.g. `CUSTOMER_GIVE_UP`) |
+| `cancellation_details` | text | ❌ | Longer justification/details optionally provided upon cancellation |
+| `seen_by_farmer` | boolean | ✅ | `true` if the farmer has viewed the order, `false` otherwise |
 | `created_at` | timestamptz | ✅ | Record creation timestamp |
 | `updated_at` | timestamptz | ✅ | Last update timestamp |
 
