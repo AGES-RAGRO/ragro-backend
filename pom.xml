@@ -144,7 +144,6 @@
 				<artifactId>maven-surefire-plugin</artifactId>
 				<configuration>
 					<argLine>
-						@{argLine}
 						--add-opens java.base/java.lang=ALL-UNNAMED
 						--add-opens java.base/java.util=ALL-UNNAMED
 					</argLine>
@@ -195,6 +194,60 @@
 					</execution>
 				</executions>
 			</plugin>
+			<plugin>
+			<!-- Configuração do Pitest para testes de mutação -->
+				<groupId>org.pitest</groupId>
+					<artifactId>pitest-maven</artifactId>
+					<version>1.19.4</version>
+					<dependencies>
+					<!-- Necessário para JUnit 5 -->
+					<dependency>
+					<groupId>org.pitest</groupId>
+					<artifactId>pitest-junit5-plugin</artifactId>
+					<version>1.2.2</version>
+					</dependency>
+					</dependencies>
+					<configuration>
+					<!-- Aponta para as classes do seu projeto -->
+					<targetClasses>
+					<param>br.com.ragro.*</param>
+					</targetClasses>
+					<!-- Aponta para os testes -->
+					<targetTests>
+					<param>br.com.ragro.*</param>
+					</targetTests>
+					<!-- Necessário para compatibilidade com Java 21 -->
+					<jvmArgs>
+					<jvmArg>--add-opens=java.base/java.lang=ALL-UNNAMED</jvmArg>
+					<jvmArg>--add-opens=java.base/java.util=ALL-UNNAMED</jvmArg>
+					</jvmArgs>
+					<!-- Formatos de relatório -->
+					<outputFormats>
+					<outputFormat>HTML</outputFormat>
+					<outputFormat>XML</outputFormat>
+					</outputFormats>
+					<!-- Evita rodar testes de integração/Spring context -->
+					<excludedTestClasses>
+					<param>br.com.ragro.controller.request.*</param>
+					<param>br.com.ragro.controller.response.*</param>
+					<param>br.com.ragro.config.*</param>
+					</excludedTestClasses>
+					<!-- Exclui classes que não fazem sentido mutar -->
+					<excludedClasses>
+						<param>br.com.ragro.*Application</param>
+						<param>br.com.ragro.*Config</param>
+						<param>br.com.ragro.*DTO</param>
+						<param>br.com.ragro.*Exception</param>
+						<param>br.com.ragro.controller.request.*</param>
+						<param>br.com.ragro.controller.response.*</param>
+						<param>br.com.ragro.domain.enums.*</param>
+					</excludedClasses>
+					<mutationThreshold>70</mutationThreshold>
+					<coverageThreshold>70</coverageThreshold>
+					<threads>4</threads>
+					<timestampedReports>false</timestampedReports>
+					</configuration>
+				</plugin>
 		</plugins>
 	</build>
 
