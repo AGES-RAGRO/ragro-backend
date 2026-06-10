@@ -36,8 +36,10 @@ public class OrderTrackingResponse {
   private String stopStatus;
 
   /**
-   * Polyline codificada (Google) da rota completa, para desenhar o caminho no mapa do cliente.
-   * Não muda durante a entrega, então só vem neste snapshot (não nos broadcasts de posição).
+   * Polyline codificada (Google) do caminho até ESTA entrega — recortada no servidor ao trecho
+   * [posição atual do produtor (ou origem) → parada do cliente], para desenhar no mapa. Não inclui
+   * as paradas seguintes nem a volta à origem (privacidade entre clientes da rota). Vem só neste
+   * snapshot (não nos broadcasts de posição).
    */
   private String overviewPolyline;
 }

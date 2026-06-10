@@ -228,6 +228,35 @@ class TrackingServiceTest {
   }
 
   @Test
+  void trackingForOrder_shouldReturnPolylineClippedToCustomerStop_notFullRoute() {
+    // Rota round-trip cuja polyline passa pela parada do cliente (-30.05/-51.05) e segue para
+    // uma parada FUTURA + volta à origem. O cliente não pode receber o trecho futuro/volta.
+    route.setOverviewPolyline(
+        PolylineUtil.encode(
+            java.util.List.of(
+                new PolylineUtil.Point(-30.00, -51.00), // origem
+                new PolylineUtil.Point(-30.05, -51.05), // parada DESTE cliente
+                new PolylineUtil.Point(-30.09, -51.09), // parada FUTURA (outro cliente)
+                new PolylineUtil.Point(-30.00, -51.00)))); // volta
+    when(routeStopRepository.findByOrderIdAndRouteStatus(
+            order.getId(), DeliveryRouteStatus.ACTIVE))
+        .thenReturn(Optional.of(stop));
+    positionStore.put(
+        routeId,
+        new LastPosition(
+            BigDecimal.valueOf(-30.0), BigDecimal.valueOf(-51.0), OffsetDateTime.now(), null));
+
+    OrderTrackingResponse response =
+        trackingService.trackingForOrder(order.getId(), order.getCustomer().getUser());
+
+    var pts = PolylineUtil.decode(response.getOverviewPolyline());
+    // Termina na parada do cliente e nunca alcança a parada futura (-30.09).
+    assertThat(pts).isNotEmpty();
+    assertThat(pts.get(pts.size() - 1).lat()).isCloseTo(-30.05, org.assertj.core.data.Offset.offset(1e-4));
+    assertThat(pts).noneMatch(p -> p.lat() < -30.06);
+  }
+
+  @Test
   void trackingForOrder_shouldThrowForbidden_whenNotTheOrderCustomer() {
     when(routeStopRepository.findByOrderIdAndRouteStatus(
             order.getId(), DeliveryRouteStatus.ACTIVE))

@@ -189,7 +189,7 @@ public class TrackingService {
         .etaSeconds(etaSeconds)
         .stopsBefore(pendingStopsBefore(route, stop))
         .stopStatus(stop.getStatus().name())
-        .overviewPolyline(route.getOverviewPolyline())
+        .overviewPolyline(polylineForStop(route, stop, position))
         .build();
   }
 
@@ -268,6 +268,26 @@ public class TrackingService {
             lat, lng, stop.getLatitude().doubleValue(), stop.getLongitude().doubleValue());
     double estimatedRoadMeters = directMeters * ROUTE_SINUOSITY_FACTOR;
     return (int) Math.round(estimatedRoadMeters / averageSpeedMs(route));
+  }
+
+  /**
+   * Polyline que o cliente vê: recortada ao trecho da posição atual do produtor (ou da origem da
+   * rota, se ainda não houve ping) até a parada DELE. Não expõe as paradas seguintes nem a volta à
+   * origem (privacidade entre clientes da mesma rota).
+   */
+  private String polylineForStop(DeliveryRoute route, RouteStop stop, LastPosition position) {
+    String full = route.getOverviewPolyline();
+    if (full == null || full.isBlank()) {
+      return null;
+    }
+    double fromLat =
+        position != null ? position.latitude().doubleValue() : route.getOriginLatitude().doubleValue();
+    double fromLng =
+        position != null
+            ? position.longitude().doubleValue()
+            : route.getOriginLongitude().doubleValue();
+    return PolylineUtil.clip(
+        full, fromLat, fromLng, stop.getLatitude().doubleValue(), stop.getLongitude().doubleValue());
   }
 
   private double averageSpeedMs(DeliveryRoute route) {

@@ -44,6 +44,67 @@ public final class PolylineUtil {
     return points;
   }
 
+  /** Codifica pontos no formato "encoded polyline" do Google (precisão 1e-5). */
+  public static String encode(List<Point> points) {
+    StringBuilder sb = new StringBuilder();
+    long lastLat = 0;
+    long lastLng = 0;
+    for (Point p : points) {
+      long lat = Math.round(p.lat() * 1e5);
+      long lng = Math.round(p.lng() * 1e5);
+      encodeValue(lat - lastLat, sb);
+      encodeValue(lng - lastLng, sb);
+      lastLat = lat;
+      lastLng = lng;
+    }
+    return sb.toString();
+  }
+
+  private static void encodeValue(long value, StringBuilder sb) {
+    long v = value < 0 ? ~(value << 1) : (value << 1);
+    while (v >= 0x20) {
+      sb.append((char) ((0x20 | (int) (v & 0x1f)) + 63));
+      v >>= 5;
+    }
+    sb.append((char) ((int) v + 63));
+  }
+
+  /**
+   * Recorta a polyline ao sub-trecho {@code [from → to]} ao longo do traçado, devolvendo só esse
+   * pedaço re-encodado. {@code to} é localizado primeiro (vértice mais próximo); {@code from} é
+   * buscado APENAS no intervalo anterior a {@code to} — assim, numa rota round-trip, nunca devolve
+   * a perna de volta nem paradas posteriores a {@code to} (privacidade: o cliente vê só o caminho
+   * até a SUA entrega). Retorna a polyline original quando não há o que recortar.
+   */
+  public static String clip(
+      String encoded, double fromLat, double fromLng, double toLat, double toLng) {
+    List<Point> points = decode(encoded);
+    if (points.size() < 2) {
+      return encoded;
+    }
+    int toIdx = nearestIndex(points, toLat, toLng, 0, points.size() - 1);
+    int fromIdx = nearestIndex(points, fromLat, fromLng, 0, toIdx);
+    int lo = Math.min(fromIdx, toIdx);
+    int hi = Math.max(fromIdx, toIdx);
+    if (hi - lo < 1) {
+      return encoded;
+    }
+    return encode(points.subList(lo, hi + 1));
+  }
+
+  private static int nearestIndex(List<Point> points, double lat, double lng, int start, int end) {
+    int best = start;
+    double bestDist = Double.MAX_VALUE;
+    for (int i = start; i <= end; i++) {
+      double d = distanceMeters(lat, lng, points.get(i).lat(), points.get(i).lng());
+      if (d < bestDist) {
+        bestDist = d;
+        best = i;
+      }
+    }
+    return best;
+  }
+
   /** Distância em metros entre dois pontos (haversine). */
   public static double distanceMeters(double lat1, double lng1, double lat2, double lng2) {
     double rLat1 = Math.toRadians(lat1);
