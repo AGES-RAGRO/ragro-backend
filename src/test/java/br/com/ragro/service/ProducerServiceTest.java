@@ -541,6 +541,21 @@ class ProducerServiceTest {
     request.setStory("Minha história");
 
     when(userService.getAuthenticatedUser(jwt)).thenReturn(farmer);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(producerRepository.findDetailedById(producerId)).thenReturn(Optional.of(producer));
     when(userRepository.save(farmer)).thenReturn(farmer);
     when(producerRepository.save(producer)).thenReturn(producer);
@@ -569,6 +584,21 @@ class ProducerServiceTest {
     Jwt jwt = buildJwt(farmer.getAuthSub(), farmer.getEmail());
 
     when(userService.getAuthenticatedUser(jwt)).thenReturn(farmer);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
 
     ProducerUpdateRequest request = new ProducerUpdateRequest();
     request.setName("Hacker");
@@ -585,6 +615,21 @@ class ProducerServiceTest {
     Jwt jwt = buildJwt(customer.getAuthSub(), customer.getEmail());
 
     when(userService.getAuthenticatedUser(jwt)).thenReturn(customer);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
 
     ProducerUpdateRequest request = new ProducerUpdateRequest();
     request.setName("Hacker");
@@ -606,6 +651,21 @@ class ProducerServiceTest {
     request.setStory("Nova história");
 
     when(userService.getAuthenticatedUser(jwt)).thenReturn(farmer);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(producerRepository.findDetailedById(producerId)).thenReturn(Optional.of(producer));
     when(userRepository.save(farmer)).thenReturn(farmer);
     when(producerRepository.save(producer)).thenReturn(producer);
@@ -640,6 +700,21 @@ class ProducerServiceTest {
     request.setFarmName("Fazenda Editada pelo Admin");
 
     when(userService.getAuthenticatedUser(jwt)).thenReturn(admin);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(producerRepository.findDetailedById(farmerId)).thenReturn(Optional.of(producer));
     when(userRepository.save(farmer)).thenReturn(farmer);
     when(producerRepository.save(producer)).thenReturn(producer);
@@ -682,6 +757,21 @@ class ProducerServiceTest {
     savedPm.setPixKey("joao@email.com");
 
     when(userService.getAuthenticatedUser(jwt)).thenReturn(farmer);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(producerRepository.findDetailedById(producerId)).thenReturn(Optional.of(producer));
     when(userRepository.save(farmer)).thenReturn(farmer);
     when(producerRepository.save(producer)).thenReturn(producer);
@@ -716,6 +806,21 @@ class ProducerServiceTest {
     // paymentMethod == null
 
     when(userService.getAuthenticatedUser(jwt)).thenReturn(farmer);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(producerRepository.findDetailedById(producerId)).thenReturn(Optional.of(producer));
     when(userRepository.save(farmer)).thenReturn(farmer);
     when(producerRepository.save(producer)).thenReturn(producer);
@@ -755,6 +860,21 @@ class ProducerServiceTest {
     request.setPaymentMethods(List.of(pix, bank));
 
     when(userService.getAuthenticatedUser(jwt)).thenReturn(farmer);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(producerRepository.findDetailedById(producerId)).thenReturn(Optional.of(producer));
     when(userRepository.save(farmer)).thenReturn(farmer);
     when(producerRepository.save(producer)).thenReturn(producer);
@@ -795,6 +915,21 @@ class ProducerServiceTest {
     request.setPaymentMethods(List.of(pix1, pix2));
 
     when(userService.getAuthenticatedUser(jwt)).thenReturn(farmer);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(producerRepository.findDetailedById(producerId)).thenReturn(Optional.of(producer));
     when(userRepository.save(farmer)).thenReturn(farmer);
     when(producerRepository.save(producer)).thenReturn(producer);
@@ -820,6 +955,21 @@ class ProducerServiceTest {
     request.setPaymentMethods(List.of());
 
     when(userService.getAuthenticatedUser(jwt)).thenReturn(farmer);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(producerRepository.findDetailedById(producerId)).thenReturn(Optional.of(producer));
     when(userRepository.save(farmer)).thenReturn(farmer);
     when(producerRepository.save(producer)).thenReturn(producer);
@@ -851,6 +1001,21 @@ class ProducerServiceTest {
             buildAvailabilityRequest((short) 2, "09:00", "17:00")));
 
     when(userService.getAuthenticatedUser(jwt)).thenReturn(farmer);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(producerRepository.findDetailedById(producerId)).thenReturn(Optional.of(producer));
     when(userRepository.save(farmer)).thenReturn(farmer);
     when(producerRepository.save(producer)).thenReturn(producer);
@@ -883,6 +1048,21 @@ class ProducerServiceTest {
             buildAvailabilityRequest((short) 1, "14:00", "18:00")));
 
     when(userService.getAuthenticatedUser(jwt)).thenReturn(farmer);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(producerRepository.findDetailedById(producerId)).thenReturn(Optional.of(producer));
     when(userRepository.save(farmer)).thenReturn(farmer);
     when(producerRepository.save(producer)).thenReturn(producer);
@@ -910,6 +1090,21 @@ class ProducerServiceTest {
     request.setAvailability(List.of(buildAvailabilityRequest(null, "08:00", "18:00")));
 
     when(userService.getAuthenticatedUser(jwt)).thenReturn(farmer);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(producerRepository.findDetailedById(producerId)).thenReturn(Optional.of(producer));
     when(userRepository.save(farmer)).thenReturn(farmer);
     when(producerRepository.save(producer)).thenReturn(producer);
@@ -937,6 +1132,21 @@ class ProducerServiceTest {
     request.setAvailability(List.of(buildAvailabilityRequest((short) 1, "18:00", "08:00")));
 
     when(userService.getAuthenticatedUser(jwt)).thenReturn(farmer);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(producerRepository.findDetailedById(producerId)).thenReturn(Optional.of(producer));
     when(userRepository.save(farmer)).thenReturn(farmer);
     when(producerRepository.save(producer)).thenReturn(producer);
@@ -963,6 +1173,21 @@ class ProducerServiceTest {
     request.setAvailability(List.of(buildAvailabilityRequest((short) 1, "not-a-time", "18:00")));
 
     when(userService.getAuthenticatedUser(jwt)).thenReturn(farmer);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(producerRepository.findDetailedById(producerId)).thenReturn(Optional.of(producer));
     when(userRepository.save(farmer)).thenReturn(farmer);
     when(producerRepository.save(producer)).thenReturn(producer);
@@ -989,6 +1214,21 @@ class ProducerServiceTest {
     request.setAvailability(List.of());
 
     when(userService.getAuthenticatedUser(jwt)).thenReturn(farmer);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(producerRepository.findDetailedById(producerId)).thenReturn(Optional.of(producer));
     when(userRepository.save(farmer)).thenReturn(farmer);
     when(producerRepository.save(producer)).thenReturn(producer);

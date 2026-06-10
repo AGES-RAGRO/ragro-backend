@@ -9,7 +9,6 @@ import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.NotificationReferenceType;
 import br.com.ragro.domain.enums.NotificationType;
 import br.com.ragro.domain.enums.TypeUser;
-import br.com.ragro.exception.ForbiddenException;
 import br.com.ragro.exception.NotFoundException;
 import br.com.ragro.mapper.NotificationMapper;
 import br.com.ragro.repository.NotificationRepository;
@@ -114,10 +113,7 @@ public class NotificationService {
   }
 
   private User requireCustomer(Jwt jwt) {
-    User user = userService.getAuthenticatedUser(jwt);
-    if (user.getType() != TypeUser.CUSTOMER) {
-      throw new ForbiddenException("Apenas consumidores podem acessar notificações");
-    }
+    User user = userService.requireRole(jwt, TypeUser.CUSTOMER, "Apenas consumidores podem acessar notificações");
     return user;
   }
 }

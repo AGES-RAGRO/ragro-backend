@@ -82,10 +82,7 @@ public class OrderService {
 
   @Transactional
   public OrderResponse createOrderFromCart(Jwt jwt) {
-    User user = userService.getAuthenticatedUser(jwt);
-    if (user.getType() != TypeUser.CUSTOMER) {
-      throw new ForbiddenException("Apenas consumidores podem criar pedidos");
-    }
+    User user = userService.requireRole(jwt, TypeUser.CUSTOMER, "Apenas consumidores podem criar pedidos");
 
     Customer customer =
         customerRepository
@@ -286,10 +283,7 @@ public class OrderService {
   @Transactional(readOnly = true)
   public List<CustomerOrderResponse> getMyOrders(
       Jwt jwt, OrderStatus status, Integer page, Integer size) {
-    User user = userService.getAuthenticatedUser(jwt);
-    if (user.getType() != TypeUser.CUSTOMER) {
-      throw new ForbiddenException("Apenas consumidores podem visualizar seus pedidos");
-    }
+    User user = userService.requireRole(jwt, TypeUser.CUSTOMER, "Apenas consumidores podem visualizar seus pedidos");
 
     customerRepository
         .findById(user.getId())
@@ -307,10 +301,7 @@ public class OrderService {
   @Transactional(readOnly = true)
   public List<OrderResponse> getProducerOrders(
       Jwt jwt, OrderStatus status, Integer page, Integer size) {
-    User user = userService.getAuthenticatedUser(jwt);
-    if (user.getType() != TypeUser.FARMER) {
-      throw new ForbiddenException("Apenas produtores podem visualizar pedidos recebidos");
-    }
+    User user = userService.requireRole(jwt, TypeUser.FARMER, "Apenas produtores podem visualizar pedidos recebidos");
 
     Page<Order> orders =
         status != null
@@ -336,10 +327,7 @@ public class OrderService {
 
   @Transactional(readOnly = true)
   public CustomerOrderResponse getMyOrderById(UUID orderId, Jwt jwt) {
-    User user = userService.getAuthenticatedUser(jwt);
-    if (user.getType() != TypeUser.CUSTOMER) {
-      throw new ForbiddenException("Apenas consumidores podem visualizar seus pedidos");
-    }
+    User user = userService.requireRole(jwt, TypeUser.CUSTOMER, "Apenas consumidores podem visualizar seus pedidos");
 
     customerRepository
         .findById(user.getId())
@@ -379,10 +367,7 @@ public class OrderService {
    */
   @Transactional
   public OrderResponse updateOrderStatus(UUID orderId, OrderStatus newStatus, Jwt jwt) {
-    User user = userService.getAuthenticatedUser(jwt);
-    if (user.getType() != TypeUser.FARMER) {
-      throw new ForbiddenException("Apenas produtores podem atualizar o status do pedido");
-    }
+    User user = userService.requireRole(jwt, TypeUser.FARMER, "Apenas produtores podem atualizar o status do pedido");
 
     return switch (newStatus) {
       case CONFIRMED -> confirmOrder(orderId, jwt);
@@ -497,12 +482,11 @@ public class OrderService {
   }
 
   private PaymentMethod getPaymentMethod(Producer farmer) {
-    List<PaymentMethod> methods =
-        paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(farmer.getId());
-    if (methods.isEmpty()) {
+    PaymentMethod method = findPrimaryPaymentMethod(farmer);
+    if (method == null) {
       throw new BusinessException("O produtor não possui nenhum método de pagamento ativo");
     }
-    return methods.get(0);
+    return method;
   }
 
   private AddressSnapshot createAddressSnapshot(Address address) {

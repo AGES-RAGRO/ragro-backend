@@ -295,6 +295,21 @@ class StockMovementServiceTest {
     customer.setType(TypeUser.CUSTOMER);
     customer.setActive(true);
     when(userService.getAuthenticatedUser(any(Jwt.class))).thenReturn(customer);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
 
     assertThatThrownBy(
             () ->
@@ -318,6 +333,21 @@ class StockMovementServiceTest {
     farmer.setUser(user);
 
     when(userService.getAuthenticatedUser(any(Jwt.class))).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(producerRepository.findById(farmerId)).thenReturn(Optional.of(farmer));
     return farmer;
   }

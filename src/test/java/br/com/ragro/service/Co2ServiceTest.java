@@ -91,6 +91,21 @@ class Co2ServiceTest {
     Jwt jwt = Jwt.withTokenValue("token").header("alg", "RS256").claim("sub", "user-sub").build();
 
     when(userService.getAuthenticatedUser(jwt)).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(vehiclePreferenceRepository.findById(userId)).thenReturn(Optional.empty());
     when(vehiclePreferenceRepository.save(any(VehiclePreference.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));

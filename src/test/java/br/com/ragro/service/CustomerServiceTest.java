@@ -40,6 +40,21 @@ class CustomerServiceTest {
   void getMyCustomer_shouldReturnCustomerResponse_whenUserIsCustomer() {
     User user = buildUser(TypeUser.CUSTOMER);
     when(userService.getAuthenticatedUser(jwt)).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
 
     CustomerResponse response = customerService.getMyCustomer(jwt);
 
@@ -53,16 +68,46 @@ class CustomerServiceTest {
   void getMyCustomer_shouldThrowUnauthorizedException_whenUserIsNotCustomer() {
     User user = buildUser(TypeUser.FARMER);
     when(userService.getAuthenticatedUser(jwt)).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
 
     assertThatThrownBy(() -> customerService.getMyCustomer(jwt))
         .isInstanceOf(ForbiddenException.class)
-        .hasMessage("Access restricted to customers");
+        .hasMessage("Acesso restrito a consumidores");
   }
 
   @Test
   void getMyCustomer_shouldThrowUnauthorizedException_whenUserIsAdmin() {
     User user = buildUser(TypeUser.ADMIN);
     when(userService.getAuthenticatedUser(jwt)).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
 
     assertThatThrownBy(() -> customerService.getMyCustomer(jwt))
         .isInstanceOf(ForbiddenException.class);
@@ -77,6 +122,21 @@ class CustomerServiceTest {
     updatedUser.setPhone("51988887777");
 
     when(userService.getAuthenticatedUser(jwt)).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(addressRepository.findByUserIdAndIsPrimaryTrue(user.getId())).thenReturn(Optional.empty());
     when(userRepository.findById(user.getId())).thenReturn(Optional.of(updatedUser));
 
@@ -91,12 +151,27 @@ class CustomerServiceTest {
   void updateMe_shouldThrowUnauthorizedException_whenUserIsNotCustomer() {
     User farmer = buildUser(TypeUser.FARMER);
     when(userService.getAuthenticatedUser(jwt)).thenReturn(farmer);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
 
     CustomerUpdateRequest request = buildUpdateRequest("Nome Qualquer", "51988887777");
 
     assertThatThrownBy(() -> customerService.updateMyCustomer(jwt, request))
         .isInstanceOf(ForbiddenException.class)
-        .hasMessage("Access restricted to customers");
+        .hasMessage("Acesso restrito a consumidores");
   }
 
   @Test

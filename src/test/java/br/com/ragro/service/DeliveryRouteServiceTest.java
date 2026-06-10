@@ -108,6 +108,21 @@ class DeliveryRouteServiceTest {
     Order second = order(OrderStatus.IN_DELIVERY, -30.2, -51.2);
 
     when(userService.getAuthenticatedUser(any())).thenReturn(farmerUser);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(deliveryRouteRepository.findByFarmerIdAndStatus(
             farmerUser.getId(), DeliveryRouteStatus.ACTIVE))
         .thenReturn(Optional.empty());
@@ -157,6 +172,21 @@ class DeliveryRouteServiceTest {
 
     Order single = order(OrderStatus.IN_DELIVERY, -30.1, -51.1);
     when(userService.getAuthenticatedUser(any())).thenReturn(farmerUser);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(deliveryRouteRepository.findByFarmerIdAndStatus(
             farmerUser.getId(), DeliveryRouteStatus.ACTIVE))
         .thenReturn(Optional.of(previous));
@@ -183,6 +213,21 @@ class DeliveryRouteServiceTest {
   @Test
   void createRoute_shouldThrowBusinessException_whenNoDeliverableOrders() {
     when(userService.getAuthenticatedUser(any())).thenReturn(farmerUser);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(deliveryRouteRepository.findByFarmerIdAndStatus(any(), any()))
         .thenReturn(Optional.empty());
     when(orderRepository.findByFarmerIdAndStatusInOrderByCreatedAtAsc(any(), any()))
@@ -197,6 +242,21 @@ class DeliveryRouteServiceTest {
   void createRoute_shouldThrowForbidden_whenUserIsNotFarmer() {
     farmerUser.setType(TypeUser.CUSTOMER);
     when(userService.getAuthenticatedUser(any())).thenReturn(farmerUser);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
 
     assertThatThrownBy(() -> deliveryRouteService.createRoute(request(), jwt()))
         .isInstanceOf(ForbiddenException.class)
@@ -233,6 +293,21 @@ class DeliveryRouteServiceTest {
     DeliveryRoute route = activeRouteWithStops(pending, done);
 
     when(userService.getAuthenticatedUser(any())).thenReturn(farmerUser);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(deliveryRouteRepository.findWithStopsById(route.getId())).thenReturn(Optional.of(route));
     when(deliveryRouteRepository.saveAndFlush(any(DeliveryRoute.class)))
         .thenAnswer(inv -> inv.getArgument(0));
@@ -254,6 +329,21 @@ class DeliveryRouteServiceTest {
     DeliveryRoute route = activeRouteWithStops(pending, other);
 
     when(userService.getAuthenticatedUser(any())).thenReturn(farmerUser);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(deliveryRouteRepository.findWithStopsById(route.getId())).thenReturn(Optional.of(route));
     when(deliveryRouteRepository.saveAndFlush(any(DeliveryRoute.class)))
         .thenAnswer(inv -> inv.getArgument(0));
@@ -274,6 +364,21 @@ class DeliveryRouteServiceTest {
     DeliveryRoute route = activeRouteWithStops(delivered);
 
     when(userService.getAuthenticatedUser(any())).thenReturn(farmerUser);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(deliveryRouteRepository.findWithStopsById(route.getId())).thenReturn(Optional.of(route));
 
     assertThatThrownBy(
@@ -292,6 +397,21 @@ class DeliveryRouteServiceTest {
     route.setFarmer(other);
 
     when(userService.getAuthenticatedUser(any())).thenReturn(farmerUser);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(deliveryRouteRepository.findWithStopsById(route.getId())).thenReturn(Optional.of(route));
 
     assertThatThrownBy(
@@ -304,6 +424,21 @@ class DeliveryRouteServiceTest {
   @Test
   void getActiveRoute_shouldThrowNotFound_whenNoneActive() {
     when(userService.getAuthenticatedUser(any())).thenReturn(farmerUser);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(deliveryRouteRepository.findByFarmerIdAndStatus(
             farmerUser.getId(), DeliveryRouteStatus.ACTIVE))
         .thenReturn(Optional.empty());
@@ -320,6 +455,21 @@ class DeliveryRouteServiceTest {
     noCoords.getDeliveryAddressSnapshot().setLongitude(null);
 
     when(userService.getAuthenticatedUser(any())).thenReturn(farmerUser);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(deliveryRouteRepository.findByFarmerIdAndStatus(any(), any()))
         .thenReturn(Optional.empty());
     when(orderRepository.findByFarmerIdAndStatusInOrderByCreatedAtAsc(any(), any()))
@@ -336,6 +486,21 @@ class DeliveryRouteServiceTest {
   void createRoute_shouldFallBackToHaversineBaseline_whenMatrixFails() {
     Order single = order(OrderStatus.IN_DELIVERY, -30.1, -51.0);
     when(userService.getAuthenticatedUser(any())).thenReturn(farmerUser);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(deliveryRouteRepository.findByFarmerIdAndStatus(any(), any()))
         .thenReturn(Optional.empty());
     when(orderRepository.findByFarmerIdAndStatusInOrderByCreatedAtAsc(any(), any()))
@@ -366,6 +531,21 @@ class DeliveryRouteServiceTest {
     route.setStatus(DeliveryRouteStatus.COMPLETED);
 
     when(userService.getAuthenticatedUser(any())).thenReturn(farmerUser);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(deliveryRouteRepository.findWithStopsById(route.getId())).thenReturn(Optional.of(route));
 
     assertThatThrownBy(

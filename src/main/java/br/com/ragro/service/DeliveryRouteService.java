@@ -279,10 +279,7 @@ public class DeliveryRouteService {
   }
 
   private User requireFarmer(Jwt jwt) {
-    User user = userService.getAuthenticatedUser(jwt);
-    if (user.getType() != TypeUser.FARMER) {
-      throw new ForbiddenException("Apenas produtores podem gerenciar rotas de entrega");
-    }
+    User user = userService.requireRole(jwt, TypeUser.FARMER, "Apenas produtores podem gerenciar rotas de entrega");
     return user;
   }
 }

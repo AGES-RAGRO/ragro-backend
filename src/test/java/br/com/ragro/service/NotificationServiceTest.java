@@ -62,6 +62,21 @@ class NotificationServiceTest {
         new PageImpl<>(java.util.List.of(notification), PageRequest.of(0, 20), 1);
 
     when(userService.getAuthenticatedUser(jwt)).thenReturn(customerUser);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(notificationRepository.findByUserIdOrderByCreatedAtDesc(
             customerUser.getId(), PageRequest.of(0, 20)))
         .thenReturn(page);
@@ -76,6 +91,21 @@ class NotificationServiceTest {
   @Test
   void getMyCustomerUnreadCount_shouldReturnRepositoryCount() {
     when(userService.getAuthenticatedUser(jwt)).thenReturn(customerUser);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(notificationRepository.countByUserIdAndReadFalse(customerUser.getId())).thenReturn(3L);
 
     UnreadCountResponse result = notificationService.getMyCustomerUnreadCount(jwt);
@@ -89,6 +119,21 @@ class NotificationServiceTest {
     notification.setRead(false);
 
     when(userService.getAuthenticatedUser(jwt)).thenReturn(customerUser);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(notificationRepository.findByIdAndUserId(notification.getId(), customerUser.getId()))
         .thenReturn(Optional.of(notification));
 
@@ -104,6 +149,21 @@ class NotificationServiceTest {
   void markMyCustomerNotificationAsRead_shouldThrowNotFoundWhenNotificationDoesNotExist() {
     UUID notificationId = UUID.randomUUID();
     when(userService.getAuthenticatedUser(jwt)).thenReturn(customerUser);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(notificationRepository.findByIdAndUserId(notificationId, customerUser.getId()))
         .thenReturn(Optional.empty());
 
@@ -116,6 +176,21 @@ class NotificationServiceTest {
   @Test
   void markAllMyCustomerNotificationsAsRead_shouldCallBulkUpdate() {
     when(userService.getAuthenticatedUser(jwt)).thenReturn(customerUser);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
 
     notificationService.markAllMyCustomerNotificationsAsRead(jwt);
 
@@ -145,6 +220,21 @@ class NotificationServiceTest {
     farmerUser.setId(UUID.randomUUID());
     farmerUser.setType(TypeUser.FARMER);
     when(userService.getAuthenticatedUser(jwt)).thenReturn(farmerUser);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
 
     assertThatThrownBy(
             () -> notificationService.getMyCustomerNotifications(jwt, PageRequest.of(0, 20)))

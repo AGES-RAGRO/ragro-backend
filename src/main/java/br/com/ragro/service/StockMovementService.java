@@ -14,9 +14,7 @@ import br.com.ragro.domain.enums.StockMovementType;
 import br.com.ragro.domain.enums.TypeUser;
 import br.com.ragro.domain.specification.StockMovementSpecification;
 import br.com.ragro.exception.BusinessException;
-import br.com.ragro.exception.ForbiddenException;
 import br.com.ragro.exception.NotFoundException;
-import br.com.ragro.exception.UnauthorizedException;
 import br.com.ragro.mapper.StockMovementMapper;
 import br.com.ragro.repository.ProducerRepository;
 import br.com.ragro.repository.ProductRepository;
@@ -47,11 +45,7 @@ public class StockMovementService {
   public PaginatedResponse<StockMovementResponse> getProducerStockMovements(
       Jwt jwt, StockMovementFilter filter, Pageable pageable) {
 
-    User authenticated = userService.getAuthenticatedUser(jwt);
-
-    if (authenticated.getType() != TypeUser.FARMER) {
-      throw new ForbiddenException("Acesso restrito a produtores");
-    }
+    User authenticated = userService.requireRole(jwt, TypeUser.FARMER, "Acesso restrito a produtores");
 
     UUID producerId = authenticated.getId();
 
@@ -146,24 +140,14 @@ public class StockMovementService {
     stockMovementRepository.saveAndFlush(movement);
   }
 
+  // Mapeamento delegado ao StockMovementMapper oficial — a cópia privada que existia aqui
+  // omitia currentStockQuantity e divergia silenciosamente (auditoria Fase 0).
   private StockMovementResponse toResponse(StockMovement movement) {
-    return StockMovementResponse.builder()
-        .id(movement.getId())
-        .productId(movement.getProduct().getId())
-        .productName(movement.getProduct().getName())
-        .type(movement.getType())
-        .reason(movement.getReason())
-        .quantity(movement.getQuantity())
-        .notes(movement.getNotes())
-        .createdAt(movement.getCreatedAt())
-        .build();
+    return br.com.ragro.mapper.StockMovementMapper.toResponse(movement);
   }
 
   private Producer getAuthenticatedFarmer(Jwt jwt) {
-    User user = userService.getAuthenticatedUser(jwt);
-    if (user.getType() != TypeUser.FARMER) {
-      throw new UnauthorizedException("Access restricted to farmers");
-    }
+    User user = userService.requireRole(jwt, TypeUser.FARMER, "Acesso restrito a produtores");
     return producerRepository
         .findById(user.getId())
         .orElseThrow(() -> new NotFoundException("Dados do produtor não encontrados"));

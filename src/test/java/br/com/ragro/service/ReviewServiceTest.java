@@ -82,6 +82,21 @@ class ReviewServiceTest {
     savedReview.setCreatedAt(OffsetDateTime.parse("2026-05-06T18:30:00Z"));
 
     when(userService.getAuthenticatedUser(jwt)).thenReturn(authenticatedCustomer);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(orderRepository.findByIdAndCustomerId(orderId, customerId)).thenReturn(Optional.of(order));
     when(reviewRepository.findByOrderId(orderId)).thenReturn(Optional.empty());
     when(reviewRepository.saveAndFlush(any(Review.class))).thenReturn(savedReview);
@@ -105,6 +120,21 @@ class ReviewServiceTest {
     CreateReviewRequest request = new CreateReviewRequest(orderId, 5, "Great");
 
     when(userService.getAuthenticatedUser(jwt)).thenReturn(authenticatedCustomer);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(orderRepository.findByIdAndCustomerId(orderId, customerId)).thenReturn(Optional.empty());
 
     assertThatThrownBy(() -> reviewService.createReview(request, jwt))
@@ -122,6 +152,21 @@ class ReviewServiceTest {
     order.setStatus(OrderStatus.CONFIRMED);
 
     when(userService.getAuthenticatedUser(jwt)).thenReturn(authenticatedCustomer);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(orderRepository.findByIdAndCustomerId(orderId, customerId)).thenReturn(Optional.of(order));
 
     assertThatThrownBy(() -> reviewService.createReview(request, jwt))
@@ -138,6 +183,21 @@ class ReviewServiceTest {
     Order order = buildDeliveredOrder(orderId, customerId, producerId);
 
     when(userService.getAuthenticatedUser(jwt)).thenReturn(authenticatedCustomer);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(orderRepository.findByIdAndCustomerId(orderId, customerId)).thenReturn(Optional.of(order));
     when(reviewRepository.findByOrderId(orderId)).thenReturn(Optional.of(new Review()));
 
@@ -161,6 +221,21 @@ class ReviewServiceTest {
     savedReview.setRating((short) 3);
 
     when(userService.getAuthenticatedUser(jwt)).thenReturn(authenticatedCustomer);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(orderRepository.findByIdAndCustomerId(orderId, customerId)).thenReturn(Optional.of(order));
     when(reviewRepository.findByOrderId(orderId)).thenReturn(Optional.empty());
     when(reviewRepository.saveAndFlush(any(Review.class)))

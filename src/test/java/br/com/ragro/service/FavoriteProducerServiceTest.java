@@ -55,6 +55,21 @@ class FavoriteProducerServiceTest {
     Producer producer = buildProducer(true);
 
     when(userService.getAuthenticatedUser(jwt)).thenReturn(customer);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(producerRepository.findById(producer.getId())).thenReturn(Optional.of(producer));
     when(favoriteProducerRepository.existsByIdCustomerIdAndIdProducerId(
             customer.getId(), producer.getId()))
@@ -77,6 +92,21 @@ class FavoriteProducerServiceTest {
     Producer producer = buildProducer(true);
 
     when(userService.getAuthenticatedUser(jwt)).thenReturn(customer);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(producerRepository.findById(producer.getId())).thenReturn(Optional.of(producer));
     when(favoriteProducerRepository.existsByIdCustomerIdAndIdProducerId(
             customer.getId(), producer.getId()))
@@ -95,6 +125,21 @@ class FavoriteProducerServiceTest {
     UUID producerId = UUID.randomUUID();
 
     when(userService.getAuthenticatedUser(jwt)).thenReturn(customer);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(producerRepository.findById(producerId)).thenReturn(Optional.empty());
 
     assertThatThrownBy(() -> favoriteProducerService.favoriteProducer(producerId, jwt))
@@ -108,6 +153,21 @@ class FavoriteProducerServiceTest {
     Producer producer = buildProducer(false);
 
     when(userService.getAuthenticatedUser(jwt)).thenReturn(customer);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(producerRepository.findById(producer.getId())).thenReturn(Optional.of(producer));
 
     assertThatThrownBy(() -> favoriteProducerService.favoriteProducer(producer.getId(), jwt))
@@ -124,6 +184,21 @@ class FavoriteProducerServiceTest {
     UUID producerId = UUID.randomUUID();
 
     when(userService.getAuthenticatedUser(jwt)).thenReturn(customer);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
 
     favoriteProducerService.unfavoriteProducer(producerId, jwt);
 
@@ -139,6 +214,21 @@ class FavoriteProducerServiceTest {
         new FavoriteProducer(new FavoriteProducerId(customer.getId(), producer.getId()), producer);
 
     when(userService.getAuthenticatedUser(jwt)).thenReturn(customer);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(favoriteProducerRepository.findByIdCustomerIdOrderByCreatedAtDesc(customer.getId()))
         .thenReturn(List.of(favorite));
 
@@ -157,6 +247,21 @@ class FavoriteProducerServiceTest {
     UUID producerId = UUID.randomUUID();
 
     when(userService.getAuthenticatedUser(jwt)).thenReturn(farmer);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
 
     assertThatThrownBy(() -> favoriteProducerService.favoriteProducer(producerId, jwt))
         .isInstanceOf(ForbiddenException.class)

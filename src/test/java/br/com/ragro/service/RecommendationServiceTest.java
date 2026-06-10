@@ -252,6 +252,21 @@ class RecommendationServiceTest {
     farmer.setId(UUID.randomUUID());
     farmer.setType(TypeUser.FARMER);
     when(userService.getAuthenticatedUser(any(Jwt.class))).thenReturn(farmer);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
 
     assertThatThrownBy(() -> recommendationService.getRecommendations(defaultRequest(), jwt()))
         .isInstanceOf(ForbiddenException.class)
@@ -485,6 +500,21 @@ class RecommendationServiceTest {
 
   private void stubCustomer(User user) {
     when(userService.getAuthenticatedUser(any(Jwt.class))).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
   }
 
   private void stubPurchasedIds(UUID customerId, List<UUID> ids) {
@@ -534,6 +564,21 @@ class RecommendationServiceTest {
         recommendationService, "cacheEnabled", true);
     User customer = buildCustomer();
     when(userService.getAuthenticatedUser(any())).thenReturn(customer);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(orderItemRepository.findDistinctProductIdsByCustomerId(customer.getId()))
         .thenReturn(List.of());
 
@@ -562,6 +607,21 @@ class RecommendationServiceTest {
         recommendationService, "cacheEnabled", true);
     User customer = buildCustomer();
     when(userService.getAuthenticatedUser(any())).thenReturn(customer);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(orderItemRepository.findDistinctProductIdsByCustomerId(customer.getId()))
         .thenReturn(List.of());
     when(warmupService.getCached(customer.getId())).thenReturn(null);
@@ -588,6 +648,21 @@ class RecommendationServiceTest {
         recommendationService, "cacheEnabled", true);
     User customer = buildCustomer();
     when(userService.getAuthenticatedUser(any())).thenReturn(customer);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(orderItemRepository.findDistinctProductIdsByCustomerId(customer.getId()))
         .thenReturn(List.of());
 

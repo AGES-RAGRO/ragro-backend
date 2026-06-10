@@ -12,7 +12,6 @@ import br.com.ragro.domain.llm.Candidate;
 import br.com.ragro.domain.llm.CustomerFeatures;
 import br.com.ragro.domain.llm.RankedItem;
 import br.com.ragro.domain.llm.RankedRecommendation;
-import br.com.ragro.exception.ForbiddenException;
 import br.com.ragro.exception.LlmInvalidOutputException;
 import br.com.ragro.mapper.RecommendationMapper;
 import br.com.ragro.repository.OrderItemRepository;
@@ -78,10 +77,7 @@ public class RecommendationService {
 
   @Transactional(readOnly = true)
   public RecommendationResponse getRecommendations(RecommendationRequest request, Jwt jwt) {
-    User user = userService.getAuthenticatedUser(jwt);
-    if (user.getType() != TypeUser.CUSTOMER) {
-      throw new ForbiddenException("Recomendações disponíveis apenas para consumidores");
-    }
+    User user = userService.requireRole(jwt, TypeUser.CUSTOMER, "Recomendações disponíveis apenas para consumidores");
 
     UUID customerId = user.getId();
 

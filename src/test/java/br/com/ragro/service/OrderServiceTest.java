@@ -139,6 +139,21 @@ class OrderServiceTest {
   void shouldThrowForbidden_whenUserIsNotCustomer() {
     user.setType(TypeUser.FARMER);
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
 
     assertThatThrownBy(() -> orderService.createOrderFromCart(jwt()))
         .isInstanceOf(ForbiddenException.class)
@@ -148,6 +163,21 @@ class OrderServiceTest {
   @Test
   void shouldThrowNotFound_whenCustomerProfileNotFound() {
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(customerRepository.findById(user.getId())).thenReturn(Optional.empty());
 
     assertThatThrownBy(() -> orderService.createOrderFromCart(jwt()))
@@ -158,6 +188,21 @@ class OrderServiceTest {
   @Test
   void shouldThrowBusinessException_whenCartIsEmptyOrNotFound() {
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
     when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId()))
         .thenReturn(Optional.empty());
@@ -171,6 +216,21 @@ class OrderServiceTest {
   void shouldThrowBusinessException_whenCartHasNoActiveItems() {
     cartItem.setActive(false);
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
     when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId()))
         .thenReturn(Optional.of(cart));
@@ -183,6 +243,21 @@ class OrderServiceTest {
   @Test
   void shouldThrowBusinessException_whenPrimaryAddressNotFound() {
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
     when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId()))
         .thenReturn(Optional.of(cart));
@@ -197,6 +272,21 @@ class OrderServiceTest {
   @Test
   void shouldThrowBusinessException_whenFarmerHasNoPaymentMethods() {
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
     when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId()))
         .thenReturn(Optional.of(cart));
@@ -213,6 +303,21 @@ class OrderServiceTest {
   @Test
   void shouldCreateOrderAndClearCart_whenValidData() {
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
     when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId()))
         .thenReturn(Optional.of(cart));
@@ -249,6 +354,21 @@ class OrderServiceTest {
     order.getItems().add(orderItem);
 
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
     when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -262,6 +382,21 @@ class OrderServiceTest {
   void shouldThrowForbidden_whenNonCustomerTriesToCancel() {
     user.setType(TypeUser.ADMIN);
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
 
     assertThatThrownBy(() -> orderService.cancelOrder(UUID.randomUUID(), jwt(), null))
         .isInstanceOf(ForbiddenException.class);
@@ -270,6 +405,21 @@ class OrderServiceTest {
   @Test
   void shouldThrowNotFound_whenOrderDoesNotExist() {
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     UUID fakeId = UUID.randomUUID();
     when(orderRepository.findById(fakeId)).thenReturn(Optional.empty());
 
@@ -287,6 +437,21 @@ class OrderServiceTest {
     order.setStatus(OrderStatus.PENDING);
 
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
 
     assertThatThrownBy(() -> orderService.cancelOrder(order.getId(), jwt(), null))
@@ -301,6 +466,21 @@ class OrderServiceTest {
     order.setStatus(OrderStatus.DELIVERED);
 
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
 
     assertThatThrownBy(() -> orderService.cancelOrder(order.getId(), jwt(), null))
@@ -321,6 +501,21 @@ class OrderServiceTest {
     order.setPaymentMethod(paymentMethod);
 
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
     when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -344,6 +539,21 @@ class OrderServiceTest {
     order.setStatus(OrderStatus.PENDING);
 
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
 
     assertThatThrownBy(() -> orderService.cancelOrder(order.getId(), jwt(), null))
@@ -367,6 +577,21 @@ class OrderServiceTest {
     request.setDetails("Comprei em outro lugar");
 
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
     when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -392,6 +617,21 @@ class OrderServiceTest {
     order.setPaymentMethod(paymentMethod);
 
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
     when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -419,6 +659,21 @@ class OrderServiceTest {
     order.getItems().add(orderItem);
 
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
     when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -434,6 +689,21 @@ class OrderServiceTest {
   void shouldThrowForbidden_whenNonCustomerCallsCustomerCancel() {
     user.setType(TypeUser.FARMER);
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
 
     assertThatThrownBy(() -> orderService.cancelOrderAsCustomer(UUID.randomUUID(), jwt(), null))
         .isInstanceOf(ForbiddenException.class)
@@ -450,6 +720,21 @@ class OrderServiceTest {
     order.setStatus(OrderStatus.PENDING);
 
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
 
     assertThatThrownBy(() -> orderService.cancelOrderAsCustomer(order.getId(), jwt(), null))
@@ -464,6 +749,21 @@ class OrderServiceTest {
     order.setStatus(OrderStatus.DELIVERED);
 
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
 
     assertThatThrownBy(() -> orderService.cancelOrderAsCustomer(order.getId(), jwt(), null))
@@ -487,6 +787,21 @@ class OrderServiceTest {
     order.setPaymentMethod(paymentMethod);
 
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
     when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -524,6 +839,21 @@ class OrderServiceTest {
     order.getItems().add(orderItem);
 
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
     when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -539,6 +869,21 @@ class OrderServiceTest {
   void shouldThrowForbidden_whenNonFarmerRefuses() {
     user.setType(TypeUser.CUSTOMER);
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
 
     assertThatThrownBy(() -> orderService.refuseOrderAsFarmer(UUID.randomUUID(), jwt(), null))
         .isInstanceOf(ForbiddenException.class)
@@ -559,6 +904,21 @@ class OrderServiceTest {
     order.setStatus(OrderStatus.PENDING);
 
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
 
     assertThatThrownBy(() -> orderService.refuseOrderAsFarmer(order.getId(), jwt(), null))
@@ -577,6 +937,21 @@ class OrderServiceTest {
     order.setStatus(OrderStatus.DELIVERED);
 
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
 
     assertThatThrownBy(() -> orderService.refuseOrderAsFarmer(order.getId(), jwt(), null))
@@ -597,6 +972,21 @@ class OrderServiceTest {
     order.setPaymentMethod(paymentMethod);
 
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
     when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -614,6 +1004,21 @@ class OrderServiceTest {
   void shouldThrowForbidden_whenNonCustomerConfirmsDelivery() {
     user.setType(TypeUser.FARMER);
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
 
     assertThatThrownBy(() -> orderService.confirmDelivery(UUID.randomUUID(), jwt()))
         .isInstanceOf(ForbiddenException.class)
@@ -630,6 +1035,21 @@ class OrderServiceTest {
     order.setStatus(OrderStatus.IN_DELIVERY);
 
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
 
     assertThatThrownBy(() -> orderService.confirmDelivery(order.getId(), jwt()))
@@ -644,6 +1064,21 @@ class OrderServiceTest {
     order.setStatus(OrderStatus.PENDING);
 
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
 
     assertThatThrownBy(() -> orderService.confirmDelivery(order.getId(), jwt()))
@@ -668,6 +1103,21 @@ class OrderServiceTest {
     order.setPaymentMethod(paymentMethod);
 
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
     when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -686,6 +1136,21 @@ class OrderServiceTest {
   void shouldThrowForbidden_whenNonFarmerUpdatesOrderStatus() {
     user.setType(TypeUser.CUSTOMER);
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
 
     assertThatThrownBy(
             () -> orderService.updateOrderStatus(UUID.randomUUID(), OrderStatus.CONFIRMED, jwt()))
@@ -699,6 +1164,21 @@ class OrderServiceTest {
     UUID orderId = UUID.randomUUID();
 
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(orderRepository.findById(orderId)).thenReturn(Optional.empty());
 
     assertThatThrownBy(() -> orderService.updateOrderStatus(orderId, OrderStatus.CONFIRMED, jwt()))
@@ -719,6 +1199,21 @@ class OrderServiceTest {
     order.setStatus(OrderStatus.PENDING);
 
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
 
     // PENDING → DELIVERED pula CONFIRMED/IN_DELIVERY (e o débito de estoque) — rejeitado.
@@ -741,6 +1236,21 @@ class OrderServiceTest {
     order.setStatus(OrderStatus.DELIVERED);
 
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
 
     assertThatThrownBy(
@@ -754,6 +1264,21 @@ class OrderServiceTest {
     user.setType(TypeUser.FARMER);
 
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
 
     assertThatThrownBy(
             () -> orderService.updateOrderStatus(UUID.randomUUID(), OrderStatus.PENDING, jwt()))
@@ -782,6 +1307,21 @@ class OrderServiceTest {
     order.getItems().add(item);
 
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
     when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -814,6 +1354,21 @@ class OrderServiceTest {
     order.getItems().add(item);
 
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
     when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -840,6 +1395,21 @@ class OrderServiceTest {
     order.setFarmer(anotherFarmer);
 
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
 
     assertThatThrownBy(() -> orderService.updateOrderStatus(orderId, OrderStatus.CONFIRMED, jwt()))
@@ -877,6 +1447,21 @@ class OrderServiceTest {
     order.setCancellationDetails("mudei de ideia");
 
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
     when(orderRepository.findByIdAndCustomerId(orderId, user.getId()))
         .thenReturn(Optional.of(order));
@@ -899,6 +1484,21 @@ class OrderServiceTest {
   void shouldThrowForbidden_whenNonCustomerRequestsOrderById() {
     user.setType(TypeUser.FARMER);
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
 
     assertThatThrownBy(() -> orderService.getMyOrderById(UUID.randomUUID(), jwt()))
         .isInstanceOf(ForbiddenException.class)
@@ -909,6 +1509,21 @@ class OrderServiceTest {
   void shouldThrowNotFound_whenOrderByIdDoesNotBelongToCustomer() {
     UUID orderId = UUID.randomUUID();
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
     when(orderRepository.findByIdAndCustomerId(orderId, user.getId())).thenReturn(Optional.empty());
 
@@ -938,6 +1553,21 @@ class OrderServiceTest {
     order.getItems().add(orderItem);
 
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
     when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -955,6 +1585,21 @@ class OrderServiceTest {
   void shouldThrowForbidden_whenNonFarmerConfirmsOrder() {
     user.setType(TypeUser.CUSTOMER);
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
 
     assertThatThrownBy(() -> orderService.confirmOrder(UUID.randomUUID(), jwt()))
         .isInstanceOf(ForbiddenException.class)
@@ -975,6 +1620,21 @@ class OrderServiceTest {
     order.setStatus(OrderStatus.PENDING);
 
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
 
     assertThatThrownBy(() -> orderService.confirmOrder(orderId, jwt()))
@@ -994,6 +1654,21 @@ class OrderServiceTest {
     order.setStatus(OrderStatus.CANCELLED);
 
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
 
     assertThatThrownBy(() -> orderService.confirmOrder(orderId, jwt()))
@@ -1005,6 +1680,21 @@ class OrderServiceTest {
   void shouldThrowForbidden_whenNonCustomerTriesToRepeatOrder() {
     user.setType(TypeUser.FARMER);
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
 
     assertThatThrownBy(() -> orderService.repeatOrder(UUID.randomUUID(), jwt()))
         .isInstanceOf(ForbiddenException.class)
@@ -1028,6 +1718,21 @@ class OrderServiceTest {
     order.setItems(new ArrayList<>(List.of(orderItem)));
 
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
     when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
     when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId()))
@@ -1069,6 +1774,21 @@ class OrderServiceTest {
     order.setItems(new ArrayList<>(List.of(orderItem)));
 
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
     when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
     when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId()))
@@ -1106,6 +1826,21 @@ class OrderServiceTest {
     order.setItems(new ArrayList<>(List.of(orderItem)));
 
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
     when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
     when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId()))
@@ -1135,6 +1870,21 @@ class OrderServiceTest {
     order.setItems(new ArrayList<>(List.of(orderItem)));
 
     when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(customerRepository.findById(user.getId())).thenReturn(Optional.of(customer));
     when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
     when(cartRepository.findByCustomerIdAndActiveTrue(customer.getId()))
