@@ -31,7 +31,10 @@ public class CacheConfig {
     manager.setCaffeine(
         Caffeine.newBuilder()
             .expireAfterWrite(Duration.ofHours(ttlHours))
-            .maximumSize(10_000));
+            .maximumSize(10_000)
+            // Sem isto o Micrometer só registra cache.size; recordStats habilita
+            // cache.gets{result=hit|miss}, de onde sai o hit-rate (meta do E4).
+            .recordStats());
     return manager;
   }
 
