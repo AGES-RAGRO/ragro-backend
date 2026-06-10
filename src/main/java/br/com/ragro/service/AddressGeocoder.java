@@ -29,7 +29,9 @@ public class AddressGeocoder {
     GeocodeOutcome outcome = googleMapsService.geocode(fullAddress);
     address.setGeocodeStatus(outcome.status());
     address.setGeocodedAt(OffsetDateTime.now());
-    if (outcome.isOk()) {
+    // Aplica também coordenadas AMBIGUOUS (aproximadas): melhor um lat/lng impreciso que
+    // produtor/cliente sumindo do mapa. O status AMBIGUOUS fica registrado como aviso.
+    if (outcome.hasCoordinates()) {
       address.setLatitude(outcome.latitude());
       address.setLongitude(outcome.longitude());
     }
@@ -48,7 +50,7 @@ public class AddressGeocoder {
     if (address.getGeocodeStatus() != null) {
       return false;
     }
-    return geocodeAndApply(address).isOk();
+    return geocodeAndApply(address).hasCoordinates();
   }
 
   /** Edição de endereço: zera o bookkeeping para a próxima geocodificação re-tentar. */

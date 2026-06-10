@@ -483,6 +483,43 @@ class DeliveryRouteServiceTest {
   }
 
   @Test
+  void createRoute_shouldUseApproximateCoordinates_whenSnapshotEmptyAndGeocodeAmbiguous() {
+    // Regressão: endereço que geocoda como AMBIGUOUS (partial_match/APPROXIMATE — ex.: praça
+    // sem número exato) ainda traz lat/lng utilizável; a rota DEVE ser montada, não bloqueada.
+    Order noCoords = order(OrderStatus.IN_DELIVERY, -30.1, -51.1);
+    noCoords.getDeliveryAddressSnapshot().setLatitude(null);
+    noCoords.getDeliveryAddressSnapshot().setLongitude(null);
+
+    when(userService.requireRole(any(), any(), org.mockito.ArgumentMatchers.anyString()))
+        .thenReturn(farmerUser);
+    when(deliveryRouteRepository.findByFarmerIdAndStatus(any(), any()))
+        .thenReturn(Optional.empty());
+    when(orderRepository.findByFarmerIdAndStatusInOrderByCreatedAtAsc(any(), any()))
+        .thenReturn(List.of(noCoords));
+    when(googleMapsService.geocode(any()))
+        .thenReturn(
+            GoogleMapsService.GeocodeOutcome.ambiguous(
+                BigDecimal.valueOf(-30.15), BigDecimal.valueOf(-51.15)));
+    when(googleRoutesService.computeOptimizedRoundTrip(any(), any()))
+        .thenReturn(
+            new ComputedRoute(
+                BigDecimal.ONE,
+                60,
+                "poly",
+                List.of(0),
+                List.of(new RouteLeg(BigDecimal.ONE, 60), new RouteLeg(BigDecimal.ONE, 60))));
+    when(googleRoutesService.distancesFromOrigin(any(), any())).thenReturn(null);
+    when(deliveryRouteRepository.saveAndFlush(any(DeliveryRoute.class)))
+        .thenAnswer(inv -> inv.getArgument(0));
+
+    RouteResponse response = deliveryRouteService.createRoute(request(), jwt());
+
+    assertThat(response.getStops()).hasSize(1);
+    assertThat(response.getStops().get(0).getLatitude()).isEqualByComparingTo("-30.15");
+    verify(googleRoutesService).computeOptimizedRoundTrip(any(), any());
+  }
+
+  @Test
   void createRoute_shouldFallBackToHaversineBaseline_whenMatrixFails() {
     Order single = order(OrderStatus.IN_DELIVERY, -30.1, -51.0);
     when(userService.getAuthenticatedUser(any())).thenReturn(farmerUser);

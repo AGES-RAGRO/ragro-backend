@@ -122,6 +122,16 @@
 				<type>pom</type>
 				<scope>import</scope>
 			</dependency>
+			<!--
+			  Alinha swagger-annotations com o swagger-core trazido pelo springdoc 2.8.17
+			  (2.2.47). Sem isto, o jsonschema-module-swagger-2 rebaixava annotations para
+			  2.2.30 (sem Schema.$dynamicRef()), e GET /v3/api-docs estourava NoSuchMethodError.
+			-->
+			<dependency>
+				<groupId>io.swagger.core.v3</groupId>
+				<artifactId>swagger-annotations-jakarta</artifactId>
+				<version>2.2.47</version>
+			</dependency>
 		</dependencies>
 	</dependencyManagement>
 	<build>

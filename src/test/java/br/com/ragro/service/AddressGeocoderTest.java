@@ -52,13 +52,29 @@ class AddressGeocoderTest {
   }
 
   @Test
-  void geocodeAndApply_shouldRecordStatusWithoutCoordinates_whenAmbiguous() {
-    when(googleMapsService.geocode(any())).thenReturn(GeocodeOutcome.ambiguous());
+  void geocodeAndApply_shouldApplyApproximateCoordinates_whenAmbiguous() {
+    // AMBIGUOUS (ex.: praça/rua sem número exato) ainda traz lat/lng utilizável: aplica a
+    // coordenada e registra o status como aviso de qualidade.
+    when(googleMapsService.geocode(any()))
+        .thenReturn(
+            GeocodeOutcome.ambiguous(
+                BigDecimal.valueOf(-30.03), BigDecimal.valueOf(-51.23)));
+
+    addressGeocoder.geocodeAndApply(address);
+
+    assertThat(address.getLatitude()).isEqualByComparingTo("-30.03");
+    assertThat(address.getLongitude()).isEqualByComparingTo("-51.23");
+    assertThat(address.getGeocodeStatus()).isEqualTo(GeocodeStatus.AMBIGUOUS);
+  }
+
+  @Test
+  void geocodeAndApply_shouldNotApplyCoordinates_whenFailed() {
+    when(googleMapsService.geocode(any())).thenReturn(GeocodeOutcome.failed());
 
     addressGeocoder.geocodeAndApply(address);
 
     assertThat(address.getLatitude()).isNull();
-    assertThat(address.getGeocodeStatus()).isEqualTo(GeocodeStatus.AMBIGUOUS);
+    assertThat(address.getGeocodeStatus()).isEqualTo(GeocodeStatus.FAILED);
   }
 
   @Test

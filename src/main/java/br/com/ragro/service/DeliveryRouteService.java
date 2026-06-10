@@ -228,8 +228,10 @@ public class DeliveryRouteService {
     if (snapshot != null && snapshot.getLatitude() != null && snapshot.getLongitude() != null) {
       return new GeoPoint(snapshot.getLatitude(), snapshot.getLongitude());
     }
+    // Aceita coordenada aproximada (AMBIGUOUS): suficiente para rotear. Só falha quando o Google
+    // não devolve NENHUMA coordenada (endereço inexistente) — aí a rota não tem como ser montada.
     GeocodeOutcome outcome = googleMapsService.geocode(addressText);
-    if (!outcome.isOk()) {
+    if (!outcome.hasCoordinates()) {
       throw new BusinessException(
           "Não foi possível localizar o endereço de entrega do pedido "
               + order.getId()
