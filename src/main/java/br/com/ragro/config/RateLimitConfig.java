@@ -17,7 +17,7 @@ public class RateLimitConfig {
     // springSecurityFilterChain roda em order -100; 0 garante execução DEPOIS da security chain,
     // com SecurityContext populado (chave por usuário) e sem consumir orçamento de requests 401.
     registration.setOrder(0);
-    registration.addUrlPatterns("/auth/*", "/recommendations", "/routes/*");
+    registration.addUrlPatterns("/auth/*", "/recommendations", "/routes", "/routes/*");
     return registration;
   }
 }

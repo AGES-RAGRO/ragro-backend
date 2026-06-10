@@ -3,6 +3,7 @@ package br.com.ragro.repository;
 import br.com.ragro.domain.Order;
 import br.com.ragro.domain.enums.OrderStatus;
 import java.math.BigDecimal;
+import java.util.Collection;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -17,6 +18,11 @@ import org.springframework.data.repository.query.Param;
 public interface OrderRepository extends JpaRepository<Order, UUID> {
 
   Optional<Order> findByIdAndCustomerId(UUID id, UUID customerId);
+
+  /** Pedidos do produtor nos status entregáveis — insumo da criação de rota de entrega. */
+  @EntityGraph(attributePaths = {"customer.user"})
+  List<Order> findByFarmerIdAndStatusInOrderByCreatedAtAsc(
+      UUID farmerId, Collection<OrderStatus> statuses);
 
   // O grafo das listagens cobre só associações to-one (fetch join + paginação em coleção faria o
   // Hibernate paginar em memória); items/statusHistory continuam lazy, atenuados pelo

@@ -1,5 +1,6 @@
 package br.com.ragro.domain;
 
+import br.com.ragro.domain.enums.GeocodeStatus;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import java.math.BigDecimal;
@@ -60,6 +61,18 @@ public class Address {
 
   @Column(name = "longitude", precision = 10, scale = 7)
   private BigDecimal longitude;
+
+  /**
+   * Resultado da última geocodificação ({@code null} = nunca tentado). FAILED/AMBIGUOUS não são
+   * re-tentados automaticamente — antes, um endereço não-geocodável era re-tentado (e cobrado) a
+   * cada abertura do mapa, para sempre. Zerado quando o endereço é editado.
+   */
+  @Enumerated(EnumType.STRING)
+  @Column(name = "geocode_status", length = 12)
+  private GeocodeStatus geocodeStatus;
+
+  @Column(name = "geocoded_at")
+  private OffsetDateTime geocodedAt;
 
   @Column(name = "is_primary", nullable = false)
   private boolean isPrimary;

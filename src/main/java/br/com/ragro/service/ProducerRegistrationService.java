@@ -20,8 +20,6 @@ import br.com.ragro.repository.PaymentMethodRepository;
 import br.com.ragro.repository.ProducerRepository;
 import br.com.ragro.repository.UserRepository;
 import br.com.ragro.service.api.IdentityProviderService;
-import com.google.maps.model.LatLng;
-import java.math.BigDecimal;
 import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
 import java.util.HashSet;
@@ -41,7 +39,7 @@ public class ProducerRegistrationService {
   private final FarmerAvailabilityRepository availabilityRepository;
   private final PaymentMethodRepository paymentMethodRepository;
   private final ProducerMapper producerMapper;
-  private final GoogleMapsService googleMapsService;
+  private final AddressGeocoder addressGeocoder;
 
   public ProducerRegistrationService(
       UserRepository userRepository,
@@ -51,7 +49,7 @@ public class ProducerRegistrationService {
       FarmerAvailabilityRepository availabilityRepository,
       PaymentMethodRepository paymentMethodRepository,
       ProducerMapper producerMapper,
-      GoogleMapsService googleMapsService) {
+      AddressGeocoder addressGeocoder) {
     this.userRepository = userRepository;
     this.producerRepository = producerRepository;
     this.identityProviderService = identityProviderService;
@@ -59,7 +57,7 @@ public class ProducerRegistrationService {
     this.availabilityRepository = availabilityRepository;
     this.paymentMethodRepository = paymentMethodRepository;
     this.producerMapper = producerMapper;
-    this.googleMapsService = googleMapsService;
+    this.addressGeocoder = addressGeocoder;
   }
 
   @Transactional
@@ -85,22 +83,7 @@ public class ProducerRegistrationService {
       User savedUser = userRepository.saveAndFlush(user);
 
       Address address = AddressMapper.toEntity(request.getAddress(), savedUser, true);
-
-      String fullAddress =
-          String.format(
-              "%s, %s - %s, %s - %s, %s",
-              address.getStreet(),
-              address.getNumber(),
-              address.getNeighborhood(),
-              address.getCity(),
-              address.getState(),
-              address.getZipCode());
-      LatLng latLng = googleMapsService.geocodeAddress(fullAddress);
-      if (latLng != null) {
-        address.setLatitude(BigDecimal.valueOf(latLng.lat));
-        address.setLongitude(BigDecimal.valueOf(latLng.lng));
-      }
-
+      addressGeocoder.geocodeAndApply(address);
       addressRepository.save(address);
 
       Producer savedProducer =

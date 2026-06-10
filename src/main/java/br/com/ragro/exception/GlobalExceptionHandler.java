@@ -177,6 +177,34 @@ public class GlobalExceptionHandler {
   }
 
   /**
+   * Integrações Google (Geocoding/Routes): quota → 503 com Retry-After; entrada não
+   * roteável/geocodável → 422; resto → 500. A mensagem nunca vaza o payload do Google (antes,
+   * qualquer erro virava 400 com {@code e.getMessage()} cru para o cliente).
+   */
+  @ExceptionHandler(GoogleApiException.class)
+  public ResponseEntity<ErrorResponse> handleGoogleApi(
+      GoogleApiException ex, HttpServletRequest request) {
+    HttpStatus status =
+        switch (ex.getKind()) {
+          case QUOTA -> HttpStatus.SERVICE_UNAVAILABLE;
+          case INVALID_INPUT -> HttpStatus.UNPROCESSABLE_ENTITY;
+          case UNAVAILABLE -> HttpStatus.INTERNAL_SERVER_ERROR;
+        };
+    ErrorResponse response =
+        ErrorResponse.builder()
+            .timestamp(java.time.LocalDateTime.now())
+            .status(status.value())
+            .error(ex.getMessage())
+            .path(request.getRequestURI())
+            .build();
+    ResponseEntity.BodyBuilder builder = ResponseEntity.status(status);
+    if (ex.getKind() == GoogleApiException.Kind.QUOTA) {
+      builder.header("Retry-After", "30");
+    }
+    return builder.body(response);
+  }
+
+  /**
    * Conflito de concorrência otimista (ex.: duas confirmações de pedido debitando o estoque do
    * mesmo produto ao mesmo tempo). A transação perdedora recebe 409 e o cliente reexecuta a ação
    * sobre o estado atualizado — antes do {@code @Version}, o último commit sobrescrevia o primeiro

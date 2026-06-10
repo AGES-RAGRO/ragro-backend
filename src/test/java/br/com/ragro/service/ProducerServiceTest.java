@@ -69,7 +69,7 @@ class ProducerServiceTest {
   @Mock private UserService userService;
   @Mock private MinioStorageService minioStorageService;
   @Mock private ReviewRepository reviewRepository;
-  @Mock private GoogleMapsService googleMapsService;
+  @Mock private AddressGeocoder addressGeocoder;
 
   private ProducerService producerService;
 
@@ -88,7 +88,7 @@ class ProducerServiceTest {
             minioStorageService,
             producerMapper,
             reviewRepository,
-            googleMapsService);
+            addressGeocoder);
   }
 
   // ─── getProducerLocations ────────────────────────────────────────────────────

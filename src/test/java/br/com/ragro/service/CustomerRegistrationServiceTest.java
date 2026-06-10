@@ -35,7 +35,7 @@ class CustomerRegistrationServiceTest {
   @Mock private CustomerRepository customerRepository;
   @Mock private AddressRepository addressRepository;
   @Mock private IdentityProviderService identityProviderService;
-  @Mock private GoogleMapsService googleMapsService;
+  @Mock private AddressGeocoder addressGeocoder;
 
   @InjectMocks private CustomerRegistrationService customerRegistrationService;
 

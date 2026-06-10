@@ -28,7 +28,6 @@ import br.com.ragro.repository.ProducerProfileRepository;
 import br.com.ragro.repository.ProducerRepository;
 import br.com.ragro.repository.ReviewRepository;
 import br.com.ragro.repository.UserRepository;
-import com.google.maps.model.LatLng;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalTime;
@@ -59,7 +58,7 @@ public class ProducerService {
   private final MinioStorageService minioStorageService;
   private final ProducerMapper producerMapper;
   private final ReviewRepository reviewRepository;
-  private final GoogleMapsService googleMapsService;
+  private final AddressGeocoder addressGeocoder;
 
   public ProducerResponse getProducerById(UUID id) {
     var producer =
@@ -123,33 +122,9 @@ public class ProducerService {
    * coordinates null (and the producer is filtered out of the map) if geocoding returns nothing.
    */
   private void ensureGeocoded(Address address) {
-    if (address.getLatitude() != null && address.getLongitude() != null) {
-      return;
-    }
-    String fullAddress = buildFullAddress(address);
-    if (fullAddress.isBlank()) {
-      return;
-    }
-    LatLng latLng = googleMapsService.geocodeAddress(fullAddress);
-    if (latLng != null) {
-      address.setLatitude(BigDecimal.valueOf(latLng.lat));
-      address.setLongitude(BigDecimal.valueOf(latLng.lng));
+    if (addressGeocoder.ensureGeocoded(address)) {
       addressRepository.save(address);
     }
-  }
-
-  private String buildFullAddress(Address address) {
-    if (address.getStreet() == null || address.getCity() == null) {
-      return "";
-    }
-    return String.format(
-        "%s, %s - %s, %s - %s, %s",
-        address.getStreet(),
-        address.getNumber(),
-        address.getNeighborhood(),
-        address.getCity(),
-        address.getState(),
-        address.getZipCode());
   }
 
   @Transactional(readOnly = true)
