@@ -46,6 +46,9 @@ public class TrackingService {
 
   private static final Logger log = LoggerFactory.getLogger(TrackingService.class);
 
+  /** Vias urbanas percorrem ~30% mais que a linha reta — corrige o ETA por distância direta. */
+  private static final double ROUTE_SINUOSITY_FACTOR = 1.3;
+
   private final TrackingProperties properties;
   private final DeliveryRouteRepository deliveryRouteRepository;
   private final RouteStopRepository routeStopRepository;
@@ -252,34 +255,18 @@ public class TrackingService {
   }
 
   /**
-   * ETA dinâmico: projeta a posição atual e a parada na polyline persistida, mede a distância
-   * restante ao longo da rota e converte com a velocidade média da rota (total/duração). Sem
-   * geometria (polyline ausente), cai para haversine direto — sempre sem custo de API.
+   * ETA dinâmico (sem custo de API): distância direta produtor→parada corrigida por um fator de
+   * sinuosidade urbano, dividida pela velocidade média da rota (distância/duração do Google na
+   * criação). NÃO projeta na polyline por vértice: a rota é round-trip e o vértice mais próximo do
+   * produtor podia cair na perna de VOLTA, zerando a distância restante até uma parada da ida (bug
+   * que dava ETA ~0). A distância direta é robusta e honesta o bastante para um ETA de entrega.
    */
   private Integer etaSecondsToStop(DeliveryRoute route, RouteStop stop, double lat, double lng) {
-    double averageSpeedMs = averageSpeedMs(route);
-    RouteGeometry geometry = geometryOf(route);
-    double remainingMeters;
-    if (geometry != null) {
-      int currentIdx = geometry.nearestVertex(lat, lng);
-      int stopIdx =
-          geometry.nearestVertex(
-              stop.getLatitude().doubleValue(), stop.getLongitude().doubleValue());
-      remainingMeters = Math.max(0, geometry.cumulative[stopIdx] - geometry.cumulative[currentIdx]);
-      // Produtor já passou do vértice da parada (ou desviou): garante um mínimo honesto.
-      double direct =
-          PolylineUtil.distanceMeters(
-              lat, lng, stop.getLatitude().doubleValue(), stop.getLongitude().doubleValue());
-      remainingMeters = Math.max(remainingMeters, Math.min(direct, remainingMeters + 1));
-      if (remainingMeters == 0) {
-        remainingMeters = direct;
-      }
-    } else {
-      remainingMeters =
-          PolylineUtil.distanceMeters(
-              lat, lng, stop.getLatitude().doubleValue(), stop.getLongitude().doubleValue());
-    }
-    return (int) Math.round(remainingMeters / averageSpeedMs);
+    double directMeters =
+        PolylineUtil.distanceMeters(
+            lat, lng, stop.getLatitude().doubleValue(), stop.getLongitude().doubleValue());
+    double estimatedRoadMeters = directMeters * ROUTE_SINUOSITY_FACTOR;
+    return (int) Math.round(estimatedRoadMeters / averageSpeedMs(route));
   }
 
   private double averageSpeedMs(DeliveryRoute route) {
@@ -313,45 +300,25 @@ public class TrackingService {
             .count();
   }
 
-  /** Polyline decodificada + distância acumulada por vértice (para ETA ao longo da rota). */
+  /** Polyline decodificada — usada para detectar desvio (distância do produtor ao traçado). */
   static final class RouteGeometry {
     final List<Point> vertices;
-    final double[] cumulative;
 
-    private RouteGeometry(List<Point> vertices, double[] cumulative) {
+    private RouteGeometry(List<Point> vertices) {
       this.vertices = vertices;
-      this.cumulative = cumulative;
     }
 
     static RouteGeometry of(String encodedPolyline) {
-      List<Point> points = PolylineUtil.decode(encodedPolyline);
-      double[] cumulative = new double[points.size()];
-      for (int i = 1; i < points.size(); i++) {
-        Point a = points.get(i - 1);
-        Point b = points.get(i);
-        cumulative[i] =
-            cumulative[i - 1] + PolylineUtil.distanceMeters(a.lat(), a.lng(), b.lat(), b.lng());
-      }
-      return new RouteGeometry(points, cumulative);
+      return new RouteGeometry(PolylineUtil.decode(encodedPolyline));
     }
 
-    int nearestVertex(double lat, double lng) {
-      int best = 0;
-      double bestDist = Double.MAX_VALUE;
-      for (int i = 0; i < vertices.size(); i++) {
-        Point p = vertices.get(i);
-        double d = PolylineUtil.distanceMeters(lat, lng, p.lat(), p.lng());
-        if (d < bestDist) {
-          bestDist = d;
-          best = i;
-        }
+    /** Menor distância do ponto a qualquer vértice da polyline (aproxima a distância ao traçado). */
+    double distanceToNearestVertexMeters(double lat, double lng) {
+      double best = Double.MAX_VALUE;
+      for (Point p : vertices) {
+        best = Math.min(best, PolylineUtil.distanceMeters(lat, lng, p.lat(), p.lng()));
       }
       return best;
-    }
-
-    double distanceToNearestVertexMeters(double lat, double lng) {
-      Point p = vertices.get(nearestVertex(lat, lng));
-      return PolylineUtil.distanceMeters(lat, lng, p.lat(), p.lng());
     }
   }
 }
