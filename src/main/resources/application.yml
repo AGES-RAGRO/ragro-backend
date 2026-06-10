@@ -97,6 +97,14 @@ ragro:
     rerank:
       # Liga/desliga o reranker por IA. Desligado, usa só a ordenação heurística.
       enabled: ${RECOMMENDATION_RERANK_ENABLED:true}
+  rate-limit:
+    # Token bucket in-memory (RateLimitFilter): register/forgot por IP; recommendations/routes
+    # por usuário (custo de LLM/Google). Limites em requisições por minuto.
+    enabled: ${RATE_LIMIT_ENABLED:true}
+    register-per-minute: ${RATE_LIMIT_REGISTER_PER_MINUTE:5}
+    forgot-per-minute: ${RATE_LIMIT_FORGOT_PER_MINUTE:5}
+    recommendations-per-minute: ${RATE_LIMIT_RECOMMENDATIONS_PER_MINUTE:10}
+    routes-per-minute: ${RATE_LIMIT_ROUTES_PER_MINUTE:10}
 
 server:
   error:

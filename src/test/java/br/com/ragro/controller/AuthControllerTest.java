@@ -89,7 +89,7 @@ class AuthControllerTest {
   @Test
   void registerCustomer_shouldReturn409_whenEmailAlreadyRegistered() throws Exception {
     when(customerRegistrationService.register(any()))
-        .thenThrow(new ConflictException("E-mail already registered"));
+        .thenThrow(new ConflictException(CustomerRegistrationService.REGISTRATION_CONFLICT_MESSAGE));
 
     mockMvc
         .perform(
@@ -98,7 +98,7 @@ class AuthControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(validRegistrationRequest())))
         .andExpect(status().isConflict())
-        .andExpect(jsonPath("$.error").value("E-mail already registered"));
+        .andExpect(jsonPath("$.error").value(CustomerRegistrationService.REGISTRATION_CONFLICT_MESSAGE));
   }
 
   @Test

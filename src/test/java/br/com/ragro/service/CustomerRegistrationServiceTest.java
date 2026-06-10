@@ -162,7 +162,7 @@ class CustomerRegistrationServiceTest {
 
     assertThatThrownBy(() -> customerRegistrationService.register(validRequest()))
         .isInstanceOf(ConflictException.class)
-        .hasMessage("E-mail already registered");
+        .hasMessage(CustomerRegistrationService.REGISTRATION_CONFLICT_MESSAGE);
 
     verify(identityProviderService, never()).registerCustomer(anyString(), anyString());
     verify(userRepository, never()).saveAndFlush(any());
@@ -175,7 +175,7 @@ class CustomerRegistrationServiceTest {
 
     assertThatThrownBy(() -> customerRegistrationService.register(validRequest()))
         .isInstanceOf(ConflictException.class)
-        .hasMessage("Fiscal number already registered");
+        .hasMessage(CustomerRegistrationService.REGISTRATION_CONFLICT_MESSAGE);
 
     verify(identityProviderService, never()).registerCustomer(anyString(), anyString());
     verify(userRepository, never()).saveAndFlush(any());

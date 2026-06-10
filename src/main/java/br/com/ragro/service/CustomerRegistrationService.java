@@ -26,6 +26,13 @@ public class CustomerRegistrationService {
 
   private static final Logger log = LoggerFactory.getLogger(CustomerRegistrationService.class);
 
+  /**
+   * Mensagem única para qualquer conflito de cadastro. Distinguir "e-mail já cadastrado" de "CPF
+   * já cadastrado" num endpoint público permite enumerar PII de usuários existentes.
+   */
+  public static final String REGISTRATION_CONFLICT_MESSAGE =
+      "Não foi possível concluir o cadastro com os dados informados";
+
   private final UserRepository userRepository;
   private final CustomerRepository customerRepository;
   private final AddressRepository addressRepository;
@@ -116,12 +123,9 @@ public class CustomerRegistrationService {
   }
 
   private void validateUniqueness(String email, String fiscalNumber) {
-    if (userRepository.existsByEmail(email)) {
-      throw new ConflictException("E-mail already registered");
-    }
-
-    if (customerRepository.existsByFiscalNumber(fiscalNumber)) {
-      throw new ConflictException("Fiscal number already registered");
+    if (userRepository.existsByEmail(email)
+        || customerRepository.existsByFiscalNumber(fiscalNumber)) {
+      throw new ConflictException(REGISTRATION_CONFLICT_MESSAGE);
     }
   }
 

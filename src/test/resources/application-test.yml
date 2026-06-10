@@ -29,6 +29,12 @@ keycloak:
   admin:
     password: test-admin
 
+ragro:
+  rate-limit:
+    # Desligado nos testes para não interferir em suítes que repetem chamadas ao mesmo endpoint.
+    # O RateLimitFilterTest reabilita via @TestPropertySource.
+    enabled: false
+
 minio:
   access-key: test-access
   secret-key: test-secret
