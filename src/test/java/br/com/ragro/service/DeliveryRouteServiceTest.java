@@ -49,6 +49,7 @@ class DeliveryRouteServiceTest {
   @Mock private GoogleRoutesService googleRoutesService;
   @Mock private GoogleMapsService googleMapsService;
   @Mock private OrderService orderService;
+  @Mock private TrackingService trackingService;
 
   @InjectMocks private DeliveryRouteService deliveryRouteService;
 

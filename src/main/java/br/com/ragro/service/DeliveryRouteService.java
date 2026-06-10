@@ -52,6 +52,7 @@ public class DeliveryRouteService {
   private final GoogleRoutesService googleRoutesService;
   private final GoogleMapsService googleMapsService;
   private final OrderService orderService;
+  private final TrackingService trackingService;
 
   /**
    * Cria a rota ativa do produtor a partir dos pedidos CONFIRMED/IN_DELIVERY. Substitui uma rota
@@ -69,6 +70,8 @@ public class DeliveryRouteService {
             previous -> {
               previous.setStatus(DeliveryRouteStatus.CANCELLED);
               previous.setCompletedAt(OffsetDateTime.now());
+              // Fora de entrega ativa a posição não é compartilhada (privacidade).
+              trackingService.clearRoute(previous.getId());
             });
 
     List<Order> orders =
@@ -192,6 +195,8 @@ public class DeliveryRouteService {
     if (allDone) {
       route.setStatus(DeliveryRouteStatus.COMPLETED);
       route.setCompletedAt(OffsetDateTime.now());
+      // Fora de entrega ativa a posição não é compartilhada (privacidade).
+      trackingService.clearRoute(route.getId());
     }
 
     DeliveryRoute saved = deliveryRouteRepository.saveAndFlush(route);

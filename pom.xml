@@ -95,6 +95,11 @@
 			<groupId>org.springframework.ai</groupId>
 			<artifactId>spring-ai-starter-model-openai</artifactId>
 		</dependency>
+		<!-- Rastreamento em tempo real (STOMP sobre WebSocket; broker simples in-memory) -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-websocket</artifactId>
+		</dependency>
 		<!-- Rate limiting in-memory (token bucket) nos endpoints públicos e de custo externo -->
 		<dependency>
 			<groupId>com.bucket4j</groupId>
