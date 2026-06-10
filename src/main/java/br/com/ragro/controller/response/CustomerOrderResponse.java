@@ -31,4 +31,10 @@ public class CustomerOrderResponse {
   // Cancellation reason/details (persisted on Order); null when the order was not cancelled.
   private String cancellationReason;
   private String cancellationDetails;
+
+  /**
+   * Dados bancários/PIX do produtor para o pagamento, espelhando o que o CartResponse entrega no
+   * checkout. Sem isto o card "PAGAMENTO" sumia ao reabrir o pedido (auditoria Fase 0, achado A7).
+   */
+  private BankInfoResponse bankInfo;
 }

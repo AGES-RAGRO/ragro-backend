@@ -3,7 +3,10 @@ package br.com.ragro.exception;
 import br.com.ragro.controller.response.ErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.BindException;
@@ -14,6 +17,8 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+  private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
   @ExceptionHandler(MethodArgumentNotValidException.class)
   public ResponseEntity<ErrorResponse> handleValidation(
@@ -168,6 +173,42 @@ public class GlobalExceptionHandler {
             .path(request.getRequestURI())
             .build();
 
+    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+  }
+
+  /**
+   * Catch-all: garante que TODA exceção responda no envelope {@link ErrorResponse} padrão (sem este
+   * handler, erros não mapeados caíam no /error default com formato diferente). Exceções do próprio
+   * Spring MVC (JSON malformado, método não suportado, 404 de rota...) implementam {@link
+   * org.springframework.web.ErrorResponse} e mantêm seu status original; o resto vira 500 genérico,
+   * logado com stack trace e sem vazar detalhes internos ao cliente.
+   */
+  @ExceptionHandler(Exception.class)
+  public ResponseEntity<ErrorResponse> handleUnexpected(Exception ex, HttpServletRequest request) {
+    if (ex instanceof org.springframework.web.ErrorResponse springError) {
+      HttpStatusCode status = springError.getStatusCode();
+      ErrorResponse response =
+          ErrorResponse.builder()
+              .timestamp(java.time.LocalDateTime.now())
+              .status(status.value())
+              .error(
+                  status.is4xxClientError()
+                      ? "Requisição inválida"
+                      : "Erro ao processar a requisição")
+              .path(request.getRequestURI())
+              .build();
+      return ResponseEntity.status(status).body(response);
+    }
+
+    log.error(
+        "Unhandled exception at {} {}", request.getMethod(), request.getRequestURI(), ex);
+    ErrorResponse response =
+        ErrorResponse.builder()
+            .timestamp(java.time.LocalDateTime.now())
+            .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
+            .error("Erro interno do servidor")
+            .path(request.getRequestURI())
+            .build();
     return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
   }
 }

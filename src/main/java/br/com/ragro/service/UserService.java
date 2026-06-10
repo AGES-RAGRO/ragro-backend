@@ -65,7 +65,7 @@ public class UserService {
             });
   }
 
-  public String getRequiredClaim(Jwt jwt, String claimName) {
+  private String getRequiredClaim(Jwt jwt, String claimName) {
     String value = jwt.getClaimAsString(claimName);
     if (value == null || value.isBlank()) {
       throw new UnauthorizedException("Token inválido: claim obrigatória ausente: " + claimName);

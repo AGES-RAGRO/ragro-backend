@@ -17,6 +17,13 @@ public class OrderResponse {
   private UUID id;
   private UUID customerId;
   private String customerName;
+
+  /**
+   * Resumo do cliente (telefone, "membro desde"). O app do produtor já lia estes campos de um
+   * objeto aninhado {@code customer} que o backend não enviava (auditoria Fase 0, achado A6).
+   */
+  private OrderCustomerResponse customer;
+
   private UUID farmerId;
   private String farmerName;
   private AddressSnapshot deliveryAddress;

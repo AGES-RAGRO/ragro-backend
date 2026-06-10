@@ -103,6 +103,21 @@ public class ProductService {
         .toList();
   }
 
+  /**
+   * Detalhe de produto ativo sem exigir o produtor na rota ({@code GET /products/{id}}). O app
+   * abre o detalhe sem producerId em alguns fluxos (auditoria Fase 0, achado A5) e caía numa rota
+   * inexistente; a resposta é idêntica à de {@code GET /producers/{producerId}/products/{id}}.
+   */
+  @Transactional(readOnly = true)
+  public ProductResponse getActiveProductById(UUID productId) {
+    Product product =
+        productRepository
+            .findById(productId)
+            .filter(Product::isActive)
+            .orElseThrow(() -> new NotFoundException("Produto não encontrado"));
+    return ProductMapper.toResponse(product);
+  }
+
   @Transactional(readOnly = true)
   public ProductResponse getActiveProductByProducerIdAndProductId(UUID producerId, UUID productId) {
     if (!producerRepository.existsById(producerId)) {
