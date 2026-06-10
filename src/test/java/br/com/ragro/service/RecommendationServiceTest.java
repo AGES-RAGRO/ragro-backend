@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -18,6 +19,7 @@ import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.RecommendationReason;
 import br.com.ragro.domain.enums.TypeUser;
 import br.com.ragro.domain.llm.RankedItem;
+import br.com.ragro.domain.llm.RankedRecommendation;
 import br.com.ragro.exception.ForbiddenException;
 import br.com.ragro.exception.LlmInvalidOutputException;
 import br.com.ragro.repository.OrderItemRepository;
@@ -53,6 +55,7 @@ class RecommendationServiceTest {
   @Mock private ProductRepository productRepository;
   @Mock private LlmRerankerPort llmRerankerPort;
   @Mock private MinioStorageService minioStorageService;
+  @Mock private RecommendationWarmupService warmupService;
 
   @Spy private MeterRegistry meterRegistry = new SimpleMeterRegistry();
 
@@ -521,5 +524,89 @@ class RecommendationServiceTest {
         Instant.now().plusSeconds(300),
         Map.of("alg", "none"),
         Map.of("sub", "customer-sub", "email", "customer@example.com"));
+  }
+
+  // ─── Cache (E4): hit serve do cache; miss responde heurística e aquece assíncrono ──────────
+
+  @Test
+  void getRecommendations_shouldServeFromCache_withoutTouchingLlm_whenCacheHit() {
+    org.springframework.test.util.ReflectionTestUtils.setField(
+        recommendationService, "cacheEnabled", true);
+    User customer = buildCustomer();
+    when(userService.getAuthenticatedUser(any())).thenReturn(customer);
+    when(orderItemRepository.findDistinctProductIdsByCustomerId(customer.getId()))
+        .thenReturn(List.of());
+
+    UUID farmerId = UUID.randomUUID();
+    Product cachedProduct = buildProduct(farmerId);
+    when(warmupService.getCached(customer.getId()))
+        .thenReturn(
+            List.of(
+                new RankedRecommendation(
+                    cachedProduct.getId(), 95, RecommendationReason.LLM_RERANKED)));
+    when(productRepository.findAllById(List.of(cachedProduct.getId())))
+        .thenReturn(List.of(cachedProduct));
+
+    RecommendationResponse response =
+        recommendationService.getRecommendations(defaultRequest(), jwt());
+
+    assertThat(response.getRecommendations()).hasSize(1);
+    assertThat(response.getRecommendations().get(0).getScore()).isEqualTo(95);
+    verifyNoInteractions(llmRerankerPort);
+    verify(warmupService, never()).warmAsync(any(), any(), any(), any());
+  }
+
+  @Test
+  void getRecommendations_shouldReturnHeuristicAndWarmAsync_whenCacheMiss() {
+    org.springframework.test.util.ReflectionTestUtils.setField(
+        recommendationService, "cacheEnabled", true);
+    User customer = buildCustomer();
+    when(userService.getAuthenticatedUser(any())).thenReturn(customer);
+    when(orderItemRepository.findDistinctProductIdsByCustomerId(customer.getId()))
+        .thenReturn(List.of());
+    when(warmupService.getCached(customer.getId())).thenReturn(null);
+
+    UUID farmerId = UUID.randomUUID();
+    Product trendingProduct = buildProduct(farmerId);
+    when(productRepository.findTrendingProducts(any(), any(Pageable.class)))
+        .thenReturn(new PageImpl<>(List.of(trendingProduct)));
+    when(productRepository.findRecentActiveProducts(any(Pageable.class)))
+        .thenReturn(new PageImpl<>(List.of()));
+
+    RecommendationResponse response =
+        recommendationService.getRecommendations(defaultRequest(), jwt());
+
+    // Resposta imediata com a ordenação heurística; a LLM roda só no warm-up assíncrono.
+    assertThat(response.getRecommendations()).isNotEmpty();
+    verifyNoInteractions(llmRerankerPort);
+    verify(warmupService).warmAsync(eq(customer.getId()), any(), any(), any());
+  }
+
+  @Test
+  void getRecommendations_shouldApplyRequestExcludes_onCacheHit() {
+    org.springframework.test.util.ReflectionTestUtils.setField(
+        recommendationService, "cacheEnabled", true);
+    User customer = buildCustomer();
+    when(userService.getAuthenticatedUser(any())).thenReturn(customer);
+    when(orderItemRepository.findDistinctProductIdsByCustomerId(customer.getId()))
+        .thenReturn(List.of());
+
+    UUID farmerId = UUID.randomUUID();
+    Product keep = buildProduct(farmerId);
+    Product excluded = buildProduct(farmerId);
+    when(warmupService.getCached(customer.getId()))
+        .thenReturn(
+            List.of(
+                new RankedRecommendation(excluded.getId(), 99, RecommendationReason.LLM_RERANKED),
+                new RankedRecommendation(keep.getId(), 80, RecommendationReason.LLM_RERANKED)));
+    when(productRepository.findAllById(List.of(keep.getId()))).thenReturn(List.of(keep));
+
+    RecommendationRequest request = defaultRequest();
+    request.setExcludeProductIds(List.of(excluded.getId()));
+
+    RecommendationResponse response = recommendationService.getRecommendations(request, jwt());
+
+    assertThat(response.getRecommendations()).hasSize(1);
+    assertThat(response.getRecommendations().get(0).getId()).isEqualTo(keep.getId());
   }
 }

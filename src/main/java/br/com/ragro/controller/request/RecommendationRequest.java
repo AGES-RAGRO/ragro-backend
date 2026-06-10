@@ -22,7 +22,4 @@ public class RecommendationRequest {
 
   @Schema(description = "Product identifiers to exclude from the recommendation list")
   private List<UUID> excludeProductIds;
-
-  @Schema(description = "Optional category filter", example = "Hortaliças")
-  private String category;
 }

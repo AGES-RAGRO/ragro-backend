@@ -11,6 +11,7 @@ import br.com.ragro.domain.enums.TypeUser;
 import br.com.ragro.domain.llm.Candidate;
 import br.com.ragro.domain.llm.CustomerFeatures;
 import br.com.ragro.domain.llm.RankedItem;
+import br.com.ragro.domain.llm.RankedRecommendation;
 import br.com.ragro.exception.ForbiddenException;
 import br.com.ragro.exception.LlmInvalidOutputException;
 import br.com.ragro.mapper.RecommendationMapper;
@@ -28,12 +29,14 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
@@ -62,6 +65,16 @@ public class RecommendationService {
   private final LlmRerankerPort llmRerankerPort;
   private final MeterRegistry meterRegistry;
   private final MinioStorageService minioStorageService;
+  private final RecommendationWarmupService warmupService;
+
+  /**
+   * Com cache ligado, a LLM nunca roda na thread da request: cache hit responde em ms; miss
+   * responde com a ordenação heurística e dispara o rerank assíncrono ({@link
+   * RecommendationWarmupService}). Desligado, volta ao comportamento anterior (rerank síncrono a
+   * cada chamada) — rollback instantâneo por configuração.
+   */
+  @Value("${ragro.recommendations.cache.enabled:true}")
+  private boolean cacheEnabled;
 
   @Transactional(readOnly = true)
   public RecommendationResponse getRecommendations(RecommendationRequest request, Jwt jwt) {
@@ -74,6 +87,20 @@ public class RecommendationService {
 
     List<UUID> purchasedIds = orderItemRepository.findDistinctProductIdsByCustomerId(customerId);
     Set<UUID> purchasedSet = Set.copyOf(purchasedIds);
+
+    if (cacheEnabled) {
+      List<RankedRecommendation> cached = warmupService.getCached(customerId);
+      if (cached != null) {
+        meterRegistry.counter("ragro.recommendation.cache", "result", "hit").increment();
+        List<RecommendationProductResponse> fromCache =
+            buildFromCache(cached, resolveExcludeSet(request, purchasedSet), request.getLimit());
+        return RecommendationResponse.builder()
+            .recommendations(fromCache)
+            .total(fromCache.size())
+            .build();
+      }
+      meterRegistry.counter("ragro.recommendation.cache", "result", "miss").increment();
+    }
 
     Map<UUID, int[]> scoreMap = new HashMap<>();
     Map<UUID, RecommendationReason> reasonMap = new HashMap<>();
@@ -148,17 +175,71 @@ public class RecommendationService {
       }
     }
 
-    Set<UUID> excludeSet = resolveExcludeSet(request, purchasedSet);
-    excludeSet.forEach(scoreMap::remove);
-
     int limit = request.getLimit();
-    List<RecommendationProductResponse> recommendations =
-        buildRecommendations(scoreMap, productCache, reasonMap, limit, customerId);
+    List<RecommendationProductResponse> recommendations;
+
+    if (cacheEnabled) {
+      // Produtos já comprados saem do ranking cacheável (estável até o próximo pedido, que
+      // invalida o cache); os excludeProductIds DA REQUEST são por-chamada e filtram só a
+      // resposta — nunca entram no cache.
+      purchasedSet.forEach(scoreMap::remove);
+      warmupService.warmAsync(
+          customerId,
+          buildCandidates(scoreMap, productCache, reasonMap),
+          buildCustomerFeatures(productCache, reasonMap),
+          heuristicRankedSnapshot(scoreMap, reasonMap));
+
+      Map<UUID, int[]> serveMap = new HashMap<>(scoreMap);
+      if (request.getExcludeProductIds() != null) {
+        request.getExcludeProductIds().forEach(serveMap::remove);
+      }
+      recommendations = buildHeuristicRecommendations(serveMap, productCache, reasonMap, limit);
+    } else {
+      // Comportamento anterior (rollback): rerank LLM síncrono na thread da request.
+      Set<UUID> excludeSet = resolveExcludeSet(request, purchasedSet);
+      excludeSet.forEach(scoreMap::remove);
+      recommendations = buildRecommendations(scoreMap, productCache, reasonMap, limit, customerId);
+    }
 
     return RecommendationResponse.builder()
         .recommendations(recommendations)
         .total(recommendations.size())
         .build();
+  }
+
+  /** Serve a resposta a partir do ranking cacheado: filtra excludes, limita e re-hidrata do banco. */
+  private List<RecommendationProductResponse> buildFromCache(
+      List<RankedRecommendation> cached, Set<UUID> excludeSet, int limit) {
+    List<RankedRecommendation> selected =
+        cached.stream().filter(r -> !excludeSet.contains(r.productId())).limit(limit).toList();
+
+    Map<UUID, Product> products =
+        productRepository
+            .findAllById(selected.stream().map(RankedRecommendation::productId).toList())
+            .stream()
+            .filter(Product::isActive)
+            .collect(Collectors.toMap(Product::getId, p -> p));
+
+    return selected.stream()
+        .map(
+            r -> {
+              Product product = products.get(r.productId());
+              return product == null
+                  ? null
+                  : RecommendationMapper.toResponse(
+                      product, r.score(), r.reason(), minioStorageService);
+            })
+        .filter(Objects::nonNull)
+        .collect(Collectors.toList());
+  }
+
+  /** Ranking heurístico completo (sem limit) na forma cacheável — fallback do warm-up. */
+  private List<RankedRecommendation> heuristicRankedSnapshot(
+      Map<UUID, int[]> scoreMap, Map<UUID, RecommendationReason> reasonMap) {
+    return scoreMap.entrySet().stream()
+        .sorted((a, b) -> Integer.compare(b.getValue()[0], a.getValue()[0]))
+        .map(e -> new RankedRecommendation(e.getKey(), e.getValue()[0], reasonMap.get(e.getKey())))
+        .toList();
   }
 
   private List<RecommendationProductResponse> buildRecommendations(

@@ -100,6 +100,12 @@ ragro:
     rerank:
       # Liga/desliga o reranker por IA. Desligado, usa só a ordenação heurística.
       enabled: ${RECOMMENDATION_RERANK_ENABLED:true}
+    cache:
+      # Cache do ranking por cliente (Caffeine). Ligado: hit responde em ms e a LLM roda
+      # assíncrona no máximo 1×/cliente/TTL (ou após novo pedido — evicção por evento).
+      # Desligado: comportamento antigo (rerank síncrono a cada chamada).
+      enabled: ${RECOMMENDATION_CACHE_ENABLED:true}
+      ttl-hours: ${RECOMMENDATION_CACHE_TTL_HOURS:6}
   rate-limit:
     # Token bucket in-memory (RateLimitFilter): register/forgot por IP; recommendations/routes
     # por usuário (custo de LLM/Google). Limites em requisições por minuto.
