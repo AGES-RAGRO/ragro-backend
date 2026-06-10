@@ -3,6 +3,7 @@ package br.com.ragro.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
@@ -22,13 +23,13 @@ import br.com.ragro.domain.CartItem;
 import br.com.ragro.domain.Customer;
 import br.com.ragro.domain.Order;
 import br.com.ragro.domain.OrderItem;
-import br.com.ragro.domain.OrderStatusHistory;
 import br.com.ragro.domain.PaymentMethod;
 import br.com.ragro.domain.Producer;
 import br.com.ragro.domain.Product;
 import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.OrderStatus;
 import br.com.ragro.domain.enums.TypeUser;
+import br.com.ragro.domain.event.OrderStatusChangedEvent;
 import br.com.ragro.exception.BusinessException;
 import br.com.ragro.exception.ForbiddenException;
 import br.com.ragro.exception.NotFoundException;
@@ -36,7 +37,6 @@ import br.com.ragro.repository.AddressRepository;
 import br.com.ragro.repository.CartRepository;
 import br.com.ragro.repository.CustomerRepository;
 import br.com.ragro.repository.OrderRepository;
-import br.com.ragro.repository.OrderStatusHistoryRepository;
 import br.com.ragro.repository.PaymentMethodRepository;
 import br.com.ragro.repository.ReviewRepository;
 import java.math.BigDecimal;
@@ -65,10 +65,9 @@ class OrderServiceTest {
   @Mock private PaymentMethodRepository paymentMethodRepository;
   @Mock private StockMovementService stockMovementService;
   @Mock private OrderRepository orderRepository;
-  @Mock private OrderStatusHistoryRepository orderStatusHistoryRepository;
   @Mock private ReviewRepository reviewRepository;
   @Mock private MinioStorageService storageService;
-  @Mock private NotificationService notificationService;
+  @Mock private org.springframework.context.ApplicationEventPublisher eventPublisher;
 
   @InjectMocks private OrderService orderService;
 
@@ -496,7 +495,12 @@ class OrderServiceTest {
     assertThat(response.getStatus()).isEqualTo(OrderStatus.CANCELLED);
     assertThat(order.getCancellationReason()).isEqualTo("REFUSED_BY_FARMER");
     verify(stockMovementService, never()).registerCancelledSale(any(), any(), anyString());
-    verify(notificationService).createCustomerOrderRefusedNotification(order);
+    verify(eventPublisher)
+        .publishEvent(
+            argThat(
+                (OrderStatusChangedEvent e) ->
+                    e.newStatus() == OrderStatus.CANCELLED
+                        && e.initiatedBy() == TypeUser.FARMER));
   }
 
   @Test
@@ -601,7 +605,9 @@ class OrderServiceTest {
     assertThat(response.getStatus()).isEqualTo(OrderStatus.DELIVERED);
     assertThat(order.getStatusHistory()).hasSize(1);
     assertThat(order.getStatusHistory().get(0).getStatus()).isEqualTo(OrderStatus.DELIVERED);
-    verify(notificationService).createCustomerOrderDeliveredNotification(order);
+    verify(eventPublisher)
+        .publishEvent(
+            argThat((OrderStatusChangedEvent e) -> e.newStatus() == OrderStatus.DELIVERED));
   }
 
   @Test
@@ -655,7 +661,9 @@ class OrderServiceTest {
     order.setId(orderId);
     order.setFarmer(farmer);
     order.setCustomer(customer);
-    order.setStatus(OrderStatus.PENDING);
+    // Máquina de estados: IN_DELIVERY só é alcançável a partir de CONFIRMED (antes o método
+    // aceitava qualquer transição — comportamento corrigido pela auditoria Fase 0, achado A3).
+    order.setStatus(OrderStatus.CONFIRMED);
     order.setDeliveryAddressSnapshot(AddressSnapshot.builder().city("Test City").build());
     order.setPaymentMethod(paymentMethod);
 
@@ -667,8 +675,11 @@ class OrderServiceTest {
         orderService.updateOrderStatus(orderId, OrderStatus.IN_DELIVERY, jwt());
 
     assertThat(response.getStatus()).isEqualTo(OrderStatus.IN_DELIVERY);
-    verify(orderStatusHistoryRepository).save(any(OrderStatusHistory.class));
-    verify(notificationService).createCustomerOrderInDeliveryNotification(order);
+    assertThat(order.getStatusHistory())
+        .anyMatch(h -> h.getStatus() == OrderStatus.IN_DELIVERY);
+    verify(eventPublisher)
+        .publishEvent(
+            argThat((OrderStatusChangedEvent e) -> e.newStatus() == OrderStatus.IN_DELIVERY));
   }
 
   @Test
@@ -693,6 +704,127 @@ class OrderServiceTest {
     assertThatThrownBy(() -> orderService.updateOrderStatus(orderId, OrderStatus.CONFIRMED, jwt()))
         .isInstanceOf(NotFoundException.class)
         .hasMessageContaining("Pedido");
+  }
+
+  @Test
+  void updateOrderStatus_shouldRejectInvalidTransition_whenSkippingStates() {
+    user.setType(TypeUser.FARMER);
+    UUID orderId = UUID.randomUUID();
+    farmer.setId(user.getId());
+
+    Order order = new Order();
+    order.setId(orderId);
+    order.setFarmer(farmer);
+    order.setCustomer(customer);
+    order.setStatus(OrderStatus.PENDING);
+
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+
+    // PENDING → DELIVERED pula CONFIRMED/IN_DELIVERY (e o débito de estoque) — rejeitado.
+    assertThatThrownBy(() -> orderService.updateOrderStatus(orderId, OrderStatus.DELIVERED, jwt()))
+        .isInstanceOf(BusinessException.class)
+        .hasMessageContaining("Transição de status inválida");
+    verify(orderRepository, never()).saveAndFlush(any(Order.class));
+  }
+
+  @Test
+  void updateOrderStatus_shouldRejectTransition_whenOrderAlreadyDelivered() {
+    user.setType(TypeUser.FARMER);
+    UUID orderId = UUID.randomUUID();
+    farmer.setId(user.getId());
+
+    Order order = new Order();
+    order.setId(orderId);
+    order.setFarmer(farmer);
+    order.setCustomer(customer);
+    order.setStatus(OrderStatus.DELIVERED);
+
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+
+    assertThatThrownBy(
+            () -> orderService.updateOrderStatus(orderId, OrderStatus.IN_DELIVERY, jwt()))
+        .isInstanceOf(BusinessException.class)
+        .hasMessageContaining("Transição de status inválida");
+  }
+
+  @Test
+  void updateOrderStatus_shouldRejectPendingAsTarget() {
+    user.setType(TypeUser.FARMER);
+
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+
+    assertThatThrownBy(
+            () -> orderService.updateOrderStatus(UUID.randomUUID(), OrderStatus.PENDING, jwt()))
+        .isInstanceOf(BusinessException.class)
+        .hasMessageContaining("não pode voltar para PENDING");
+  }
+
+  @Test
+  void updateOrderStatus_shouldDebitStock_whenTargetIsConfirmed() {
+    user.setType(TypeUser.FARMER);
+    UUID orderId = UUID.randomUUID();
+    farmer.setId(user.getId());
+
+    Order order = new Order();
+    order.setId(orderId);
+    order.setFarmer(farmer);
+    order.setCustomer(customer);
+    order.setStatus(OrderStatus.PENDING);
+    order.setDeliveryAddressSnapshot(AddressSnapshot.builder().city("Test City").build());
+    order.setPaymentMethod(paymentMethod);
+    OrderItem item = new OrderItem();
+    item.setOrder(order);
+    item.setProduct(product);
+    item.setQuantity(new BigDecimal("2.00"));
+    item.setSubtotal(new BigDecimal("10.00"));
+    order.getItems().add(item);
+
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+    when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    // PATCH /status com CONFIRMED delega para confirmOrder: mesmo efeito de estoque do
+    // endpoint dedicado (antes, este caminho confirmava SEM debitar — achado A3).
+    OrderResponse response = orderService.updateOrderStatus(orderId, OrderStatus.CONFIRMED, jwt());
+
+    assertThat(response.getStatus()).isEqualTo(OrderStatus.CONFIRMED);
+    verify(stockMovementService).registerSale(eq(product), eq(new BigDecimal("2.00")), anyString());
+  }
+
+  @Test
+  void updateOrderStatus_shouldRestoreStockAndRecordReason_whenTargetIsCancelled() {
+    user.setType(TypeUser.FARMER);
+    UUID orderId = UUID.randomUUID();
+    farmer.setId(user.getId());
+
+    Order order = new Order();
+    order.setId(orderId);
+    order.setFarmer(farmer);
+    order.setCustomer(customer);
+    order.setStatus(OrderStatus.CONFIRMED);
+    order.setDeliveryAddressSnapshot(AddressSnapshot.builder().city("Test City").build());
+    order.setPaymentMethod(paymentMethod);
+    OrderItem item = new OrderItem();
+    item.setOrder(order);
+    item.setProduct(product);
+    item.setQuantity(new BigDecimal("2.00"));
+    item.setSubtotal(new BigDecimal("10.00"));
+    order.getItems().add(item);
+
+    when(userService.getAuthenticatedUser(any())).thenReturn(user);
+    when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+    when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    // PATCH /status com CANCELLED delega para a recusa: devolve estoque debitado e grava o
+    // motivo (antes, este caminho cancelava sem devolver estoque nem auditar — achado A3).
+    OrderResponse response = orderService.updateOrderStatus(orderId, OrderStatus.CANCELLED, jwt());
+
+    assertThat(response.getStatus()).isEqualTo(OrderStatus.CANCELLED);
+    assertThat(order.getCancellationReason()).isEqualTo("REFUSED_BY_FARMER");
+    verify(stockMovementService)
+        .registerCancelledSale(eq(product), eq(new BigDecimal("2.00")), anyString());
   }
 
   @Test
@@ -813,8 +945,10 @@ class OrderServiceTest {
 
     assertThat(response.getStatus()).isEqualTo(OrderStatus.CONFIRMED);
     verify(stockMovementService).registerSale(eq(product), eq(new BigDecimal("2.00")), anyString());
-    verify(orderStatusHistoryRepository).save(any(OrderStatusHistory.class));
-    verify(notificationService).createCustomerOrderAcceptedNotification(order);
+    assertThat(order.getStatusHistory()).anyMatch(h -> h.getStatus() == OrderStatus.CONFIRMED);
+    verify(eventPublisher)
+        .publishEvent(
+            argThat((OrderStatusChangedEvent e) -> e.newStatus() == OrderStatus.CONFIRMED));
   }
 
   @Test

@@ -177,6 +177,26 @@ public class GlobalExceptionHandler {
   }
 
   /**
+   * Conflito de concorrência otimista (ex.: duas confirmações de pedido debitando o estoque do
+   * mesmo produto ao mesmo tempo). A transação perdedora recebe 409 e o cliente reexecuta a ação
+   * sobre o estado atualizado — antes do {@code @Version}, o último commit sobrescrevia o primeiro
+   * silenciosamente.
+   */
+  @ExceptionHandler(org.springframework.orm.ObjectOptimisticLockingFailureException.class)
+  public ResponseEntity<ErrorResponse> handleOptimisticLock(
+      org.springframework.orm.ObjectOptimisticLockingFailureException ex,
+      HttpServletRequest request) {
+    ErrorResponse response =
+        ErrorResponse.builder()
+            .timestamp(java.time.LocalDateTime.now())
+            .status(HttpStatus.CONFLICT.value())
+            .error("Outra operação atualizou estes dados ao mesmo tempo. Tente novamente.")
+            .path(request.getRequestURI())
+            .build();
+    return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+  }
+
+  /**
    * Catch-all: garante que TODA exceção responda no envelope {@link ErrorResponse} padrão (sem este
    * handler, erros não mapeados caíam no /error default com formato diferente). Exceções do próprio
    * Spring MVC (JSON malformado, método não suportado, 404 de rota...) implementam {@link

@@ -19,6 +19,7 @@ import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.OrderStatus;
 import br.com.ragro.domain.enums.PaymentStatus;
 import br.com.ragro.domain.enums.TypeUser;
+import br.com.ragro.domain.event.OrderStatusChangedEvent;
 import br.com.ragro.exception.BusinessException;
 import br.com.ragro.exception.ForbiddenException;
 import br.com.ragro.exception.NotFoundException;
@@ -28,15 +29,21 @@ import br.com.ragro.repository.AddressRepository;
 import br.com.ragro.repository.CartRepository;
 import br.com.ragro.repository.CustomerRepository;
 import br.com.ragro.repository.OrderRepository;
-import br.com.ragro.repository.OrderStatusHistoryRepository;
 import br.com.ragro.repository.PaymentMethodRepository;
 import br.com.ragro.repository.ReviewRepository;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,6 +51,22 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class OrderService {
+
+  /**
+   * Máquina de estados única do pedido. Toda transição passa por {@link #applyTransition} (ou por
+   * {@link #applyCancellation}, que valida via {@link #isCancellableStatus}); antes desta tabela,
+   * {@code updateOrderStatus} aceitava qualquer transição sem efeitos de estoque/auditoria
+   * (auditoria Fase 0, achado A3).
+   */
+  private static final Map<OrderStatus, Set<OrderStatus>> VALID_TRANSITIONS =
+      Map.of(
+          OrderStatus.PENDING, Set.of(OrderStatus.CONFIRMED, OrderStatus.CANCELLED),
+          OrderStatus.CONFIRMED, Set.of(OrderStatus.IN_DELIVERY, OrderStatus.CANCELLED),
+          OrderStatus.IN_DELIVERY, Set.of(OrderStatus.DELIVERED, OrderStatus.CANCELLED),
+          OrderStatus.DELIVERED, Set.of(),
+          OrderStatus.CANCELLED, Set.of());
+
+  private static final int DEFAULT_PAGE_SIZE = 20;
 
   private final UserService userService;
   private final CustomerRepository customerRepository;
@@ -53,10 +76,9 @@ public class OrderService {
   private final PaymentMethodRepository paymentMethodRepository;
   private final StockMovementService stockMovementService;
   private final OrderRepository orderRepository;
-  private final OrderStatusHistoryRepository orderStatusHistoryRepository;
   private final ReviewRepository reviewRepository;
   private final MinioStorageService storageService;
-  private final NotificationService notificationService;
+  private final ApplicationEventPublisher eventPublisher;
 
   @Transactional
   public OrderResponse createOrderFromCart(Jwt jwt) {
@@ -109,13 +131,12 @@ public class OrderService {
               order.getItems().add(orderItem);
             });
 
-    OrderStatusHistory history = new OrderStatusHistory();
-    history.setOrder(order);
-    history.setStatus(OrderStatus.PENDING);
-    order.getStatusHistory().add(history);
+    appendStatusHistory(order, OrderStatus.PENDING);
 
     Order savedOrder = orderRepository.saveAndFlush(order);
     cartService.clearCart(customer);
+    eventPublisher.publishEvent(
+        new OrderStatusChangedEvent(savedOrder, null, OrderStatus.PENDING, TypeUser.CUSTOMER));
     return OrderMapper.toResponse(savedOrder, storageService);
   }
 
@@ -143,58 +164,46 @@ public class OrderService {
    */
   @Transactional
   public OrderResponse cancelOrderAsCustomer(UUID orderId, Jwt jwt, CancelOrderRequest request) {
-    User user = userService.getAuthenticatedUser(jwt);
-    if (user.getType() != TypeUser.CUSTOMER) {
-      throw new ForbiddenException("Apenas consumidores podem cancelar seus pedidos");
-    }
-
     Order order =
-        orderRepository
-            .findById(orderId)
-            .orElseThrow(() -> new NotFoundException("Pedido não encontrado"));
-
-    if (!order.getCustomer().getId().equals(user.getId())) {
-      throw new ForbiddenException("Você não tem permissão para cancelar este pedido");
-    }
+        loadOrderOwnedByCustomer(orderId, jwt, "Apenas consumidores podem cancelar seus pedidos");
 
     if (!isCancellableStatus(order.getStatus())) {
       throw new BusinessException(
           "Somente pedidos com status PENDING, CONFIRMED ou IN_DELIVERY podem ser cancelados");
     }
 
-    applyCancellation(order, request, "CUSTOMER_CANCELLED");
+    OrderStatus previousStatus = order.getStatus();
+    boolean applied = applyCancellation(order, request, "CUSTOMER_CANCELLED");
     Order savedOrder = orderRepository.saveAndFlush(order);
+    if (applied) {
+      eventPublisher.publishEvent(
+          new OrderStatusChangedEvent(
+              savedOrder, previousStatus, OrderStatus.CANCELLED, TypeUser.CUSTOMER));
+    }
     return OrderMapper.toResponse(savedOrder, storageService);
   }
 
   /**
-   * Farmer refuses an incoming PENDING order. Records {@code REFUSED_BY_FARMER} so the history
-   * stays distinguishable from a customer-driven cancellation.
+   * Farmer refuses an incoming order. Records {@code REFUSED_BY_FARMER} so the history stays
+   * distinguishable from a customer-driven cancellation.
    */
   @Transactional
   public OrderResponse refuseOrderAsFarmer(UUID orderId, Jwt jwt, CancelOrderRequest request) {
-    User user = userService.getAuthenticatedUser(jwt);
-    if (user.getType() != TypeUser.FARMER) {
-      throw new ForbiddenException("Apenas produtores podem recusar pedidos");
-    }
-
-    Order order =
-        orderRepository
-            .findById(orderId)
-            .orElseThrow(() -> new NotFoundException("Pedido não encontrado"));
-
-    if (!order.getFarmer().getId().equals(user.getId())) {
-      throw new ForbiddenException("Você não tem permissão para recusar este pedido");
-    }
+    Order order = loadOrderOwnedByFarmer(orderId, jwt, "Apenas produtores podem recusar pedidos");
 
     if (!isCancellableStatus(order.getStatus())) {
       throw new BusinessException(
           "Somente pedidos com status PENDING, CONFIRMED ou IN_DELIVERY podem ser recusados");
     }
 
-    applyCancellation(order, request, "REFUSED_BY_FARMER");
+    OrderStatus previousStatus = order.getStatus();
+    boolean applied = applyCancellation(order, request, "REFUSED_BY_FARMER");
     Order savedOrder = orderRepository.saveAndFlush(order);
-    notificationService.createCustomerOrderRefusedNotification(savedOrder);
+    if (applied) {
+      eventPublisher.publishEvent(
+          new OrderStatusChangedEvent(
+              savedOrder, previousStatus, OrderStatus.CANCELLED, TypeUser.FARMER));
+    }
     return OrderMapper.toResponse(savedOrder, storageService);
   }
 
@@ -203,41 +212,31 @@ public class OrderService {
    */
   @Transactional
   public OrderResponse confirmDelivery(UUID orderId, Jwt jwt) {
-    User user = userService.getAuthenticatedUser(jwt);
-    if (user.getType() != TypeUser.CUSTOMER) {
-      throw new ForbiddenException("Apenas consumidores podem confirmar a entrega");
-    }
-
     Order order =
-        orderRepository
-            .findById(orderId)
-            .orElseThrow(() -> new NotFoundException("Pedido não encontrado"));
-
-    if (!order.getCustomer().getId().equals(user.getId())) {
-      throw new ForbiddenException("Você não tem permissão para confirmar este pedido");
-    }
+        loadOrderOwnedByCustomer(orderId, jwt, "Apenas consumidores podem confirmar a entrega");
 
     if (order.getStatus() != OrderStatus.IN_DELIVERY) {
       throw new BusinessException(
           "Somente pedidos em entrega podem ser confirmados como entregues");
     }
 
-    order.setStatus(OrderStatus.DELIVERED);
-    order.setDeliveredAt(OffsetDateTime.now());
-
-    OrderStatusHistory history = new OrderStatusHistory();
-    history.setOrder(order);
-    history.setStatus(OrderStatus.DELIVERED);
-    order.getStatusHistory().add(history);
+    OrderStatus previousStatus = order.getStatus();
+    applyTransition(order, OrderStatus.DELIVERED);
 
     Order savedOrder = orderRepository.saveAndFlush(order);
-    notificationService.createCustomerOrderDeliveredNotification(savedOrder);
+    eventPublisher.publishEvent(
+        new OrderStatusChangedEvent(
+            savedOrder, previousStatus, OrderStatus.DELIVERED, TypeUser.CUSTOMER));
     return OrderMapper.toResponse(savedOrder, storageService);
   }
 
-  private void applyCancellation(Order order, CancelOrderRequest request, String defaultReason) {
+  /**
+   * Applies the cancellation effects (status, reason/details, stock restore, history). Returns
+   * {@code false} when the order was already cancelled (idempotent no-op, no event should fire).
+   */
+  private boolean applyCancellation(Order order, CancelOrderRequest request, String defaultReason) {
     if (order.getStatus() == OrderStatus.CANCELLED) {
-      return; // idempotent: already cancelled, don't re-apply or duplicate history
+      return false; // idempotent: already cancelled, don't re-apply or duplicate history
     }
 
     OrderStatus previousStatus = order.getStatus();
@@ -269,10 +268,8 @@ public class OrderService {
                       item.getProduct(), item.getQuantity(), "Pedido cancelado"));
     }
 
-    OrderStatusHistory history = new OrderStatusHistory();
-    history.setOrder(order);
-    history.setStatus(OrderStatus.CANCELLED);
-    order.getStatusHistory().add(history);
+    appendStatusHistory(order, OrderStatus.CANCELLED);
+    return true;
   }
 
   private boolean isCancellableStatus(OrderStatus status) {
@@ -281,8 +278,14 @@ public class OrderService {
         || status == OrderStatus.IN_DELIVERY;
   }
 
+  /**
+   * Lists the authenticated customer's orders, newest first. {@code status}, {@code page} and
+   * {@code size} are optional: without them the full list is returned (backward compatible with
+   * the mobile app, which also already sent {@code status} — it was silently ignored before).
+   */
   @Transactional(readOnly = true)
-  public List<CustomerOrderResponse> getMyOrders(Jwt jwt) {
+  public List<CustomerOrderResponse> getMyOrders(
+      Jwt jwt, OrderStatus status, Integer page, Integer size) {
     User user = userService.getAuthenticatedUser(jwt);
     if (user.getType() != TypeUser.CUSTOMER) {
       throw new ForbiddenException("Apenas consumidores podem visualizar seus pedidos");
@@ -292,21 +295,43 @@ public class OrderService {
         .findById(user.getId())
         .orElseThrow(() -> new NotFoundException("Dados do consumidor não encontrados"));
 
-    return orderRepository.findByCustomerIdOrderByCreatedAtDesc(user.getId()).stream()
-        .map(this::toCustomerOrderResponse)
-        .toList();
+    Page<Order> orders =
+        status != null
+            ? orderRepository.findByCustomerIdAndStatus(
+                user.getId(), status, buildPageable(page, size))
+            : orderRepository.findByCustomerId(user.getId(), buildPageable(page, size));
+    return orders.getContent().stream().map(this::toCustomerOrderResponse).toList();
   }
 
+  /** Lists the authenticated producer's received orders; same optional filtering/paging. */
   @Transactional(readOnly = true)
-  public List<OrderResponse> getProducerOrders(Jwt jwt) {
+  public List<OrderResponse> getProducerOrders(
+      Jwt jwt, OrderStatus status, Integer page, Integer size) {
     User user = userService.getAuthenticatedUser(jwt);
     if (user.getType() != TypeUser.FARMER) {
       throw new ForbiddenException("Apenas produtores podem visualizar pedidos recebidos");
     }
 
-    return orderRepository.findByFarmerIdOrderByCreatedAtDesc(user.getId()).stream()
+    Page<Order> orders =
+        status != null
+            ? orderRepository.findByFarmerIdAndStatus(
+                user.getId(), status, buildPageable(page, size))
+            : orderRepository.findByFarmerId(user.getId(), buildPageable(page, size));
+    return orders.getContent().stream()
         .map(order -> OrderMapper.toResponse(order, storageService))
         .toList();
+  }
+
+  private Pageable buildPageable(Integer page, Integer size) {
+    Sort sort = Sort.by(Sort.Direction.DESC, "createdAt");
+    if (page == null && size == null) {
+      // Compatibilidade: sem parâmetros, devolve a lista inteira como antes da paginação.
+      return Pageable.unpaged(sort);
+    }
+    return PageRequest.of(
+        page != null ? Math.max(page, 0) : 0,
+        size != null && size > 0 ? size : DEFAULT_PAGE_SIZE,
+        sort);
   }
 
   @Transactional(readOnly = true)
@@ -330,19 +355,8 @@ public class OrderService {
 
   @Transactional
   public OrderResponse markOrderAsSeen(UUID orderId, Jwt jwt) {
-    User user = userService.getAuthenticatedUser(jwt);
-    if (user.getType() != TypeUser.FARMER) {
-      throw new ForbiddenException("Apenas produtores podem marcar pedidos como vistos");
-    }
-
     Order order =
-        orderRepository
-            .findById(orderId)
-            .orElseThrow(() -> new NotFoundException("Pedido não encontrado"));
-
-    if (!order.getFarmer().getId().equals(user.getId())) {
-      throw new ForbiddenException("Você não tem permissão para atualizar este pedido");
-    }
+        loadOrderOwnedByFarmer(orderId, jwt, "Apenas produtores podem marcar pedidos como vistos");
 
     if (!order.isSeenByFarmer()) {
       order.setSeenByFarmer(true);
@@ -357,6 +371,12 @@ public class OrderService {
     return OrderMapper.toCustomerOrderResponse(order, storageService, reviewed);
   }
 
+  /**
+   * Único ponto de entrada genérico de transição pelo produtor. Cada status delega para o fluxo
+   * com os efeitos corretos: CONFIRMED debita estoque ({@link #confirmOrder}), CANCELLED devolve
+   * estoque e grava motivo ({@link #refuseOrderAsFarmer}), IN_DELIVERY/DELIVERED passam pela
+   * máquina de estados. Antes, qualquer transição era aceita sem efeito colateral (achado A3).
+   */
   @Transactional
   public OrderResponse updateOrderStatus(UUID orderId, OrderStatus newStatus, Jwt jwt) {
     User user = userService.getAuthenticatedUser(jwt);
@@ -364,47 +384,35 @@ public class OrderService {
       throw new ForbiddenException("Apenas produtores podem atualizar o status do pedido");
     }
 
+    return switch (newStatus) {
+      case CONFIRMED -> confirmOrder(orderId, jwt);
+      case CANCELLED -> refuseOrderAsFarmer(orderId, jwt, null);
+      case IN_DELIVERY, DELIVERED -> applyFarmerTransition(orderId, jwt, newStatus);
+      case PENDING ->
+          throw new BusinessException(
+              "Transição de status inválida: um pedido não pode voltar para PENDING");
+    };
+  }
+
+  private OrderResponse applyFarmerTransition(UUID orderId, Jwt jwt, OrderStatus newStatus) {
     Order order =
-        orderRepository
-            .findById(orderId)
-            .orElseThrow(() -> new NotFoundException("Pedido não encontrado"));
+        loadOrderOwnedByFarmer(
+            orderId, jwt, "Apenas produtores podem atualizar o status do pedido");
 
-    if (!order.getFarmer().getId().equals(user.getId())) {
-      throw new ForbiddenException("Você não tem permissão para atualizar este pedido");
-    }
-
-    order.setStatus(newStatus);
-    if (newStatus == OrderStatus.DELIVERED) {
-      // Record the delivery time — dashboard metrics filter by deliveredAt.
-      order.setDeliveredAt(OffsetDateTime.now());
-    }
+    OrderStatus previousStatus = order.getStatus();
+    applyTransition(order, newStatus);
     Order updatedOrder = orderRepository.saveAndFlush(order);
 
-    OrderStatusHistory history = new OrderStatusHistory();
-    history.setOrder(updatedOrder);
-    history.setStatus(newStatus);
-    orderStatusHistoryRepository.save(history);
-
-    notifyCustomerOnStatusChange(updatedOrder, newStatus);
+    eventPublisher.publishEvent(
+        new OrderStatusChangedEvent(updatedOrder, previousStatus, newStatus, TypeUser.FARMER));
 
     return OrderMapper.toResponse(updatedOrder, storageService);
   }
 
   @Transactional
   public OrderResponse confirmOrder(UUID orderId, Jwt jwt) {
-    User user = userService.getAuthenticatedUser(jwt);
-    if (user.getType() != TypeUser.FARMER) {
-      throw new ForbiddenException("Apenas produtores podem confirmar pedidos");
-    }
-
     Order order =
-        orderRepository
-            .findById(orderId)
-            .orElseThrow(() -> new NotFoundException("Pedido não encontrado"));
-
-    if (!order.getFarmer().getId().equals(user.getId())) {
-      throw new ForbiddenException("Você não tem permissão para confirmar este pedido");
-    }
+        loadOrderOwnedByFarmer(orderId, jwt, "Apenas produtores podem confirmar pedidos");
 
     if (order.getStatus() != OrderStatus.PENDING) {
       throw new BusinessException("Somente pedidos com status PENDING podem ser confirmados");
@@ -417,29 +425,68 @@ public class OrderService {
                 stockMovementService.registerSale(
                     item.getProduct(), item.getQuantity(), "Pedido confirmado"));
 
-    order.setStatus(OrderStatus.CONFIRMED);
+    OrderStatus previousStatus = order.getStatus();
+    applyTransition(order, OrderStatus.CONFIRMED);
     Order updatedOrder = orderRepository.saveAndFlush(order);
 
-    OrderStatusHistory history = new OrderStatusHistory();
-    history.setOrder(updatedOrder);
-    history.setStatus(OrderStatus.CONFIRMED);
-    orderStatusHistoryRepository.save(history);
-
-    notificationService.createCustomerOrderAcceptedNotification(updatedOrder);
+    eventPublisher.publishEvent(
+        new OrderStatusChangedEvent(
+            updatedOrder, previousStatus, OrderStatus.CONFIRMED, TypeUser.FARMER));
 
     return OrderMapper.toResponse(updatedOrder, storageService);
   }
 
-  private void notifyCustomerOnStatusChange(Order order, OrderStatus status) {
-    switch (status) {
-      case CONFIRMED -> notificationService.createCustomerOrderAcceptedNotification(order);
-      case IN_DELIVERY -> notificationService.createCustomerOrderInDeliveryNotification(order);
-      case DELIVERED -> notificationService.createCustomerOrderDeliveredNotification(order);
-      case CANCELLED -> notificationService.createCustomerOrderRefusedNotification(order);
-      default -> {
-        // No customer notification for this status transition.
-      }
+  /** Valida contra {@link #VALID_TRANSITIONS}, aplica o status e registra o histórico. */
+  private void applyTransition(Order order, OrderStatus newStatus) {
+    Set<OrderStatus> allowed = VALID_TRANSITIONS.getOrDefault(order.getStatus(), Set.of());
+    if (!allowed.contains(newStatus)) {
+      throw new BusinessException(
+          "Transição de status inválida: %s → %s".formatted(order.getStatus(), newStatus));
     }
+    order.setStatus(newStatus);
+    if (newStatus == OrderStatus.DELIVERED) {
+      // Record the delivery time — dashboard metrics filter by deliveredAt.
+      order.setDeliveredAt(OffsetDateTime.now());
+    }
+    appendStatusHistory(order, newStatus);
+  }
+
+  /** Registra a entrada de histórico via cascade da coleção (persistida junto com o pedido). */
+  private void appendStatusHistory(Order order, OrderStatus status) {
+    OrderStatusHistory history = new OrderStatusHistory();
+    history.setOrder(order);
+    history.setStatus(status);
+    order.getStatusHistory().add(history);
+  }
+
+  private Order loadOrderOwnedByCustomer(UUID orderId, Jwt jwt, String roleMessage) {
+    User user = userService.getAuthenticatedUser(jwt);
+    if (user.getType() != TypeUser.CUSTOMER) {
+      throw new ForbiddenException(roleMessage);
+    }
+    Order order =
+        orderRepository
+            .findById(orderId)
+            .orElseThrow(() -> new NotFoundException("Pedido não encontrado"));
+    if (!order.getCustomer().getId().equals(user.getId())) {
+      throw new ForbiddenException("Você não tem permissão para acessar este pedido");
+    }
+    return order;
+  }
+
+  private Order loadOrderOwnedByFarmer(UUID orderId, Jwt jwt, String roleMessage) {
+    User user = userService.getAuthenticatedUser(jwt);
+    if (user.getType() != TypeUser.FARMER) {
+      throw new ForbiddenException(roleMessage);
+    }
+    Order order =
+        orderRepository
+            .findById(orderId)
+            .orElseThrow(() -> new NotFoundException("Pedido não encontrado"));
+    if (!order.getFarmer().getId().equals(user.getId())) {
+      throw new ForbiddenException("Você não tem permissão para acessar este pedido");
+    }
+    return order;
   }
 
   private Address getDeliveryAddress(Customer customer) {
@@ -474,24 +521,13 @@ public class OrderService {
 
   @Transactional
   public CartResponse repeatOrder(UUID orderId, Jwt jwt) {
-    User user = userService.getAuthenticatedUser(jwt);
-    if (user.getType() != TypeUser.CUSTOMER) {
-      throw new ForbiddenException("Apenas consumidores podem repetir pedidos");
-    }
+    Order order =
+        loadOrderOwnedByCustomer(orderId, jwt, "Apenas consumidores podem repetir pedidos");
 
     Customer customer =
         customerRepository
-            .findById(user.getId())
+            .findById(order.getCustomer().getId())
             .orElseThrow(() -> new NotFoundException("Dados do consumidor não encontrados"));
-
-    Order order =
-        orderRepository
-            .findById(orderId)
-            .orElseThrow(() -> new NotFoundException("Pedido não encontrado"));
-
-    if (!order.getCustomer().getId().equals(user.getId())) {
-      throw new ForbiddenException("Você não tem permissão para repetir este pedido");
-    }
 
     Cart cart = cartRepository.findByCustomerIdAndActiveTrue(customer.getId()).orElse(null);
 

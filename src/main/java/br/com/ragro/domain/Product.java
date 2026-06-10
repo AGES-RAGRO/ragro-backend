@@ -60,6 +60,15 @@ public class Product {
   @Column(name = "stock_quantity", nullable = false, precision = 12, scale = 3)
   private BigDecimal stockQuantity = BigDecimal.ZERO;
 
+  /**
+   * Lock otimista: registerSale/registerCancelledSale fazem read-modify-write no estoque; sem
+   * versão, duas confirmações concorrentes do mesmo produto perdiam update silenciosamente. Em
+   * conflito, o JPA lança OptimisticLockException → 409 no GlobalExceptionHandler.
+   */
+  @jakarta.persistence.Version
+  @Column(name = "version", nullable = false)
+  private Long version;
+
   @Column(name = "image_s3", columnDefinition = "text")
   private String imageS3;
 
