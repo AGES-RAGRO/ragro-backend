@@ -13,7 +13,8 @@ Checklist do ambiente de produção:
 - [ ] **Trocar a senha do admin** (`admin@ragro.com.br`) — se o realm de prod foi provisionado a
       partir deste export, a senha `Admin@123` é pública no repositório. Rotacionar IMEDIATAMENTE.
 - [ ] `sslRequired` deve ser `external` (já é o valor deste export) ou `all`.
-- [ ] `webOrigins`/`redirectUris` vazios (standard flow desabilitado; ROPC não usa redirect).
+- [ ] `redirectUris` vazio (standard flow desabilitado; ROPC não usa redirect) e `webOrigins`
+      com origens EXPLÍCITAS — nunca `*` em prod (em dev fica `*` de propósito; ver abaixo).
 - [ ] Senha do admin master do Keycloak (`KEYCLOAK_ADMIN_PASSWORD`) via secret, nunca `admin`.
 - [ ] Considerar MFA para contas do grupo ADMIN.
 
@@ -21,7 +22,9 @@ Checklist do ambiente de produção:
 
 - `sslRequired: none → external` — exige TLS para requests externos; localhost/IPs privados
   (caso do dev local e da rede do compose) continuam isentos, então o dev via HTTP não muda.
-- `redirectUris: ["*"] → []` e `webOrigins: ["*"] → []` — o client `ragro-app` só usa ROPC
-  (standard/implicit flow desabilitados), então não há redirect; CORS aberto no token endpoint
-  era desnecessário (apps nativos não enviam Origin). Se um dia rodar Flutter **web** em dev,
-  adicionar a origem explícita (ex.: `http://localhost:5000`) em `webOrigins`.
+- `redirectUris: ["*"] → []` — o client `ragro-app` só usa ROPC (standard/implicit flow
+  desabilitados), então não há redirect.
+- `webOrigins` permanece `["*"]` POR CONVENIÊNCIA DE DEV (decisão explícita): apps nativos não
+  enviam Origin (CORS é mecanismo de navegador), mas o Flutter **web** local usa porta aleatória
+  e o Keycloak não aceita wildcard parcial (`http://localhost:*`) em webOrigins. Em PROD, trocar
+  por origens explícitas (item do checklist acima).

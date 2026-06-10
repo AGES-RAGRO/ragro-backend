@@ -78,7 +78,7 @@
       "serviceAccountsEnabled": false,
       "fullScopeAllowed": true,
       "redirectUris": [],
-      "webOrigins": [],
+      "webOrigins": ["*"],
       "attributes": {
         "access.token.lifespan": "3600"
       },
