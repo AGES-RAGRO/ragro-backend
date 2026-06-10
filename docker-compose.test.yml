@@ -26,5 +26,11 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
       SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO}
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: ${SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI}
+      # Secrets fail-fast (E0): sem estes o backend não resolve os placeholders e morre no boot.
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      STORAGE_ACCESS_KEY: ${STORAGE_ACCESS_KEY}
+      STORAGE_SECRET_KEY: ${STORAGE_SECRET_KEY}
+      # Spring AI faz fail-fast se a api-key vier vazia (default ${NVIDIA_API_KEY:} no application.yml).
+      NVIDIA_API_KEY: ${NVIDIA_API_KEY}
     ports:
       - "8080:8080"

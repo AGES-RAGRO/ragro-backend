@@ -59,6 +59,13 @@ class RateLimitFilterTest {
   @MockBean private UserService userService;
   @MockBean private UserRepository userRepository;
 
+  // Blinda contra contaminação do SecurityContextHolder (thread-local) por uma classe de teste
+  // anterior: sem isto, um JWT residual fazia o ActiveUserFilter responder 401 nos registros.
+  @org.junit.jupiter.api.BeforeEach
+  void clearSecurityContext() {
+    org.springframework.security.core.context.SecurityContextHolder.clearContext();
+  }
+
   @Test
   void register_shouldReturn429WithRetryAfter_whenIpExceedsLimit() throws Exception {
     when(customerRegistrationService.register(any()))
