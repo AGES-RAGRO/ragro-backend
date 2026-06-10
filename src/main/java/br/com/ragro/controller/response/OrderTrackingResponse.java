@@ -34,4 +34,10 @@ public class OrderTrackingResponse {
 
   /** Status da parada desta entrega: PENDING | ARRIVED | DELIVERED | FAILED. */
   private String stopStatus;
+
+  /**
+   * Polyline codificada (Google) da rota completa, para desenhar o caminho no mapa do cliente.
+   * Não muda durante a entrega, então só vem neste snapshot (não nos broadcasts de posição).
+   */
+  private String overviewPolyline;
 }

@@ -189,6 +189,7 @@ public class TrackingService {
         .etaSeconds(etaSeconds)
         .stopsBefore(pendingStopsBefore(route, stop))
         .stopStatus(stop.getStatus().name())
+        .overviewPolyline(route.getOverviewPolyline())
         .build();
   }
 
