@@ -169,8 +169,8 @@ class DeliveryRouteServiceTest {
 
   @Test
   void createRoute_shouldCancelPreviousActiveRoute() {
-    DeliveryRoute previous = new DeliveryRoute();
-    previous.setStatus(DeliveryRouteStatus.ACTIVE);
+    Order stillOpen = order(OrderStatus.IN_DELIVERY, -30.3, -51.3);
+    DeliveryRoute previous = activeRouteWithStops(stop(stillOpen, RouteStopStatus.PENDING));
 
     Order single = order(OrderStatus.IN_DELIVERY, -30.1, -51.1);
     when(userService.getAuthenticatedUser(any())).thenReturn(farmerUser);
@@ -210,6 +210,70 @@ class DeliveryRouteServiceTest {
 
     assertThat(previous.getStatus()).isEqualTo(DeliveryRouteStatus.CANCELLED);
     assertThat(previous.getCompletedAt()).isNotNull();
+    verify(trackingService).clearRoute(previous.getId());
+    // A anterior tem que ir ao banco ANTES do INSERT da nova: o Hibernate flusha INSERTs antes
+    // de UPDATEs, e sem este flush a nova ACTIVE viola uq_delivery_routes_farmer_active.
+    org.mockito.InOrder inOrder = org.mockito.Mockito.inOrder(deliveryRouteRepository);
+    inOrder.verify(deliveryRouteRepository).saveAndFlush(previous);
+    inOrder
+        .verify(deliveryRouteRepository)
+        .saveAndFlush(org.mockito.ArgumentMatchers.argThat(r -> r != previous));
+  }
+
+  @Test
+  void createRoute_shouldCompletePreviousRoute_whenAllItsOrdersAlreadyTerminal() {
+    // Cenário da rota fantasma: parada PENDING cujo pedido o cliente já confirmou (DELIVERED).
+    // Ao recriar a rota, a anterior reconcilia e fecha como COMPLETED, não CANCELLED.
+    Order alreadyDelivered = order(OrderStatus.DELIVERED, -30.3, -51.3);
+    DeliveryRoute previous = activeRouteWithStops(stop(alreadyDelivered, RouteStopStatus.PENDING));
+
+    Order single = order(OrderStatus.IN_DELIVERY, -30.1, -51.1);
+    when(userService.getAuthenticatedUser(any())).thenReturn(farmerUser);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
+    when(deliveryRouteRepository.findByFarmerIdAndStatus(
+            farmerUser.getId(), DeliveryRouteStatus.ACTIVE))
+        .thenReturn(Optional.of(previous));
+    when(orderRepository.findByFarmerIdAndStatusInOrderByCreatedAtAsc(eq(farmerUser.getId()), any()))
+        .thenReturn(List.of(single));
+    when(googleRoutesService.computeOptimizedRoundTrip(any(), any()))
+        .thenReturn(
+            new ComputedRoute(
+                BigDecimal.ONE,
+                60,
+                null,
+                List.of(0),
+                List.of(new RouteLeg(BigDecimal.ONE, 60), new RouteLeg(BigDecimal.ONE, 60))));
+    when(googleRoutesService.distancesFromOrigin(any(), any())).thenReturn(null);
+    when(deliveryRouteRepository.saveAndFlush(any(DeliveryRoute.class)))
+        .thenAnswer(inv -> inv.getArgument(0));
+
+    RouteResponse response = deliveryRouteService.createRoute(request(), jwt());
+
+    assertThat(previous.getStatus()).isEqualTo(DeliveryRouteStatus.COMPLETED);
+    assertThat(previous.getCompletedAt()).isNotNull();
+    assertThat(previous.getStops().get(0).getStatus()).isEqualTo(RouteStopStatus.DELIVERED);
+    assertThat(previous.getStops().get(0).getCompletedAt()).isNotNull();
+    verify(trackingService).clearRoute(previous.getId());
+    assertThat(response.getStatus()).isEqualTo(DeliveryRouteStatus.ACTIVE);
+    org.mockito.InOrder inOrder = org.mockito.Mockito.inOrder(deliveryRouteRepository);
+    inOrder.verify(deliveryRouteRepository).saveAndFlush(previous);
+    inOrder
+        .verify(deliveryRouteRepository)
+        .saveAndFlush(org.mockito.ArgumentMatchers.argThat(r -> r != previous));
   }
 
   @Test

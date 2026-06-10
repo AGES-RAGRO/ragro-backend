@@ -225,6 +225,30 @@ public class GlobalExceptionHandler {
   }
 
   /**
+   * Conflito de integridade no banco (ex.: dois POST /routes simultâneos do mesmo produtor — o
+   * segundo INSERT viola {@code uq_delivery_routes_farmer_active} depois do commit do primeiro).
+   * Os dados ficam consistentes (a transação perdedora rola back inteira); o cliente recebe 409 e
+   * reexecuta sobre o estado novo. Sem este handler caía no catch-all como 500 genérico.
+   */
+  @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+  public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(
+      org.springframework.dao.DataIntegrityViolationException ex, HttpServletRequest request) {
+    log.warn(
+        "Data integrity conflict at {} {}: {}",
+        request.getMethod(),
+        request.getRequestURI(),
+        ex.getMostSpecificCause().getMessage());
+    ErrorResponse response =
+        ErrorResponse.builder()
+            .timestamp(java.time.LocalDateTime.now())
+            .status(HttpStatus.CONFLICT.value())
+            .error("Outra operação atualizou estes dados ao mesmo tempo. Tente novamente.")
+            .path(request.getRequestURI())
+            .build();
+    return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+  }
+
+  /**
    * Catch-all: garante que TODA exceção responda no envelope {@link ErrorResponse} padrão (sem este
    * handler, erros não mapeados caíam no /error default com formato diferente). Exceções do próprio
    * Spring MVC (JSON malformado, método não suportado, 404 de rota...) implementam {@link

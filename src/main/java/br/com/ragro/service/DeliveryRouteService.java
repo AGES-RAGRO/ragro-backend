@@ -58,10 +58,10 @@ public class DeliveryRouteService {
   private final TrackingService trackingService;
 
   /**
-   * Cria a rota ativa do produtor a partir dos pedidos CONFIRMED/IN_DELIVERY. Substitui uma rota
-   * ativa anterior (CANCELLED) — reabrir a tela e recriar é o fluxo natural quando novos pedidos
-   * são confirmados. Pedidos CONFIRMED transitam para IN_DELIVERY pela máquina de estados (com
-   * notificação ao cliente via evento).
+   * Cria a rota ativa do produtor a partir dos pedidos CONFIRMED/IN_DELIVERY. Uma rota ativa
+   * anterior é fechada antes ({@link #retirePreviousRoute}) — reabrir a tela e recriar é o fluxo
+   * natural quando novos pedidos são confirmados. Pedidos CONFIRMED transitam para IN_DELIVERY
+   * pela máquina de estados (com notificação ao cliente via evento).
    */
   @Transactional
   public RouteResponse createRoute(CreateRouteRequest request, Jwt jwt) {
@@ -69,13 +69,7 @@ public class DeliveryRouteService {
 
     deliveryRouteRepository
         .findByFarmerIdAndStatus(user.getId(), DeliveryRouteStatus.ACTIVE)
-        .ifPresent(
-            previous -> {
-              previous.setStatus(DeliveryRouteStatus.CANCELLED);
-              previous.setCompletedAt(OffsetDateTime.now());
-              // Fora de entrega ativa a posição não é compartilhada (privacidade).
-              trackingService.clearRoute(previous.getId());
-            });
+        .ifPresent(this::retirePreviousRoute);
 
     List<Order> orders =
         orderRepository.findByFarmerIdAndStatusInOrderByCreatedAtAsc(
@@ -164,6 +158,41 @@ public class DeliveryRouteService {
             .findByFarmerIdAndStatus(user.getId(), DeliveryRouteStatus.ACTIVE)
             .orElseThrow(() -> new NotFoundException("Nenhuma rota ativa"));
 
+    boolean changed = reconcileStopsWithOrders(route);
+    boolean completed = completeIfAllStopsTerminal(route);
+    if (changed || completed) {
+      deliveryRouteRepository.saveAndFlush(route);
+    }
+    if (completed) {
+      throw new NotFoundException("Nenhuma rota ativa");
+    }
+    return DeliveryRouteMapper.toResponse(route);
+  }
+
+  /**
+   * Fecha a rota ativa anterior antes de criar a nova. Reconcilia as paradas primeiro para que uma
+   * rota cujos pedidos já terminaram feche como COMPLETED (histórico honesto); só o que sobrou
+   * genuinamente aberto vira CANCELLED. O {@code saveAndFlush} aqui é obrigatório, não cosmético:
+   * no flush o Hibernate executa INSERTs antes de UPDATEs, então sem o flush imediato a nova rota
+   * ACTIVE entraria no banco antes do UPDATE desta, violando {@code
+   * uq_delivery_routes_farmer_active}.
+   */
+  private void retirePreviousRoute(DeliveryRoute previous) {
+    reconcileStopsWithOrders(previous);
+    if (!completeIfAllStopsTerminal(previous)) {
+      previous.setStatus(DeliveryRouteStatus.CANCELLED);
+      previous.setCompletedAt(OffsetDateTime.now());
+      // Fora de entrega ativa a posição não é compartilhada (privacidade).
+      trackingService.clearRoute(previous.getId());
+    }
+    deliveryRouteRepository.saveAndFlush(previous);
+  }
+
+  /**
+   * Alinha cada parada não-terminal ao status do PEDIDO quando ele terminou por fora do fluxo de
+   * parada (cliente confirmou a entrega, cancelamento). Retorna se algo mudou.
+   */
+  private boolean reconcileStopsWithOrders(DeliveryRoute route) {
     boolean changed = false;
     for (RouteStop stop : route.getStops()) {
       if (TERMINAL_STOP_STATUSES.contains(stop.getStatus())) {
@@ -180,15 +209,7 @@ public class DeliveryRouteService {
         changed = true;
       }
     }
-
-    boolean completed = completeIfAllStopsTerminal(route);
-    if (changed || completed) {
-      deliveryRouteRepository.saveAndFlush(route);
-    }
-    if (completed) {
-      throw new NotFoundException("Nenhuma rota ativa");
-    }
-    return DeliveryRouteMapper.toResponse(route);
+    return changed;
   }
 
   /** Fecha a rota se todas as paradas estão terminais (DELIVERED/FAILED) e encerra o tracking. */
