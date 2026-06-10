@@ -26,6 +26,7 @@ import br.com.ragro.exception.ForbiddenException;
 import br.com.ragro.exception.NotFoundException;
 import br.com.ragro.repository.DeliveryRouteRepository;
 import br.com.ragro.repository.OrderRepository;
+import br.com.ragro.repository.RouteStopRepository;
 import br.com.ragro.service.GoogleRoutesService.ComputedRoute;
 import br.com.ragro.service.GoogleRoutesService.RouteLeg;
 import java.math.BigDecimal;
@@ -46,6 +47,7 @@ class DeliveryRouteServiceTest {
   @Mock private UserService userService;
   @Mock private OrderRepository orderRepository;
   @Mock private DeliveryRouteRepository deliveryRouteRepository;
+  @Mock private RouteStopRepository routeStopRepository;
   @Mock private GoogleRoutesService googleRoutesService;
   @Mock private GoogleMapsService googleMapsService;
   @Mock private OrderService orderService;
@@ -283,6 +285,179 @@ class DeliveryRouteServiceTest {
     stop.setLatitude(BigDecimal.ONE);
     stop.setLongitude(BigDecimal.ONE);
     return stop;
+  }
+
+  @Test
+  void syncStop_shouldDeliverStopAndCompleteRoute_whenCustomerConfirmedOnlyDelivery() {
+    // Cliente confirmou a entrega pelo pedido (parada ficou PENDING) — o sync conclui a parada
+    // e, como é a única, fecha a rota (antes ela ficava ACTIVE para sempre = rota fantasma).
+    Order delivered = order(OrderStatus.DELIVERED, -30.1, -51.1);
+    RouteStop pending = stop(delivered, RouteStopStatus.PENDING);
+    DeliveryRoute route = activeRouteWithStops(pending);
+
+    when(routeStopRepository.findByOrderIdAndRouteStatus(
+            delivered.getId(), DeliveryRouteStatus.ACTIVE))
+        .thenReturn(Optional.of(pending));
+    when(deliveryRouteRepository.findWithStopsById(route.getId())).thenReturn(Optional.of(route));
+    when(deliveryRouteRepository.saveAndFlush(any(DeliveryRoute.class)))
+        .thenAnswer(inv -> inv.getArgument(0));
+
+    deliveryRouteService.syncStopForTerminalOrder(delivered.getId(), OrderStatus.DELIVERED);
+
+    assertThat(pending.getStatus()).isEqualTo(RouteStopStatus.DELIVERED);
+    assertThat(pending.getCompletedAt()).isNotNull();
+    assertThat(route.getStatus()).isEqualTo(DeliveryRouteStatus.COMPLETED);
+    verify(trackingService).clearRoute(route.getId());
+    verify(deliveryRouteRepository).saveAndFlush(route);
+  }
+
+  @Test
+  void syncStop_shouldKeepRouteActive_whenOtherStopsStillPending() {
+    Order delivered = order(OrderStatus.DELIVERED, -30.1, -51.1);
+    RouteStop confirmed = stop(delivered, RouteStopStatus.PENDING);
+    RouteStop otherPending =
+        stop(order(OrderStatus.IN_DELIVERY, -30.2, -51.2), RouteStopStatus.PENDING);
+    DeliveryRoute route = activeRouteWithStops(confirmed, otherPending);
+
+    when(routeStopRepository.findByOrderIdAndRouteStatus(
+            delivered.getId(), DeliveryRouteStatus.ACTIVE))
+        .thenReturn(Optional.of(confirmed));
+    when(deliveryRouteRepository.findWithStopsById(route.getId())).thenReturn(Optional.of(route));
+    when(deliveryRouteRepository.saveAndFlush(any(DeliveryRoute.class)))
+        .thenAnswer(inv -> inv.getArgument(0));
+
+    deliveryRouteService.syncStopForTerminalOrder(delivered.getId(), OrderStatus.DELIVERED);
+
+    assertThat(confirmed.getStatus()).isEqualTo(RouteStopStatus.DELIVERED);
+    assertThat(route.getStatus()).isEqualTo(DeliveryRouteStatus.ACTIVE);
+    verify(trackingService, never()).clearRoute(any());
+  }
+
+  @Test
+  void syncStop_shouldFailStop_whenOrderCancelled() {
+    Order cancelled = order(OrderStatus.CANCELLED, -30.1, -51.1);
+    RouteStop pending = stop(cancelled, RouteStopStatus.PENDING);
+    DeliveryRoute route = activeRouteWithStops(pending);
+
+    when(routeStopRepository.findByOrderIdAndRouteStatus(
+            cancelled.getId(), DeliveryRouteStatus.ACTIVE))
+        .thenReturn(Optional.of(pending));
+    when(deliveryRouteRepository.findWithStopsById(route.getId())).thenReturn(Optional.of(route));
+    when(deliveryRouteRepository.saveAndFlush(any(DeliveryRoute.class)))
+        .thenAnswer(inv -> inv.getArgument(0));
+
+    deliveryRouteService.syncStopForTerminalOrder(cancelled.getId(), OrderStatus.CANCELLED);
+
+    assertThat(pending.getStatus()).isEqualTo(RouteStopStatus.FAILED);
+    assertThat(route.getStatus()).isEqualTo(DeliveryRouteStatus.COMPLETED);
+  }
+
+  @Test
+  void syncStop_shouldBeNoOp_whenStopAlreadyTerminal() {
+    // Caminho do produtor (updateStop) já concluiu a parada e disparou o evento — re-entrância
+    // não pode reprocessar: parada já DELIVERED -> nada a salvar.
+    Order delivered = order(OrderStatus.DELIVERED, -30.1, -51.1);
+    RouteStop already = stop(delivered, RouteStopStatus.DELIVERED);
+    RouteStop otherPending =
+        stop(order(OrderStatus.IN_DELIVERY, -30.2, -51.2), RouteStopStatus.PENDING);
+    DeliveryRoute route = activeRouteWithStops(already, otherPending);
+
+    when(routeStopRepository.findByOrderIdAndRouteStatus(
+            delivered.getId(), DeliveryRouteStatus.ACTIVE))
+        .thenReturn(Optional.of(already));
+    when(deliveryRouteRepository.findWithStopsById(route.getId())).thenReturn(Optional.of(route));
+
+    deliveryRouteService.syncStopForTerminalOrder(delivered.getId(), OrderStatus.DELIVERED);
+
+    verify(deliveryRouteRepository, never()).saveAndFlush(any());
+    verify(trackingService, never()).clearRoute(any());
+  }
+
+  @Test
+  void syncStop_shouldBeNoOp_whenOrderNotInActiveRoute() {
+    UUID orderId = UUID.randomUUID();
+    when(routeStopRepository.findByOrderIdAndRouteStatus(orderId, DeliveryRouteStatus.ACTIVE))
+        .thenReturn(Optional.empty());
+
+    deliveryRouteService.syncStopForTerminalOrder(orderId, OrderStatus.DELIVERED);
+
+    verify(deliveryRouteRepository, never()).findWithStopsById(any());
+    verify(deliveryRouteRepository, never()).saveAndFlush(any());
+  }
+
+  @Test
+  void getActiveRoute_shouldSelfHealAndComplete_whenStopOrderTerminalButStopPending() {
+    // Rede de segurança: parada presa PENDING com pedido já DELIVERED (listener perdido/corrida) —
+    // ao resumir, reconcilia e fecha a rota; deixa de existir rota ativa (some o "fantasma").
+    Order delivered = order(OrderStatus.DELIVERED, -30.1, -51.1);
+    RouteStop stale = stop(delivered, RouteStopStatus.PENDING);
+    DeliveryRoute route = activeRouteWithStops(stale);
+
+    when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any()))
+        .thenReturn(farmerUser);
+    when(deliveryRouteRepository.findByFarmerIdAndStatus(
+            farmerUser.getId(), DeliveryRouteStatus.ACTIVE))
+        .thenReturn(Optional.of(route));
+    when(deliveryRouteRepository.saveAndFlush(any(DeliveryRoute.class)))
+        .thenAnswer(inv -> inv.getArgument(0));
+
+    assertThatThrownBy(() -> deliveryRouteService.getActiveRoute(jwt()))
+        .isInstanceOf(NotFoundException.class);
+
+    assertThat(stale.getStatus()).isEqualTo(RouteStopStatus.DELIVERED);
+    assertThat(route.getStatus()).isEqualTo(DeliveryRouteStatus.COMPLETED);
+    verify(trackingService).clearRoute(route.getId());
+  }
+
+  @Test
+  void getActiveRoute_shouldReconcileButStayActive_whenAnotherStopStillDeliverable() {
+    Order delivered = order(OrderStatus.DELIVERED, -30.1, -51.1);
+    RouteStop stale = stop(delivered, RouteStopStatus.PENDING);
+    RouteStop stillPending =
+        stop(order(OrderStatus.IN_DELIVERY, -30.2, -51.2), RouteStopStatus.PENDING);
+    DeliveryRoute route = activeRouteWithStops(stale, stillPending);
+
+    when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any()))
+        .thenReturn(farmerUser);
+    when(deliveryRouteRepository.findByFarmerIdAndStatus(
+            farmerUser.getId(), DeliveryRouteStatus.ACTIVE))
+        .thenReturn(Optional.of(route));
+    when(deliveryRouteRepository.saveAndFlush(any(DeliveryRoute.class)))
+        .thenAnswer(inv -> inv.getArgument(0));
+
+    RouteResponse response = deliveryRouteService.getActiveRoute(jwt());
+
+    assertThat(response.getStatus()).isEqualTo(DeliveryRouteStatus.ACTIVE);
+    assertThat(stale.getStatus()).isEqualTo(RouteStopStatus.DELIVERED); // reconciliada
+    assertThat(stillPending.getStatus()).isEqualTo(RouteStopStatus.PENDING); // continua entregável
+    verify(deliveryRouteRepository).saveAndFlush(route); // reconciliação persistida
+    verify(trackingService, never()).clearRoute(any());
+  }
+
+  @Test
+  void getActiveRoute_shouldReturnAsIs_whenNothingToReconcile() {
+    RouteStop pending = stop(order(OrderStatus.IN_DELIVERY, -30.1, -51.1), RouteStopStatus.PENDING);
+    DeliveryRoute route = activeRouteWithStops(pending);
+
+    when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any()))
+        .thenReturn(farmerUser);
+    when(deliveryRouteRepository.findByFarmerIdAndStatus(
+            farmerUser.getId(), DeliveryRouteStatus.ACTIVE))
+        .thenReturn(Optional.of(route));
+
+    RouteResponse response = deliveryRouteService.getActiveRoute(jwt());
+
+    assertThat(response.getStatus()).isEqualTo(DeliveryRouteStatus.ACTIVE);
+    verify(deliveryRouteRepository, never()).saveAndFlush(any());
   }
 
   @Test

@@ -17,6 +17,7 @@ import br.com.ragro.exception.NotFoundException;
 import br.com.ragro.mapper.DeliveryRouteMapper;
 import br.com.ragro.repository.DeliveryRouteRepository;
 import br.com.ragro.repository.OrderRepository;
+import br.com.ragro.repository.RouteStopRepository;
 import br.com.ragro.service.GoogleMapsService.GeocodeOutcome;
 import br.com.ragro.service.GoogleRoutesService.ComputedRoute;
 import br.com.ragro.service.GoogleRoutesService.GeoPoint;
@@ -31,6 +32,7 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -49,6 +51,7 @@ public class DeliveryRouteService {
   private final UserService userService;
   private final OrderRepository orderRepository;
   private final DeliveryRouteRepository deliveryRouteRepository;
+  private final RouteStopRepository routeStopRepository;
   private final GoogleRoutesService googleRoutesService;
   private final GoogleMapsService googleMapsService;
   private final OrderService orderService;
@@ -143,15 +146,62 @@ public class DeliveryRouteService {
     return DeliveryRouteMapper.toResponse(saved);
   }
 
-  /** Rota ativa do produtor — permite retomar a sequência depois de fechar/matar o app. */
-  @Transactional(readOnly = true)
+  /**
+   * Rota ativa do produtor — permite retomar a sequência depois de fechar/matar o app.
+   *
+   * <p>Faz <b>self-heal</b> ao resumir: reconcilia paradas cujo PEDIDO já terminou por fora do
+   * fluxo de parada (cliente confirmou a entrega, cancelamento) e fecha a rota se todas terminaram.
+   * É a rede de segurança do {@link #syncStopForTerminalOrder}: cobre qualquer parada que tenha
+   * ficado dessincronizada por corrida (produtor + listener simultâneos, sem lock/@Version nas
+   * entidades de rota) ou por falha best-effort do listener — sem isto a rota voltava como
+   * "fantasma" aqui (ACTIVE com paradas presas em PENDING cujos pedidos já estavam DELIVERED).
+   */
+  @Transactional
   public RouteResponse getActiveRoute(Jwt jwt) {
     User user = requireFarmer(jwt);
     DeliveryRoute route =
         deliveryRouteRepository
             .findByFarmerIdAndStatus(user.getId(), DeliveryRouteStatus.ACTIVE)
             .orElseThrow(() -> new NotFoundException("Nenhuma rota ativa"));
+
+    boolean changed = false;
+    for (RouteStop stop : route.getStops()) {
+      if (TERMINAL_STOP_STATUSES.contains(stop.getStatus())) {
+        continue;
+      }
+      OrderStatus orderStatus = stop.getOrder().getStatus();
+      if (orderStatus == OrderStatus.DELIVERED) {
+        stop.setStatus(RouteStopStatus.DELIVERED);
+        stop.setCompletedAt(OffsetDateTime.now());
+        changed = true;
+      } else if (orderStatus == OrderStatus.CANCELLED) {
+        stop.setStatus(RouteStopStatus.FAILED);
+        stop.setCompletedAt(OffsetDateTime.now());
+        changed = true;
+      }
+    }
+
+    boolean completed = completeIfAllStopsTerminal(route);
+    if (changed || completed) {
+      deliveryRouteRepository.saveAndFlush(route);
+    }
+    if (completed) {
+      throw new NotFoundException("Nenhuma rota ativa");
+    }
     return DeliveryRouteMapper.toResponse(route);
+  }
+
+  /** Fecha a rota se todas as paradas estão terminais (DELIVERED/FAILED) e encerra o tracking. */
+  private boolean completeIfAllStopsTerminal(DeliveryRoute route) {
+    boolean allDone =
+        route.getStops().stream().allMatch(s -> TERMINAL_STOP_STATUSES.contains(s.getStatus()));
+    if (allDone) {
+      route.setStatus(DeliveryRouteStatus.COMPLETED);
+      route.setCompletedAt(OffsetDateTime.now());
+      // Fora de entrega ativa a posição não é compartilhada (privacidade).
+      trackingService.clearRoute(route.getId());
+    }
+    return allDone;
   }
 
   /**
@@ -201,6 +251,54 @@ public class DeliveryRouteService {
 
     DeliveryRoute saved = deliveryRouteRepository.saveAndFlush(route);
     return DeliveryRouteMapper.toResponse(saved);
+  }
+
+  /**
+   * Sincroniza a parada quando o PEDIDO chega a um estado terminal por FORA do fluxo de parada — o
+   * caso real é o cliente confirmando a entrega em {@code POST /orders/customer/{id}/confirm-delivery}
+   * (mexe só no pedido). Sem isto a parada ficava PENDING para sempre: a rota nunca fechava (virava
+   * "rota fantasma" no {@code GET /routes/active}) e o produtor nem conseguia marcar a parada depois
+   * (o pedido já terminal recusava a transição). DELIVERED → parada DELIVERED; CANCELLED → FAILED;
+   * se todas terminam, a rota fecha.
+   *
+   * <p>Roda em transação própria (REQUIRES_NEW), disparada por um listener AFTER_COMMIT — é
+   * best-effort: o pedido já foi confirmado/cancelado e nada aqui pode desfazer isso. O guard de
+   * "parada já terminal" torna o caminho do produtor (que já sincroniza tudo em {@link #updateStop})
+   * um no-op, evitando reprocessamento.
+   */
+  @Transactional(propagation = Propagation.REQUIRES_NEW)
+  public void syncStopForTerminalOrder(UUID orderId, OrderStatus orderStatus) {
+    RouteStop located =
+        routeStopRepository
+            .findByOrderIdAndRouteStatus(orderId, DeliveryRouteStatus.ACTIVE)
+            .orElse(null);
+    if (located == null) {
+      return; // pedido não está numa rota ativa — nada a sincronizar
+    }
+
+    DeliveryRoute route =
+        deliveryRouteRepository.findWithStopsById(located.getRoute().getId()).orElse(null);
+    if (route == null || route.getStatus() != DeliveryRouteStatus.ACTIVE) {
+      return;
+    }
+
+    RouteStop stop =
+        route.getStops().stream()
+            .filter(s -> s.getOrder().getId().equals(orderId))
+            .findFirst()
+            .orElse(null);
+    if (stop == null || TERMINAL_STOP_STATUSES.contains(stop.getStatus())) {
+      return; // já sincronizada pelo fluxo do produtor — evita reprocessar
+    }
+
+    stop.setStatus(
+        orderStatus == OrderStatus.DELIVERED
+            ? RouteStopStatus.DELIVERED
+            : RouteStopStatus.FAILED);
+    stop.setCompletedAt(OffsetDateTime.now());
+
+    completeIfAllStopsTerminal(route);
+    deliveryRouteRepository.saveAndFlush(route);
   }
 
   private void validateStopTransition(RouteStopStatus current, RouteStopStatus target) {
