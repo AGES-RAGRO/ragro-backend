@@ -1,0 +1,14 @@
+# Profile de DESENVOLVIMENTO LOCAL — espelha as credenciais do docker-compose.yml (dev-only,
+# nunca usadas em prod: o deploy ECS injeta env vars que têm precedência e não ativa este profile).
+# Uso: SPRING_PROFILES_ACTIVE=local ./mvnw spring-boot:run
+spring:
+  datasource:
+    password: postgres
+
+keycloak:
+  admin:
+    password: admin
+
+minio:
+  access-key: minioadmin
+  secret-key: minioadmin

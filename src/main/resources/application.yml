@@ -1,8 +1,11 @@
+# Credenciais NÃO têm default aqui de propósito: secret faltando no deploy derruba o boot
+# (fail-fast) em vez de subir silenciosamente com credencial conhecida. Para rodar local sem
+# docker-compose, use o profile "local" (SPRING_PROFILES_ACTIVE=local), que define os valores de dev.
 spring:
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/gearheads}
     username: ${SPRING_DATASOURCE_USERNAME:postgres}
-    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD}
 
   jpa:
     hibernate:
@@ -63,14 +66,14 @@ keycloak:
   realm: ragro
   admin:
     username: ${KEYCLOAK_ADMIN:admin}
-    password: ${KEYCLOAK_ADMIN_PASSWORD:admin}
+    password: ${KEYCLOAK_ADMIN_PASSWORD}
 
 minio:
   endpoint: ${STORAGE_ENDPOINT:http://localhost:9000}
   media-public-url: ${MEDIA_PUBLIC_URL:http://localhost:8080}
   region: ${STORAGE_REGION:us-east-1}
-  access-key: ${STORAGE_ACCESS_KEY:minioadmin}
-  secret-key: ${STORAGE_SECRET_KEY:minioadmin}
+  access-key: ${STORAGE_ACCESS_KEY}
+  secret-key: ${STORAGE_SECRET_KEY}
   bucket: ${STORAGE_BUCKET:ragro-media}
 
 springdoc:
