@@ -31,4 +31,19 @@ public class CustomerOrderResponse {
   // Cancellation reason/details (persisted on Order); null when the order was not cancelled.
   private String cancellationReason;
   private String cancellationDetails;
+
+  // 4-digit delivery confirmation code shown to the consumer when status is IN_DELIVERY.
+  // Null for all other statuses.
+  private String confirmationCode;
+
+  // Actions the consumer can take on this order.
+  private Actions actions;
+
+  @Data
+  @Builder
+  public static class Actions {
+    private boolean canConfirmDelivery;
+    private boolean canCancel;
+    private boolean canContactProducer;
+  }
 }

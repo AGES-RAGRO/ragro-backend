@@ -35,6 +35,7 @@ import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Random;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -374,6 +375,10 @@ public class OrderService {
     }
 
     order.setStatus(newStatus);
+    if (newStatus == OrderStatus.IN_DELIVERY) {
+      // Generate a fresh 4-digit confirmation code whenever the order goes out for delivery.
+      order.setConfirmationCode(generateConfirmationCode());
+    }
     if (newStatus == OrderStatus.DELIVERED) {
       // Record the delivery time — dashboard metrics filter by deliveredAt.
       order.setDeliveredAt(OffsetDateTime.now());
@@ -428,6 +433,53 @@ public class OrderService {
     notificationService.createCustomerOrderAcceptedNotification(updatedOrder);
 
     return OrderMapper.toResponse(updatedOrder, storageService);
+  }
+
+  /**
+   * Producer confirms that an IN_DELIVERY order was received by the consumer, validated by a
+   * 4-digit code displayed on the consumer's app. Transitions IN_DELIVERY → DELIVERED.
+   */
+  @Transactional
+  public OrderResponse confirmDeliveryWithCode(UUID orderId, String code, Jwt jwt) {
+    User user = userService.getAuthenticatedUser(jwt);
+    if (user.getType() != TypeUser.FARMER) {
+      throw new ForbiddenException("Apenas produtores podem confirmar a entrega com código");
+    }
+
+    Order order =
+        orderRepository
+            .findById(orderId)
+            .orElseThrow(() -> new NotFoundException("Pedido não encontrado"));
+
+    if (!order.getFarmer().getId().equals(user.getId())) {
+      throw new ForbiddenException("Você não tem permissão para confirmar este pedido");
+    }
+
+    if (order.getStatus() != OrderStatus.IN_DELIVERY) {
+      throw new BusinessException(
+          "Somente pedidos em entrega podem ser confirmados como entregues");
+    }
+
+    if (order.getConfirmationCode() == null || !order.getConfirmationCode().equals(code)) {
+      throw new BusinessException("Código de confirmação incorreto");
+    }
+
+    order.setStatus(OrderStatus.DELIVERED);
+    order.setDeliveredAt(OffsetDateTime.now());
+
+    OrderStatusHistory history = new OrderStatusHistory();
+    history.setOrder(order);
+    history.setStatus(OrderStatus.DELIVERED);
+    order.getStatusHistory().add(history);
+
+    Order savedOrder = orderRepository.saveAndFlush(order);
+    notificationService.createCustomerOrderDeliveredNotification(savedOrder);
+    return OrderMapper.toResponse(savedOrder, storageService);
+  }
+
+  /** Generates a zero-padded 4-digit random confirmation code (e.g. "0042", "9999"). */
+  private String generateConfirmationCode() {
+    return String.format("%04d", new Random().nextInt(10000));
   }
 
   private void notifyCustomerOnStatusChange(Order order, OrderStatus status) {
