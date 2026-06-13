@@ -46,6 +46,9 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class OrderService {
 
+  private static final int MAX_CONFIRMATION_ATTEMPTS = 5;
+  private static final int LOCKOUT_MINUTES = 15;
+
   private final UserService userService;
   private final CustomerRepository customerRepository;
   private final CartRepository cartRepository;
@@ -374,10 +377,14 @@ public class OrderService {
       throw new ForbiddenException("Você não tem permissão para atualizar este pedido");
     }
 
+    OrderStatus previousStatus = order.getStatus();
     order.setStatus(newStatus);
-    if (newStatus == OrderStatus.IN_DELIVERY) {
-      // Generate a fresh 4-digit confirmation code whenever the order goes out for delivery.
+    if (newStatus == OrderStatus.IN_DELIVERY && previousStatus != OrderStatus.IN_DELIVERY) {
+      // Only generate a fresh code on the actual transition into IN_DELIVERY.
+      // Re-sending the same status must not invalidate the code already shown to the consumer.
       order.setConfirmationCode(generateConfirmationCode());
+      order.setConfirmationAttempts(0);
+      order.setConfirmationLockedUntil(null);
     }
     if (newStatus == OrderStatus.DELIVERED) {
       // Record the delivery time — dashboard metrics filter by deliveredAt.
@@ -460,9 +467,29 @@ public class OrderService {
           "Somente pedidos em entrega podem ser confirmados como entregues");
     }
 
+    OffsetDateTime now = OffsetDateTime.now();
+
+    if (order.getConfirmationLockedUntil() != null && now.isBefore(order.getConfirmationLockedUntil())) {
+      throw new BusinessException(
+          "Muitas tentativas incorretas. Tente novamente em alguns minutos.");
+    }
+
     if (order.getConfirmationCode() == null || !order.getConfirmationCode().equals(code)) {
+      int attempts = order.getConfirmationAttempts() + 1;
+      order.setConfirmationAttempts(attempts);
+      if (attempts >= MAX_CONFIRMATION_ATTEMPTS) {
+        order.setConfirmationLockedUntil(now.plusMinutes(LOCKOUT_MINUTES));
+        orderRepository.saveAndFlush(order);
+        throw new BusinessException(
+            "Código incorreto. Muitas tentativas: pedido bloqueado por " + LOCKOUT_MINUTES + " minutos.");
+      }
+      orderRepository.saveAndFlush(order);
       throw new BusinessException("Código de confirmação incorreto");
     }
+
+    // Code matched — reset attempt counters before confirming.
+    order.setConfirmationAttempts(0);
+    order.setConfirmationLockedUntil(null);
 
     order.setStatus(OrderStatus.DELIVERED);
     order.setDeliveredAt(OffsetDateTime.now());
