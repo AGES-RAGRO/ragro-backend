@@ -28,3 +28,21 @@ variable "db_password" {
   sensitive   = true
   default     = null
 }
+
+# Valores específicos de cada conta AWS. Sem default: devem vir de um arquivo de
+# ambiente (ex.: terraform plan -var-file=envs/ages.tfvars). Não são segredos —
+# são ARNs/nomes de recursos que diferem entre AGES e cliente.
+variable "kms_key_id" {
+  description = "ARN da KMS key usada pelo RDS (storage e Performance Insights)."
+  type        = string
+}
+
+variable "monitoring_role_arn" {
+  description = "ARN da role de Enhanced Monitoring do RDS."
+  type        = string
+}
+
+variable "db_subnet_group_name" {
+  description = "Nome do DB subnet group (default da VPC) usado pelo RDS."
+  type        = string
+}
