@@ -17,8 +17,6 @@ jobs:
   plan:
     name: Plan
     runs-on: ubuntu-latest
-    # Valores específicos de conta vêm de GitHub Variables (não Secrets — não são
-    # segredos). Configurar em Settings > Secrets and variables > Actions > Variables.
     env:
       TF_VAR_kms_key_id: ${{ vars.RDS_KMS_KEY_ARN }}
       TF_VAR_monitoring_role_arn: ${{ vars.RDS_MONITORING_ROLE_ARN }}
