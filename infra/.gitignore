@@ -1,0 +1,18 @@
+# Terraform — nunca commitar state nem variáveis (contêm segredos/endereços).
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+crash.log
+crash.*.log
+*.tfvars
+*.tfvars.json
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# O lock file (.terraform.lock.hcl) DEVE ser commitado — ele pina as versões
+# dos providers para o time inteiro. Por isso não está ignorado aqui.
