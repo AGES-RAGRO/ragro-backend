@@ -28,3 +28,18 @@ variable "db_password" {
   sensitive   = true
   default     = null
 }
+
+variable "kms_key_id" {
+  description = "ARN da KMS key usada pelo RDS (storage e Performance Insights)."
+  type        = string
+}
+
+variable "monitoring_role_arn" {
+  description = "ARN da role de Enhanced Monitoring do RDS."
+  type        = string
+}
+
+variable "db_subnet_group_name" {
+  description = "Nome do DB subnet group (default da VPC) usado pelo RDS."
+  type        = string
+}

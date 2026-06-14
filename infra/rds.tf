@@ -2,9 +2,8 @@
 # Utiliza o DB subnet group e o parameter group padrão da AWS (criados
 # automaticamente), referenciados por nome — não gerenciados como recursos.
 #
-# Os ARNs específicos da conta AGES (KMS, monitoring role) e o nome do subnet
-# group estão literais. Parametrizar (kms_key_id, monitoring_role_arn,
-# db_subnet_group_name) ao provisionar na conta do cliente.
+# Valores específicos de conta (KMS key, monitoring role, subnet group) vêm de
+# variáveis definidas por ambiente em envs/*.tfvars.
 resource "aws_db_instance" "ragro" {
   identifier     = "ragro-backend-db"
   engine         = "postgres"
@@ -19,7 +18,7 @@ resource "aws_db_instance" "ragro" {
   iops                  = 3000
   storage_throughput    = 125
   storage_encrypted     = true
-  kms_key_id            = "arn:aws:kms:us-east-2:610639371759:key/77f17bed-3090-4f8f-948a-ec7a10d14ed5"
+  kms_key_id            = var.kms_key_id
 
   availability_zone   = "us-east-2c"
   multi_az            = false
@@ -27,7 +26,7 @@ resource "aws_db_instance" "ragro" {
   port                = 5432
   network_type        = "IPV4"
 
-  db_subnet_group_name   = "default-vpc-00ebf3c6f3a41f645"
+  db_subnet_group_name   = var.db_subnet_group_name
   parameter_group_name   = "default.postgres16"
   option_group_name      = "default:postgres-16"
   vpc_security_group_ids = [aws_default_security_group.default.id]
@@ -44,10 +43,10 @@ resource "aws_db_instance" "ragro" {
   engine_lifecycle_support   = "open-source-rds-extended-support-disabled"
 
   monitoring_interval = 60
-  monitoring_role_arn = "arn:aws:iam::610639371759:role/rds-monitoring-role"
+  monitoring_role_arn = var.monitoring_role_arn
 
   performance_insights_enabled          = true
-  performance_insights_kms_key_id       = "arn:aws:kms:us-east-2:610639371759:key/77f17bed-3090-4f8f-948a-ec7a10d14ed5"
+  performance_insights_kms_key_id       = var.kms_key_id
   performance_insights_retention_period = 7
 
   deletion_protection = false

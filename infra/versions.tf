@@ -11,14 +11,9 @@ terraform {
     }
   }
 
-  # State remoto no S3 (bucket dedicado, versionado e criptografado).
+  # State remoto no S3 com configuração PARCIAL: os valores (bucket, key, region)
+  # vêm de um arquivo por ambiente, passado no init:
+  #   terraform init -backend-config=envs/ages.backend.hcl
   # Lock nativo do S3 (use_lockfile) — não precisa de DynamoDB.
-  # A chave separa ambientes: ages/ aqui, cliente/ na fase 2.
-  backend "s3" {
-    bucket       = "ragro-tfstate-610639371759"
-    key          = "ages/terraform.tfstate"
-    region       = "us-east-2"
-    encrypt      = true
-    use_lockfile = true
-  }
+  backend "s3" {}
 }
