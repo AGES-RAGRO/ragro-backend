@@ -29,9 +29,6 @@ variable "db_password" {
   default     = null
 }
 
-# Valores específicos de cada conta AWS. Sem default: devem vir de um arquivo de
-# ambiente (ex.: terraform plan -var-file=envs/ages.tfvars). Não são segredos —
-# são ARNs/nomes de recursos que diferem entre AGES e cliente.
 variable "kms_key_id" {
   description = "ARN da KMS key usada pelo RDS (storage e Performance Insights)."
   type        = string
