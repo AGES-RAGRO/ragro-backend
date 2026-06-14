@@ -55,6 +55,6 @@ resource "aws_db_instance" "ragro" {
 
   lifecycle {
     prevent_destroy = true
-    ignore_changes = [password]
+    ignore_changes  = [password]
   }
 }
