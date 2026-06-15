@@ -49,6 +49,9 @@ spring:
           # A NVIDIA LLM API exige max-tokens; cobre ~50 itens reordenados em JSON.
           max-tokens: ${NVIDIA_MAX_TOKENS:4096}
 
+  firebase:
+    service-account-json: ${FIREBASE_SERVICE_ACCOUNT_JSON}
+
 # Timeouts do cliente HTTP da NVIDIA LLM API. O Spring AI 1.0.3 não expõe timeout via
 # propriedade para o client OpenAI e seu RestClient default não tem read-timeout, então
 # NvidiaChatConfig aplica estes valores ao RestClient do OpenAiApi. O read-timeout cobre a
