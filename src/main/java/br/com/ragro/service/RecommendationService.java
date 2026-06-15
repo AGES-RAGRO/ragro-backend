@@ -98,7 +98,7 @@ public class RecommendationService {
 
       List<UUID> coIds = orderItemRepository.findCoOccurringProductIds(customerId, purchasedIds);
       if (!coIds.isEmpty()) {
-        List<Product> coProducts = productRepository.findAllById(coIds);
+        List<Product> coProducts = productRepository.findAllByIdAndFarmerUserActiveTrue(coIds);
         for (Product p : coProducts) {
           accumulate(
               p,
