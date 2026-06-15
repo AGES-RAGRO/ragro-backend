@@ -15,8 +15,16 @@ permissions:
 
 jobs:
   plan:
-    name: Plan
+    name: Plan (${{ matrix.env }})
     runs-on: ubuntu-latest
+    # Um job por ambiente. Cada ambiente usa as credenciais (secrets) e os
+    # valores (variables) do GitHub Environment de mesmo nome. Para ligar o
+    # cliente no bring-up, basta adicionar 'cliente' à lista abaixo.
+    strategy:
+      fail-fast: false
+      matrix:
+        env: [ages]
+    environment: ${{ matrix.env }}
     env:
       TF_VAR_kms_key_id: ${{ vars.RDS_KMS_KEY_ARN }}
       TF_VAR_monitoring_role_arn: ${{ vars.RDS_MONITORING_ROLE_ARN }}
@@ -50,7 +58,7 @@ jobs:
         run: |
           terraform init -input=false \
             -backend-config="bucket=${{ vars.TFSTATE_BUCKET }}" \
-            -backend-config="key=ages/terraform.tfstate" \
+            -backend-config="key=${{ matrix.env }}/terraform.tfstate" \
             -backend-config="region=us-east-2" \
             -backend-config="encrypt=true" \
             -backend-config="use_lockfile=true"
@@ -70,11 +78,12 @@ jobs:
           PLAN: ${{ steps.plan.outputs.stdout }}
         with:
           script: |
+            const env = '${{ matrix.env }}';
+            const marker = `<!-- tf-plan-${env} -->`;
             const plan = (process.env.PLAN || '').substring(0, 60000);
-            const body = `#### Terraform \`fmt\` \`${{ steps.fmt.outcome }}\`
-            #### Terraform \`init\` \`${{ steps.init.outcome }}\`
-            #### Terraform \`validate\` \`${{ steps.validate.outcome }}\`
-            #### Terraform \`plan\` \`${{ steps.plan.outcome }}\`
+            const body = `${marker}
+            ### Terraform — ambiente \`${env}\`
+            #### \`fmt\` \`${{ steps.fmt.outcome }}\` · \`init\` \`${{ steps.init.outcome }}\` · \`validate\` \`${{ steps.validate.outcome }}\` · \`plan\` \`${{ steps.plan.outcome }}\`
 
             <details><summary>Mostrar plan</summary>
 
@@ -91,12 +100,12 @@ jobs:
               repo: context.repo.repo,
               issue_number: context.issue.number,
             });
-            const marker = comments.find(c => c.body.includes('Terraform `plan`'));
-            if (marker) {
+            const existing = comments.find(c => c.body.includes(marker));
+            if (existing) {
               await github.rest.issues.updateComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                comment_id: marker.id,
+                comment_id: existing.id,
                 body,
               });
             } else {
