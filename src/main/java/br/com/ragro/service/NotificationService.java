@@ -80,9 +80,10 @@ public class NotificationService {
   public void saveToken(Jwt jwt, String token) {
     User user = userService.getAuthenticatedUser(jwt);
 
-    FcmToken fcmToken = fcmTokenRepository.findByToken(token).orElseGet(FcmToken::new);
+    String normalizedToken = token.trim();
+    FcmToken fcmToken = fcmTokenRepository.findByToken(normalizedToken).orElseGet(FcmToken::new);
     fcmToken.setUser(user);
-    fcmToken.setToken(token);
+    fcmToken.setToken(normalizedToken);
     fcmTokenRepository.save(fcmToken);
   }
 
@@ -138,19 +139,24 @@ public class NotificationService {
     List<String> tokens = fcmTokenRepository.findTokensByUserId(user.getId());
     if (tokens.isEmpty()) return;
 
-    try {
-      MulticastMessage message = MulticastMessage.builder()
-              .addAllTokens(tokens)
-              .setNotification(
-                      com.google.firebase.messaging.Notification.builder()
-                              .setTitle(title)
-                              .setBody(body)
-                              .build())
-              .build();
+    com.google.firebase.messaging.Notification notification =
+        com.google.firebase.messaging.Notification.builder()
+            .setTitle(title)
+            .setBody(body)
+            .build();
 
-      FirebaseMessaging.getInstance().sendEachForMulticast(message);
-    } catch (FirebaseMessagingException e) {
-      log.warn("[FCM] falha ao enviar push para userId {}: {}", user.getId(), e.getMessage());
+    int batchSize = 500;
+    for (int i = 0; i < tokens.size(); i += batchSize) {
+      List<String> batch = tokens.subList(i, Math.min(i + batchSize, tokens.size()));
+      try {
+        MulticastMessage message = MulticastMessage.builder()
+            .addAllTokens(batch)
+            .setNotification(notification)
+            .build();
+        FirebaseMessaging.getInstance().sendEachForMulticast(message);
+      } catch (FirebaseMessagingException e) {
+        log.warn("[FCM] falha ao enviar push para userId {}: {}", user.getId(), e.getMessage());
+      }
     }
   }
 

@@ -18,6 +18,7 @@ import br.com.ragro.domain.enums.NotificationType;
 import br.com.ragro.domain.enums.TypeUser;
 import br.com.ragro.exception.ForbiddenException;
 import br.com.ragro.exception.NotFoundException;
+import br.com.ragro.repository.FcmTokenRepository;
 import br.com.ragro.repository.NotificationRepository;
 import java.time.OffsetDateTime;
 import java.util.Optional;
@@ -38,6 +39,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 class NotificationServiceTest {
 
   @Mock private NotificationRepository notificationRepository;
+  @Mock private FcmTokenRepository fcmTokenRepository;
   @Mock private UserService userService;
 
   @InjectMocks private NotificationService notificationService;
