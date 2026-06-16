@@ -15,8 +15,8 @@ resource "aws_db_instance" "ragro" {
   allocated_storage     = 20
   max_allocated_storage = 1000
   storage_type          = "gp3"
-  iops                  = 3000
-  storage_throughput    = 125
+  iops                  = var.storage_iops
+  storage_throughput    = var.storage_throughput
   storage_encrypted     = true
   kms_key_id            = var.kms_key_id
 
@@ -31,7 +31,7 @@ resource "aws_db_instance" "ragro" {
   option_group_name      = "default:postgres-16"
   vpc_security_group_ids = [aws_default_security_group.default.id]
 
-  backup_retention_period  = 7
+  backup_retention_period  = var.backup_retention_period
   backup_window            = "09:03-09:33"
   maintenance_window       = "tue:05:14-tue:05:44"
   copy_tags_to_snapshot    = true
@@ -42,12 +42,12 @@ resource "aws_db_instance" "ragro" {
   license_model              = "postgresql-license"
   engine_lifecycle_support   = "open-source-rds-extended-support-disabled"
 
-  monitoring_interval = 60
-  monitoring_role_arn = var.monitoring_role_arn
+  monitoring_interval = var.monitoring_interval
+  monitoring_role_arn = var.monitoring_interval > 0 ? var.monitoring_role_arn : null
 
-  performance_insights_enabled          = true
-  performance_insights_kms_key_id       = var.kms_key_id
-  performance_insights_retention_period = 7
+  performance_insights_enabled          = var.performance_insights_enabled
+  performance_insights_kms_key_id       = var.performance_insights_enabled ? var.kms_key_id : null
+  performance_insights_retention_period = var.performance_insights_enabled ? 7 : null
 
   deletion_protection = false
   skip_final_snapshot = true
