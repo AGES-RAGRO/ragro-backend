@@ -28,7 +28,16 @@ name: Deploy to Amazon ECS
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main" ]   # deploy automático no ambiente AGES
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Ambiente de deploy"
+        type: choice
+        options:
+          - ages
+          - prod
+        default: ages
 
 env:
   AWS_REGION: ${{ secrets.MY_AWS_REGION }}
@@ -43,9 +52,10 @@ permissions:
 
 jobs:
   deploy:
-    name: Deploy
+    name: Deploy (${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'ages' }})
     runs-on: ubuntu-latest
-    environment: production
+    # push em main -> AGES (automático). workflow_dispatch -> ambiente escolhido.
+    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'ages' }}
 
     steps:
     - name: Checkout
