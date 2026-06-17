@@ -101,10 +101,11 @@ services:
       STORAGE_SECRET_KEY: minioadmin
       STORAGE_BUCKET: ragro-media
       MEDIA_PUBLIC_URL: ${MEDIA_PUBLIC_URL:-http://localhost:8080}
-      # Reranker via NVIDIA LLM API (Spring AI client OpenAI). A chave vem do .env (gitignored);
-      # base-url e modelo usam os defaults do application.yml.
+      # Reranker via NVIDIA LLM API (Spring AI client OpenAI).
       NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
       GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY}
+      # Firebase Cloud Messaging service-account JSON (single line). Absent = push disabled.
+      FIREBASE_SERVICE_ACCOUNT_JSON: ${FIREBASE_SERVICE_ACCOUNT_JSON:-}
     ports:
       - "8080:8080"
     networks:

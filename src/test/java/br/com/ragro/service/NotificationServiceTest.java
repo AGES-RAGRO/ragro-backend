@@ -10,12 +10,14 @@ import br.com.ragro.controller.response.NotificationResponse;
 import br.com.ragro.controller.response.PaginatedResponse;
 import br.com.ragro.controller.response.UnreadCountResponse;
 import br.com.ragro.domain.Customer;
+import br.com.ragro.domain.FcmToken;
 import br.com.ragro.domain.Notification;
 import br.com.ragro.domain.Order;
 import br.com.ragro.domain.Producer;
 import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.NotificationType;
 import br.com.ragro.domain.enums.TypeUser;
+import br.com.ragro.event.OrderPushNotificationEvent;
 import br.com.ragro.exception.ForbiddenException;
 import br.com.ragro.exception.NotFoundException;
 import br.com.ragro.repository.FcmTokenRepository;
@@ -30,6 +32,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -41,6 +44,7 @@ class NotificationServiceTest {
   @Mock private NotificationRepository notificationRepository;
   @Mock private FcmTokenRepository fcmTokenRepository;
   @Mock private UserService userService;
+  @Mock private ApplicationEventPublisher applicationEventPublisher;
 
   @InjectMocks private NotificationService notificationService;
 
@@ -127,9 +131,11 @@ class NotificationServiceTest {
   }
 
   @Test
-  void createCustomerOrderAcceptedNotification_shouldPersistNotification() {
+  void createCustomerOrderAcceptedNotification_shouldPersistNotificationAndPublishPushEvent() {
     Order order = buildOrder(customerUser);
     ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
+    ArgumentCaptor<OrderPushNotificationEvent> eventCaptor =
+        ArgumentCaptor.forClass(OrderPushNotificationEvent.class);
 
     notificationService.createCustomerOrderAcceptedNotification(order);
 
@@ -138,6 +144,28 @@ class NotificationServiceTest {
     assertThat(saved.getType()).isEqualTo(NotificationType.ORDER_CONFIRMED);
     assertThat(saved.getTitle()).isEqualTo("Pedido aceito");
     assertThat(saved.getReferenceId()).isEqualTo(order.getId());
+    assertThat(saved.getUser()).isEqualTo(customerUser);
+
+    verify(applicationEventPublisher).publishEvent(eventCaptor.capture());
+    OrderPushNotificationEvent event = eventCaptor.getValue();
+    assertThat(event.userId()).isEqualTo(customerUser.getId());
+    assertThat(event.title()).isEqualTo("Pedido aceito");
+    assertThat(event.body()).isEqualTo("Seu pedido foi aceito pelo produtor.");
+    assertThat(event.orderId()).isEqualTo(order.getId());
+    assertThat(event.type()).isEqualTo(NotificationType.ORDER_CONFIRMED);
+  }
+
+  @Test
+  void saveToken_shouldTrimAndPersistTokenForAuthenticatedUser() {
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(customerUser);
+    when(fcmTokenRepository.findByToken("device-token")).thenReturn(Optional.empty());
+    ArgumentCaptor<FcmToken> captor = ArgumentCaptor.forClass(FcmToken.class);
+
+    notificationService.saveToken(jwt, "  device-token  ");
+
+    verify(fcmTokenRepository).save(captor.capture());
+    FcmToken saved = captor.getValue();
+    assertThat(saved.getToken()).isEqualTo("device-token");
     assertThat(saved.getUser()).isEqualTo(customerUser);
   }
 
@@ -152,6 +180,56 @@ class NotificationServiceTest {
             () -> notificationService.getMyCustomerNotifications(jwt, PageRequest.of(0, 20)))
         .isInstanceOf(ForbiddenException.class)
         .hasMessageContaining("consumidores");
+  }
+
+  @Test
+  void createProducerNewOrderNotification_shouldPersistAndPublishForFarmer() {
+    Order order = buildOrder(customerUser);
+    User farmerUser = order.getFarmer().getUser();
+    ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
+    ArgumentCaptor<OrderPushNotificationEvent> eventCaptor =
+        ArgumentCaptor.forClass(OrderPushNotificationEvent.class);
+
+    notificationService.createProducerNewOrderNotification(order);
+
+    verify(notificationRepository).save(captor.capture());
+    Notification saved = captor.getValue();
+    assertThat(saved.getType()).isEqualTo(NotificationType.NEW_ORDER);
+    assertThat(saved.getTitle()).isEqualTo("Novo pedido recebido");
+    assertThat(saved.getUser()).isEqualTo(farmerUser);
+
+    verify(applicationEventPublisher).publishEvent(eventCaptor.capture());
+    assertThat(eventCaptor.getValue().userId()).isEqualTo(farmerUser.getId());
+    assertThat(eventCaptor.getValue().type()).isEqualTo(NotificationType.NEW_ORDER);
+  }
+
+  @Test
+  void createProducerOrderCancelledByCustomerNotification_shouldPersistAndPublishForFarmer() {
+    Order order = buildOrder(customerUser);
+    User farmerUser = order.getFarmer().getUser();
+    ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
+
+    notificationService.createProducerOrderCancelledByCustomerNotification(order);
+
+    verify(notificationRepository).save(captor.capture());
+    assertThat(captor.getValue().getType()).isEqualTo(NotificationType.ORDER_CANCELLED_BY_CUSTOMER);
+    assertThat(captor.getValue().getUser()).isEqualTo(farmerUser);
+    verify(applicationEventPublisher)
+        .publishEvent(
+            org.mockito.ArgumentMatchers.argThat(
+                (OrderPushNotificationEvent e) ->
+                    e.userId().equals(farmerUser.getId())
+                        && e.type() == NotificationType.ORDER_CANCELLED_BY_CUSTOMER));
+  }
+
+  @Test
+  void getMyProducerNotifications_shouldRejectNonFarmer() {
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(customerUser);
+
+    assertThatThrownBy(
+            () -> notificationService.getMyProducerNotifications(jwt, PageRequest.of(0, 20)))
+        .isInstanceOf(ForbiddenException.class)
+        .hasMessageContaining("produtores");
   }
 
   private Notification buildNotification(User user, NotificationType type) {
@@ -170,8 +248,12 @@ class NotificationServiceTest {
     customer.setId(user.getId());
     customer.setUser(user);
 
+    User farmerUser = new User();
+    farmerUser.setId(UUID.randomUUID());
+    farmerUser.setType(TypeUser.FARMER);
     Producer producer = new Producer();
-    producer.setId(UUID.randomUUID());
+    producer.setId(farmerUser.getId());
+    producer.setUser(farmerUser);
 
     Order order = new Order();
     order.setId(UUID.randomUUID());

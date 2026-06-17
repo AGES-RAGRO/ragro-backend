@@ -10,25 +10,21 @@ import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.NotificationReferenceType;
 import br.com.ragro.domain.enums.NotificationType;
 import br.com.ragro.domain.enums.TypeUser;
+import br.com.ragro.event.OrderPushNotificationEvent;
 import br.com.ragro.exception.ForbiddenException;
 import br.com.ragro.exception.NotFoundException;
 import br.com.ragro.mapper.NotificationMapper;
 import br.com.ragro.repository.FcmTokenRepository;
 import br.com.ragro.repository.NotificationRepository;
-import com.google.firebase.messaging.FirebaseMessaging;
-import com.google.firebase.messaging.FirebaseMessagingException;
-import com.google.firebase.messaging.MulticastMessage;
 import java.time.OffsetDateTime;
-import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-@Slf4j
 @Service
 @RequiredArgsConstructor
 public class NotificationService {
@@ -36,30 +32,78 @@ public class NotificationService {
   private final NotificationRepository notificationRepository;
   private final FcmTokenRepository fcmTokenRepository;
   private final UserService userService;
+  private final ApplicationEventPublisher applicationEventPublisher;
+
+  // ---------------------------------------------------------------------------
+  // Customer read operations
+  // ---------------------------------------------------------------------------
 
   @Transactional(readOnly = true)
   public PaginatedResponse<NotificationResponse> getMyCustomerNotifications(
-          Jwt jwt, Pageable pageable) {
-    User user = requireCustomer(jwt);
-    return PaginatedResponse.of(
-            notificationRepository
-                    .findByUserIdOrderByCreatedAtDesc(user.getId(), pageable)
-                    .map(NotificationMapper::toResponse));
+      Jwt jwt, Pageable pageable) {
+    return listFor(requireCustomer(jwt), pageable);
   }
 
   @Transactional(readOnly = true)
   public UnreadCountResponse getMyCustomerUnreadCount(Jwt jwt) {
-    User user = requireCustomer(jwt);
-    return new UnreadCountResponse(notificationRepository.countByUserIdAndReadFalse(user.getId()));
+    return unreadCountFor(requireCustomer(jwt));
   }
 
   @Transactional
   public NotificationResponse markMyCustomerNotificationAsRead(UUID notificationId, Jwt jwt) {
-    User user = requireCustomer(jwt);
+    return markAsReadFor(requireCustomer(jwt), notificationId);
+  }
+
+  @Transactional
+  public void markAllMyCustomerNotificationsAsRead(Jwt jwt) {
+    markAllAsReadFor(requireCustomer(jwt));
+  }
+
+  // ---------------------------------------------------------------------------
+  // Producer read operations
+  // ---------------------------------------------------------------------------
+
+  @Transactional(readOnly = true)
+  public PaginatedResponse<NotificationResponse> getMyProducerNotifications(
+      Jwt jwt, Pageable pageable) {
+    return listFor(requireFarmer(jwt), pageable);
+  }
+
+  @Transactional(readOnly = true)
+  public UnreadCountResponse getMyProducerUnreadCount(Jwt jwt) {
+    return unreadCountFor(requireFarmer(jwt));
+  }
+
+  @Transactional
+  public NotificationResponse markMyProducerNotificationAsRead(UUID notificationId, Jwt jwt) {
+    return markAsReadFor(requireFarmer(jwt), notificationId);
+  }
+
+  @Transactional
+  public void markAllMyProducerNotificationsAsRead(Jwt jwt) {
+    markAllAsReadFor(requireFarmer(jwt));
+  }
+
+  // ---------------------------------------------------------------------------
+  // Shared read helpers (recipient-agnostic)
+  // ---------------------------------------------------------------------------
+
+  private PaginatedResponse<NotificationResponse> listFor(User user, Pageable pageable) {
+    return PaginatedResponse.of(
+        notificationRepository
+            .findByUserIdOrderByCreatedAtDesc(user.getId(), pageable)
+            .map(NotificationMapper::toResponse));
+  }
+
+  private UnreadCountResponse unreadCountFor(User user) {
+    return new UnreadCountResponse(notificationRepository.countByUserIdAndReadFalse(user.getId()));
+  }
+
+  private NotificationResponse markAsReadFor(User user, UUID notificationId) {
     Notification notification =
-            notificationRepository
-                    .findByIdAndUserId(notificationId, user.getId())
-                    .orElseThrow(() -> new NotFoundException("Notificação não encontrada"));
+        notificationRepository
+            .findByIdAndUserId(notificationId, user.getId())
+            .orElseThrow(() -> new NotFoundException("Notificação não encontrada"));
 
     if (!notification.isRead()) {
       notification.setRead(true);
@@ -70,11 +114,13 @@ public class NotificationService {
     return NotificationMapper.toResponse(notification);
   }
 
-  @Transactional
-  public void markAllMyCustomerNotificationsAsRead(Jwt jwt) {
-    User user = requireCustomer(jwt);
+  private void markAllAsReadFor(User user) {
     notificationRepository.markAllAsReadByUserId(user.getId(), OffsetDateTime.now());
   }
+
+  // ---------------------------------------------------------------------------
+  // FCM token registration
+  // ---------------------------------------------------------------------------
 
   @Transactional
   public void saveToken(Jwt jwt, String token) {
@@ -87,43 +133,78 @@ public class NotificationService {
     fcmTokenRepository.save(fcmToken);
   }
 
+  // ---------------------------------------------------------------------------
+  // Customer-facing order notifications
+  // ---------------------------------------------------------------------------
+
   @Transactional
   public void createCustomerOrderAcceptedNotification(Order order) {
     createOrderNotification(
-            order,
-            NotificationType.ORDER_CONFIRMED,
-            "Pedido aceito",
-            "Seu pedido foi aceito pelo produtor.");
+        order,
+        order.getCustomer().getUser(),
+        NotificationType.ORDER_CONFIRMED,
+        "Pedido aceito",
+        "Seu pedido foi aceito pelo produtor.");
   }
 
   @Transactional
   public void createCustomerOrderInDeliveryNotification(Order order) {
     createOrderNotification(
-            order,
-            NotificationType.ORDER_IN_DELIVERY,
-            "Pedido saiu para entrega",
-            "Seu pedido saiu para entrega.");
+        order,
+        order.getCustomer().getUser(),
+        NotificationType.ORDER_IN_DELIVERY,
+        "Pedido saiu para entrega",
+        "Seu pedido saiu para entrega.");
   }
 
   @Transactional
   public void createCustomerOrderDeliveredNotification(Order order) {
     createOrderNotification(
-            order, NotificationType.ORDER_DELIVERED, "Seu pedido chegou", "Seu pedido foi entregue.");
+        order,
+        order.getCustomer().getUser(),
+        NotificationType.ORDER_DELIVERED,
+        "Seu pedido chegou",
+        "Seu pedido foi entregue.");
   }
 
   @Transactional
   public void createCustomerOrderRefusedNotification(Order order) {
     createOrderNotification(
-            order,
-            NotificationType.ORDER_REFUSED,
-            "Pedido foi recusado",
-            "O produtor recusou o seu pedido.");
+        order,
+        order.getCustomer().getUser(),
+        NotificationType.ORDER_REFUSED,
+        "Pedido foi recusado",
+        "O produtor recusou o seu pedido.");
+  }
+
+  // ---------------------------------------------------------------------------
+  // Producer-facing order notifications
+  // ---------------------------------------------------------------------------
+
+  @Transactional
+  public void createProducerNewOrderNotification(Order order) {
+    createOrderNotification(
+        order,
+        order.getFarmer().getUser(),
+        NotificationType.NEW_ORDER,
+        "Novo pedido recebido",
+        "Você recebeu um novo pedido.");
+  }
+
+  @Transactional
+  public void createProducerOrderCancelledByCustomerNotification(Order order) {
+    createOrderNotification(
+        order,
+        order.getFarmer().getUser(),
+        NotificationType.ORDER_CANCELLED_BY_CUSTOMER,
+        "Pedido cancelado",
+        "O cliente cancelou o pedido.");
   }
 
   private void createOrderNotification(
-          Order order, NotificationType type, String title, String baseMessage) {
+      Order order, User recipient, NotificationType type, String title, String baseMessage) {
     Notification notification = new Notification();
-    notification.setUser(order.getCustomer().getUser());
+    notification.setUser(recipient);
     notification.setTitle(title);
     notification.setMessage(baseMessage + " Pedido #" + order.getId() + ".");
     notification.setType(type);
@@ -132,38 +213,22 @@ public class NotificationService {
     notification.setRead(false);
     notificationRepository.save(notification);
 
-    sendPush(order.getCustomer().getUser(), title, baseMessage);
-  }
-
-  private void sendPush(User user, String title, String body) {
-    List<String> tokens = fcmTokenRepository.findTokensByUserId(user.getId());
-    if (tokens.isEmpty()) return;
-
-    com.google.firebase.messaging.Notification notification =
-        com.google.firebase.messaging.Notification.builder()
-            .setTitle(title)
-            .setBody(body)
-            .build();
-
-    int batchSize = 500;
-    for (int i = 0; i < tokens.size(); i += batchSize) {
-      List<String> batch = tokens.subList(i, Math.min(i + batchSize, tokens.size()));
-      try {
-        MulticastMessage message = MulticastMessage.builder()
-            .addAllTokens(batch)
-            .setNotification(notification)
-            .build();
-        FirebaseMessaging.getInstance().sendEachForMulticast(message);
-      } catch (FirebaseMessagingException e) {
-        log.warn("[FCM] falha ao enviar push para userId {}: {}", user.getId(), e.getMessage());
-      }
-    }
+    applicationEventPublisher.publishEvent(
+        new OrderPushNotificationEvent(recipient.getId(), title, baseMessage, order.getId(), type));
   }
 
   private User requireCustomer(Jwt jwt) {
     User user = userService.getAuthenticatedUser(jwt);
     if (user.getType() != TypeUser.CUSTOMER) {
       throw new ForbiddenException("Apenas consumidores podem acessar notificações");
+    }
+    return user;
+  }
+
+  private User requireFarmer(Jwt jwt) {
+    User user = userService.getAuthenticatedUser(jwt);
+    if (user.getType() != TypeUser.FARMER) {
+      throw new ForbiddenException("Apenas produtores podem acessar notificações");
     }
     return user;
   }

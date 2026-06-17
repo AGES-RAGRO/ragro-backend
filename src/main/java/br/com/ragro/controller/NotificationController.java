@@ -21,20 +21,17 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Notifications", description = "Registro de tokens FCM para push notifications")
 public class NotificationController {
 
-    private final NotificationService notificationService;
+  private final NotificationService notificationService;
 
-    @PostMapping("/token")
-    @PreAuthorize("isAuthenticated()")
-    @Operation(summary = "Registra ou atualiza o token FCM do dispositivo do usuário autenticado")
-    public ResponseEntity<Void> registerToken(
-            @RequestBody @Valid TokenRequest body,
-            @AuthenticationPrincipal Jwt jwt) {
+  @PostMapping("/token")
+  @PreAuthorize("isAuthenticated()")
+  @Operation(summary = "Registra ou atualiza o token FCM do dispositivo do usuário autenticado")
+  public ResponseEntity<Void> registerToken(
+      @RequestBody @Valid TokenRequest body, @AuthenticationPrincipal Jwt jwt) {
 
-        notificationService.saveToken(jwt, body.token());
-        return ResponseEntity.noContent().build();
-    }
+    notificationService.saveToken(jwt, body.token());
+    return ResponseEntity.noContent().build();
+  }
 
-    public record TokenRequest(@NotBlank String token) {}
-
+  public record TokenRequest(@NotBlank String token) {}
 }
-
