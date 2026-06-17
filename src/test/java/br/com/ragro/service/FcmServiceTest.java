@@ -87,23 +87,45 @@ class FcmServiceTest {
   }
 
   @Test
-  void send_whenTokensPermanentlyInvalid_shouldPruneOnlyThoseTokens() throws Exception {
+  void send_shouldPruneOnlyUnambiguousDeadTokens() throws Exception {
     UUID userId = UUID.randomUUID();
     BatchResponse response =
         batchResponse(
             FcmTestResponses.success(),
             FcmTestResponses.failure(MessagingErrorCode.UNREGISTERED),
+            FcmTestResponses.failure(MessagingErrorCode.SENDER_ID_MISMATCH),
             FcmTestResponses.failure(MessagingErrorCode.INVALID_ARGUMENT));
     when(firebaseMessagingProvider.getIfAvailable()).thenReturn(firebaseMessaging);
-    when(fcmTokenRepository.findTokensByUserId(userId)).thenReturn(List.of("good", "dead", "bad"));
+    when(fcmTokenRepository.findTokensByUserId(userId))
+        .thenReturn(List.of("good", "dead", "wrong-sender", "ambiguous"));
     when(firebaseMessaging.sendEachForMulticast(any())).thenReturn(response);
 
     fcmService().send(event(userId));
 
+    // UNREGISTERED + SENDER_ID_MISMATCH are pruned; INVALID_ARGUMENT is ambiguous (may be a payload
+    // error) and must be kept.
     verify(fcmTokenRepository)
         .deleteByTokenIn(
             argThat(
-                tokens -> tokens.size() == 2 && tokens.contains("dead") && tokens.contains("bad")));
+                tokens ->
+                    tokens.size() == 2
+                        && tokens.contains("dead")
+                        && tokens.contains("wrong-sender")
+                        && !tokens.contains("ambiguous")));
+  }
+
+  @Test
+  void send_whenInvalidArgument_shouldNotPruneToken() throws Exception {
+    UUID userId = UUID.randomUUID();
+    BatchResponse response =
+        batchResponse(FcmTestResponses.failure(MessagingErrorCode.INVALID_ARGUMENT));
+    when(firebaseMessagingProvider.getIfAvailable()).thenReturn(firebaseMessaging);
+    when(fcmTokenRepository.findTokensByUserId(userId)).thenReturn(List.of("tok"));
+    when(firebaseMessaging.sendEachForMulticast(any())).thenReturn(response);
+
+    fcmService().send(event(userId));
+
+    verify(fcmTokenRepository, never()).deleteByTokenIn(any());
   }
 
   @Test

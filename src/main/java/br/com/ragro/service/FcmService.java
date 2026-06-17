@@ -39,12 +39,12 @@ public class FcmService {
   /** FCM caps a single multicast at 500 tokens. */
   private static final int BATCH_SIZE = 500;
 
-  /** Errors that mean the token is permanently dead and should be removed. */
+  /**
+   * Codes that unambiguously mark a dead token (safe to prune). {@code INVALID_ARGUMENT} is
+   * excluded because it is ambiguous: FCM also returns it for a malformed payload.
+   */
   private static final Set<MessagingErrorCode> STALE_TOKEN_CODES =
-      EnumSet.of(
-          MessagingErrorCode.UNREGISTERED,
-          MessagingErrorCode.INVALID_ARGUMENT,
-          MessagingErrorCode.SENDER_ID_MISMATCH);
+      EnumSet.of(MessagingErrorCode.UNREGISTERED, MessagingErrorCode.SENDER_ID_MISMATCH);
 
   private final FcmTokenRepository fcmTokenRepository;
   private final ObjectProvider<FirebaseMessaging> firebaseMessagingProvider;
