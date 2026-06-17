@@ -1,6 +1,7 @@
 package br.com.ragro.controller;
 
 import br.com.ragro.controller.request.CancelOrderRequest;
+import br.com.ragro.controller.request.ConfirmDeliveryWithCodeRequest;
 import br.com.ragro.controller.request.UpdateOrderStatusRequest;
 import br.com.ragro.controller.response.CartResponse;
 import br.com.ragro.controller.response.CustomerOrderResponse;
@@ -125,6 +126,20 @@ public class OrderController {
           "Allows a customer to confirm that an IN_DELIVERY order was received. Transitions the order to DELIVERED.")
   public OrderResponse confirmDelivery(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
     return orderService.confirmDelivery(id, jwt);
+  }
+
+  @PatchMapping("/{id}/confirm-delivery-with-code")
+  @ResponseStatus(HttpStatus.OK)
+  @Operation(
+      summary = "Producer confirms delivery with consumer code",
+      description =
+          "Allows the owning producer to confirm delivery of an IN_DELIVERY order by providing the"
+              + " 4-digit confirmation code shown on the consumer's app. Transitions the order to DELIVERED.")
+  public OrderResponse confirmDeliveryWithCode(
+      @PathVariable UUID id,
+      @Valid @RequestBody ConfirmDeliveryWithCodeRequest request,
+      @AuthenticationPrincipal Jwt jwt) {
+    return orderService.confirmDeliveryWithCode(id, request.getCode(), jwt);
   }
 
   @PatchMapping("/{id}/refuse")
