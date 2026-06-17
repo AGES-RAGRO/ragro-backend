@@ -116,6 +116,7 @@ public class OrderService {
 
     Order savedOrder = orderRepository.saveAndFlush(order);
     cartService.clearCart(customer);
+    notificationService.createProducerNewOrderNotification(savedOrder);
     return OrderMapper.toResponse(savedOrder, storageService);
   }
 
@@ -164,6 +165,7 @@ public class OrderService {
 
     applyCancellation(order, request, "CUSTOMER_CANCELLED");
     Order savedOrder = orderRepository.saveAndFlush(order);
+    notificationService.createProducerOrderCancelledByCustomerNotification(savedOrder);
     return OrderMapper.toResponse(savedOrder, storageService);
   }
 
