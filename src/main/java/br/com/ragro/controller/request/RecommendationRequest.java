@@ -1,5 +1,6 @@
 package br.com.ragro.controller.request;
 
+import br.com.ragro.domain.enums.ProductCategory;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -23,6 +24,6 @@ public class RecommendationRequest {
   @Schema(description = "Product identifiers to exclude from the recommendation list")
   private List<UUID> excludeProductIds;
 
-  @Schema(description = "Optional category filter", example = "Hortaliças")
-  private String category;
+  @Schema(description = "Optional category filter", example = "FRUTAS")
+  private ProductCategory category;
 }
