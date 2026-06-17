@@ -84,6 +84,22 @@ public class OrderMapper {
         .deliveryAddress(order.getDeliveryAddressSnapshot())
         .cancellationReason(order.getCancellationReason())
         .cancellationDetails(order.getCancellationDetails())
+        // Only expose the confirmation code while the order is out for delivery.
+        .confirmationCode(
+            order.getStatus() == OrderStatus.IN_DELIVERY ? order.getConfirmationCode() : null)
+        .actions(
+            CustomerOrderResponse.Actions.builder()
+                .canConfirmDelivery(order.getStatus() == OrderStatus.IN_DELIVERY)
+                .canCancel(
+                    order.getStatus() == OrderStatus.PENDING
+                        || order.getStatus() == OrderStatus.CONFIRMED
+                        || order.getStatus() == OrderStatus.IN_DELIVERY)
+                .canContactProducer(
+                    order.getStatus() != OrderStatus.DELIVERED
+                        && order.getStatus() != OrderStatus.CANCELLED
+                        && order.getFarmer().getUser().getPhone() != null
+                        && !order.getFarmer().getUser().getPhone().isBlank())
+                .build())
         .items(
             order.getItems().stream()
                 .map(item -> toOrderItemResponse(item, storage))

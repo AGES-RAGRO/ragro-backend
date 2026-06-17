@@ -35,6 +35,7 @@ import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Random;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -44,6 +45,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class OrderService {
+
+  private static final int MAX_CONFIRMATION_ATTEMPTS = 5;
+  private static final int LOCKOUT_MINUTES = 15;
 
   private final UserService userService;
   private final CustomerRepository customerRepository;
@@ -116,6 +120,7 @@ public class OrderService {
 
     Order savedOrder = orderRepository.saveAndFlush(order);
     cartService.clearCart(customer);
+    notificationService.createProducerNewOrderNotification(savedOrder);
     return OrderMapper.toResponse(savedOrder, storageService);
   }
 
@@ -164,6 +169,7 @@ public class OrderService {
 
     applyCancellation(order, request, "CUSTOMER_CANCELLED");
     Order savedOrder = orderRepository.saveAndFlush(order);
+    notificationService.createProducerOrderCancelledByCustomerNotification(savedOrder);
     return OrderMapper.toResponse(savedOrder, storageService);
   }
 
@@ -373,7 +379,15 @@ public class OrderService {
       throw new ForbiddenException("Você não tem permissão para atualizar este pedido");
     }
 
+    OrderStatus previousStatus = order.getStatus();
     order.setStatus(newStatus);
+    if (newStatus == OrderStatus.IN_DELIVERY && previousStatus != OrderStatus.IN_DELIVERY) {
+      // Only generate a fresh code on the actual transition into IN_DELIVERY.
+      // Re-sending the same status must not invalidate the code already shown to the consumer.
+      order.setConfirmationCode(generateConfirmationCode());
+      order.setConfirmationAttempts(0);
+      order.setConfirmationLockedUntil(null);
+    }
     if (newStatus == OrderStatus.DELIVERED) {
       // Record the delivery time — dashboard metrics filter by deliveredAt.
       order.setDeliveredAt(OffsetDateTime.now());
@@ -428,6 +442,73 @@ public class OrderService {
     notificationService.createCustomerOrderAcceptedNotification(updatedOrder);
 
     return OrderMapper.toResponse(updatedOrder, storageService);
+  }
+
+  /**
+   * Producer confirms that an IN_DELIVERY order was received by the consumer, validated by a
+   * 4-digit code displayed on the consumer's app. Transitions IN_DELIVERY → DELIVERED.
+   */
+  @Transactional
+  public OrderResponse confirmDeliveryWithCode(UUID orderId, String code, Jwt jwt) {
+    User user = userService.getAuthenticatedUser(jwt);
+    if (user.getType() != TypeUser.FARMER) {
+      throw new ForbiddenException("Apenas produtores podem confirmar a entrega com código");
+    }
+
+    Order order =
+        orderRepository
+            .findById(orderId)
+            .orElseThrow(() -> new NotFoundException("Pedido não encontrado"));
+
+    if (!order.getFarmer().getId().equals(user.getId())) {
+      throw new ForbiddenException("Você não tem permissão para confirmar este pedido");
+    }
+
+    if (order.getStatus() != OrderStatus.IN_DELIVERY) {
+      throw new BusinessException(
+          "Somente pedidos em entrega podem ser confirmados como entregues");
+    }
+
+    OffsetDateTime now = OffsetDateTime.now();
+
+    if (order.getConfirmationLockedUntil() != null && now.isBefore(order.getConfirmationLockedUntil())) {
+      throw new BusinessException(
+          "Muitas tentativas incorretas. Tente novamente em alguns minutos.");
+    }
+
+    if (order.getConfirmationCode() == null || !order.getConfirmationCode().equals(code)) {
+      int attempts = order.getConfirmationAttempts() + 1;
+      order.setConfirmationAttempts(attempts);
+      if (attempts >= MAX_CONFIRMATION_ATTEMPTS) {
+        order.setConfirmationLockedUntil(now.plusMinutes(LOCKOUT_MINUTES));
+        orderRepository.saveAndFlush(order);
+        throw new BusinessException(
+            "Código incorreto. Muitas tentativas: pedido bloqueado por " + LOCKOUT_MINUTES + " minutos.");
+      }
+      orderRepository.saveAndFlush(order);
+      throw new BusinessException("Código de confirmação incorreto");
+    }
+
+    // Code matched — reset attempt counters before confirming.
+    order.setConfirmationAttempts(0);
+    order.setConfirmationLockedUntil(null);
+
+    order.setStatus(OrderStatus.DELIVERED);
+    order.setDeliveredAt(OffsetDateTime.now());
+
+    OrderStatusHistory history = new OrderStatusHistory();
+    history.setOrder(order);
+    history.setStatus(OrderStatus.DELIVERED);
+    order.getStatusHistory().add(history);
+
+    Order savedOrder = orderRepository.saveAndFlush(order);
+    notificationService.createCustomerOrderDeliveredNotification(savedOrder);
+    return OrderMapper.toResponse(savedOrder, storageService);
+  }
+
+  /** Generates a zero-padded 4-digit random confirmation code (e.g. "0042", "9999"). */
+  private String generateConfirmationCode() {
+    return String.format("%04d", new Random().nextInt(10000));
   }
 
   private void notifyCustomerOnStatusChange(Order order, OrderStatus status) {

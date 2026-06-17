@@ -72,6 +72,17 @@ public class Order {
   @Column(name = "cancellation_details", columnDefinition = "text")
   private String cancellationDetails;
 
+  @Column(name = "confirmation_code", length = 4)
+  private String confirmationCode;
+
+  /** Number of failed delivery-code confirmation attempts (brute-force protection). */
+  @Column(name = "confirmation_attempts", nullable = false)
+  private int confirmationAttempts = 0;
+
+  /** Timestamp until which delivery-code confirmation is locked after too many failed attempts. */
+  @Column(name = "confirmation_locked_until")
+  private OffsetDateTime confirmationLockedUntil;
+
   @CreationTimestamp
   @Column(name = "created_at", nullable = false, updatable = false)
   private OffsetDateTime createdAt;

@@ -1,0 +1,10 @@
+# Template do ambiente CLIENTE. Copiar para cliente.tfvars e preencher com os
+# valores reais da conta do cliente ao provisionar (fase 2).
+aws_region           = "us-east-2"
+environment          = "cliente"
+kms_key_id           = "arn:aws:kms:us-east-2:<ACCOUNT_ID_CLIENTE>:key/<KEY_ID>"
+monitoring_role_arn  = "arn:aws:iam::<ACCOUNT_ID_CLIENTE>:role/rds-monitoring-role"
+db_subnet_group_name = "default-vpc-<VPC_ID_CLIENTE>"
+
+# A senha do master do RDS NAO vai aqui. Passar via TF_VAR_db_password
+# (de um GitHub Environment secret) apenas ao criar o banco do zero.
