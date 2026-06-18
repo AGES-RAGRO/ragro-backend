@@ -53,7 +53,7 @@ class OrderControllerTest {
   @Test
   void createOrder_shouldReturn201WithOrder() throws Exception {
     String sub = "active-customer";
-    User user = buildUser(sub);
+    User user = buildUser(sub, br.com.ragro.domain.enums.TypeUser.CUSTOMER);
     UUID orderId = UUID.randomUUID();
     when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(user));
     when(orderService.createOrderFromCart(any())).thenReturn(orderResponse(orderId));
@@ -70,7 +70,7 @@ class OrderControllerTest {
   @Test
   void getMyOrders_shouldReturn200WithList() throws Exception {
     String sub = "active-customer";
-    User user = buildUser(sub);
+    User user = buildUser(sub, br.com.ragro.domain.enums.TypeUser.CUSTOMER);
     UUID orderId = UUID.randomUUID();
     when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(user));
     when(orderService.getMyOrders(any())).thenReturn(List.of(customerOrderResponse(orderId)));
@@ -85,7 +85,7 @@ class OrderControllerTest {
   @Test
   void getMyOrders_shouldReturn200WithEmptyList_whenNoOrders() throws Exception {
     String sub = "active-customer";
-    User user = buildUser(sub);
+    User user = buildUser(sub, br.com.ragro.domain.enums.TypeUser.CUSTOMER);
     when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(user));
     when(orderService.getMyOrders(any())).thenReturn(List.of());
 
@@ -100,7 +100,7 @@ class OrderControllerTest {
   @Test
   void getProducerOrders_shouldReturn200WithList() throws Exception {
     String sub = "active-farmer";
-    User user = buildUser(sub);
+    User user = buildUser(sub, br.com.ragro.domain.enums.TypeUser.FARMER);
     UUID orderId = UUID.randomUUID();
     when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(user));
     when(orderService.getProducerOrders(any())).thenReturn(List.of(orderResponse(orderId)));
@@ -117,7 +117,7 @@ class OrderControllerTest {
   @Test
   void getMyOrderById_shouldReturn200WithOrder() throws Exception {
     String sub = "active-customer";
-    User user = buildUser(sub);
+    User user = buildUser(sub, br.com.ragro.domain.enums.TypeUser.CUSTOMER);
     UUID orderId = UUID.randomUUID();
     when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(user));
     when(orderService.getMyOrderById(eq(orderId), any()))
@@ -135,7 +135,7 @@ class OrderControllerTest {
   @Test
   void updateOrderStatus_shouldReturn200WithUpdatedOrder() throws Exception {
     String sub = "active-farmer";
-    User user = buildUser(sub);
+    User user = buildUser(sub, br.com.ragro.domain.enums.TypeUser.FARMER);
     UUID orderId = UUID.randomUUID();
     when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(user));
     when(orderService.updateOrderStatus(eq(orderId), eq(OrderStatus.CONFIRMED), any()))
@@ -157,7 +157,7 @@ class OrderControllerTest {
   @Test
   void updateOrderStatus_shouldReturn400_whenStatusIsMissing() throws Exception {
     String sub = "active-farmer";
-    User user = buildUser(sub);
+    User user = buildUser(sub, br.com.ragro.domain.enums.TypeUser.FARMER);
     UUID orderId = UUID.randomUUID();
     when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(user));
 
@@ -176,7 +176,7 @@ class OrderControllerTest {
   @Test
   void confirmOrder_shouldReturn200WithConfirmedOrder() throws Exception {
     String sub = "active-farmer";
-    User user = buildUser(sub);
+    User user = buildUser(sub, br.com.ragro.domain.enums.TypeUser.FARMER);
     UUID orderId = UUID.randomUUID();
     when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(user));
     when(orderService.confirmOrder(eq(orderId), any()))
@@ -193,7 +193,7 @@ class OrderControllerTest {
   @Test
   void cancelOrder_shouldReturn200WithCancelledOrder_whenBodyIsProvided() throws Exception {
     String sub = "active-customer";
-    User user = buildUser(sub);
+    User user = buildUser(sub, br.com.ragro.domain.enums.TypeUser.CUSTOMER);
     UUID orderId = UUID.randomUUID();
     when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(user));
     when(orderService.cancelOrder(eq(orderId), any(), any()))
@@ -213,7 +213,7 @@ class OrderControllerTest {
   @Test
   void cancelOrder_shouldReturn200_whenNoBodyIsProvided() throws Exception {
     String sub = "active-customer";
-    User user = buildUser(sub);
+    User user = buildUser(sub, br.com.ragro.domain.enums.TypeUser.CUSTOMER);
     UUID orderId = UUID.randomUUID();
     when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(user));
     when(orderService.cancelOrder(eq(orderId), any(), eq(null)))
@@ -228,7 +228,7 @@ class OrderControllerTest {
   @Test
   void cancelOrder_shouldReturn400_whenReasonExceedsMaxLength() throws Exception {
     String sub = "active-customer";
-    User user = buildUser(sub);
+    User user = buildUser(sub, br.com.ragro.domain.enums.TypeUser.CUSTOMER);
     UUID orderId = UUID.randomUUID();
     when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(user));
     String tooLong = "a".repeat(101);
@@ -248,7 +248,7 @@ class OrderControllerTest {
   @Test
   void cancelOrderAsCustomer_shouldReturn200WithCancelledOrder() throws Exception {
     String sub = "active-customer";
-    User user = buildUser(sub);
+    User user = buildUser(sub, br.com.ragro.domain.enums.TypeUser.CUSTOMER);
     UUID orderId = UUID.randomUUID();
     when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(user));
     when(orderService.cancelOrderAsCustomer(eq(orderId), any(), any()))
@@ -268,7 +268,7 @@ class OrderControllerTest {
   @Test
   void confirmDelivery_shouldReturn200WithDeliveredOrder() throws Exception {
     String sub = "active-customer";
-    User user = buildUser(sub);
+    User user = buildUser(sub, br.com.ragro.domain.enums.TypeUser.CUSTOMER);
     UUID orderId = UUID.randomUUID();
     when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(user));
     when(orderService.confirmDelivery(eq(orderId), any()))
@@ -288,7 +288,7 @@ class OrderControllerTest {
   @Test
   void refuseOrder_shouldReturn200WithCancelledOrder() throws Exception {
     String sub = "active-farmer";
-    User user = buildUser(sub);
+    User user = buildUser(sub, br.com.ragro.domain.enums.TypeUser.FARMER);
     UUID orderId = UUID.randomUUID();
     when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(user));
     when(orderService.refuseOrderAsFarmer(eq(orderId), any(), any()))
@@ -307,7 +307,7 @@ class OrderControllerTest {
   @Test
   void markAsSeen_shouldReturn200WithOrder() throws Exception {
     String sub = "active-farmer";
-    User user = buildUser(sub);
+    User user = buildUser(sub, br.com.ragro.domain.enums.TypeUser.FARMER);
     UUID orderId = UUID.randomUUID();
     when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(user));
     when(orderService.markOrderAsSeen(eq(orderId), any())).thenReturn(orderResponse(orderId));
@@ -325,7 +325,7 @@ class OrderControllerTest {
   @Test
   void repeatOrder_shouldReturn201WithCart() throws Exception {
     String sub = "active-customer";
-    User user = buildUser(sub);
+    User user = buildUser(sub, br.com.ragro.domain.enums.TypeUser.CUSTOMER);
     UUID orderId = UUID.randomUUID();
     UUID farmerId = UUID.randomUUID();
     when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(user));
@@ -401,12 +401,12 @@ class OrderControllerTest {
         .build();
   }
 
-  private User buildUser(String authSub) {
+ private User buildUser(String authSub, br.com.ragro.domain.enums.TypeUser type) {
     User user = new User();
     user.setId(UUID.randomUUID());
     user.setName("Test User");
     user.setEmail("user@test.com");
-    user.setType(br.com.ragro.domain.enums.TypeUser.CUSTOMER);
+    user.setType(type);
     user.setActive(true);
     user.setAuthSub(authSub);
     return user;

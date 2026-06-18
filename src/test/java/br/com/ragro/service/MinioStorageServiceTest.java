@@ -1,6 +1,7 @@
 package br.com.ragro.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -408,12 +409,12 @@ class MinioStorageServiceTest {
     verify(minioClient, never()).makeBucket(any());
   }
 
-  @Test
+@Test
   void bootstrapBucket_shouldNotThrow_whenMinioClientFails() throws Exception {
     MinioStorageService service = newService();
     when(minioClient.bucketExists(any())).thenThrow(new RuntimeException("connection refused"));
 
-    service.bootstrapBucket();
+    assertThatCode(service::bootstrapBucket).doesNotThrowAnyException();
   }
 
   // ─── helpers ─────────────────────────────────────────────────────────

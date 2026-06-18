@@ -1517,9 +1517,10 @@ class OrderServiceTest {
     when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(farmer.getId()))
         .thenReturn(List.of());
 
-    CartResponse response = orderService.repeatOrder(orderId, jwt);
+CartResponse response = orderService.repeatOrder(orderId, jwt);
 
     assertThat(response).isNotNull();
+    assertThat(response.getBankInfo()).isNull();
   }
  
   @Test
