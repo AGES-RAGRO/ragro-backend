@@ -6,6 +6,8 @@ import br.com.ragro.controller.response.UnreadCountResponse;
 import br.com.ragro.domain.FcmToken;
 import br.com.ragro.domain.Notification;
 import br.com.ragro.domain.Order;
+import br.com.ragro.domain.Producer;
+import br.com.ragro.domain.Product;
 import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.NotificationReferenceType;
 import br.com.ragro.domain.enums.NotificationType;
@@ -214,7 +216,41 @@ public class NotificationService {
     notificationRepository.save(notification);
 
     applicationEventPublisher.publishEvent(
-        new OrderPushNotificationEvent(recipient.getId(), title, baseMessage, order.getId(), type));
+        new OrderPushNotificationEvent(
+            recipient.getId(), title, baseMessage, order.getId(), type, NotificationReferenceType.ORDER));
+  }
+
+  // ---------------------------------------------------------------------------
+  // Producer-facing stock notifications
+  // ---------------------------------------------------------------------------
+
+  @Transactional
+  public void createProducerLowStockNotification(Product product, Producer farmer) {
+    String message =
+        "O produto \""
+            + product.getName()
+            + "\" está com estoque baixo ("
+            + product.getStockQuantity().stripTrailingZeros().toPlainString()
+            + " unidades restantes).";
+
+    Notification notification = new Notification();
+    notification.setUser(farmer.getUser());
+    notification.setTitle("Estoque baixo");
+    notification.setMessage(message);
+    notification.setType(NotificationType.LOW_STOCK);
+    notification.setReferenceType(NotificationReferenceType.PRODUCT);
+    notification.setReferenceId(product.getId());
+    notification.setRead(false);
+    notificationRepository.save(notification);
+
+    applicationEventPublisher.publishEvent(
+        new OrderPushNotificationEvent(
+            farmer.getUser().getId(),
+            "Estoque baixo",
+            "O produto \"" + product.getName() + "\" está com estoque baixo.",
+            product.getId(),
+            NotificationType.LOW_STOCK,
+            NotificationReferenceType.PRODUCT));
   }
 
   private User requireCustomer(Jwt jwt) {

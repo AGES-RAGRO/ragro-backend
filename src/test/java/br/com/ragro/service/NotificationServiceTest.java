@@ -151,7 +151,7 @@ class NotificationServiceTest {
     assertThat(event.userId()).isEqualTo(customerUser.getId());
     assertThat(event.title()).isEqualTo("Pedido aceito");
     assertThat(event.body()).isEqualTo("Seu pedido foi aceito pelo produtor.");
-    assertThat(event.orderId()).isEqualTo(order.getId());
+    assertThat(event.referenceId()).isEqualTo(order.getId());
     assertThat(event.type()).isEqualTo(NotificationType.ORDER_CONFIRMED);
   }
 

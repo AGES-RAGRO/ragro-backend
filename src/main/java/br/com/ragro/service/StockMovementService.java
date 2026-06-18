@@ -38,10 +38,13 @@ public class StockMovementService {
       java.util.Set.of(
           StockMovementReason.SALE, StockMovementReason.LOSS, StockMovementReason.DISPOSAL);
 
+  static final BigDecimal LOW_STOCK_THRESHOLD = new BigDecimal("5");
+
   private final StockMovementRepository stockMovementRepository;
   private final ProducerRepository producerRepository;
   private final ProductRepository productRepository;
   private final UserService userService;
+  private final NotificationService notificationService;
 
   @Transactional(readOnly = true)
   public PaginatedResponse<StockMovementResponse> getProducerStockMovements(
@@ -120,7 +123,8 @@ public class StockMovementService {
           "Saldo insuficiente no estoque para o produto " + product.getName());
     }
 
-    product.setStockQuantity(product.getStockQuantity().subtract(quantity));
+    BigDecimal stockBefore = product.getStockQuantity();
+    product.setStockQuantity(stockBefore.subtract(quantity));
     productRepository.saveAndFlush(product);
 
     StockMovement movement = new StockMovement();
@@ -130,6 +134,13 @@ public class StockMovementService {
     movement.setQuantity(quantity);
     movement.setNotes(orderIdNotes);
     stockMovementRepository.saveAndFlush(movement);
+
+    boolean crossedThreshold =
+        stockBefore.compareTo(LOW_STOCK_THRESHOLD) > 0
+            && product.getStockQuantity().compareTo(LOW_STOCK_THRESHOLD) <= 0;
+    if (crossedThreshold) {
+      notificationService.createProducerLowStockNotification(product, product.getFarmer());
+    }
   }
 
   @Transactional

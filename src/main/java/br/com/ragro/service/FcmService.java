@@ -121,9 +121,13 @@ public class FcmService {
   private Map<String, String> buildData(OrderPushNotificationEvent event) {
     Map<String, String> data = new HashMap<>();
     data.put("type", event.type().name());
-    data.put("referenceType", "ORDER");
-    if (event.orderId() != null) {
-      data.put("orderId", event.orderId().toString());
+    data.put("referenceType", event.referenceType().name());
+    if (event.referenceId() != null) {
+      String key =
+          event.referenceType() == br.com.ragro.domain.enums.NotificationReferenceType.PRODUCT
+              ? "productId"
+              : "orderId";
+      data.put(key, event.referenceId().toString());
     }
     return data;
   }
