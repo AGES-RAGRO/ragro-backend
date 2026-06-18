@@ -190,13 +190,21 @@ public class Co2Service {
   private VehiclePreference saveOrUpdatePreference(
       User user, VehicleType vehicleType, FuelType fuelType, Double consumption) {
     VehiclePreference preference =
-        vehiclePreferenceRepository.findById(user.getId()).orElse(new VehiclePreference());
+        vehiclePreferenceRepository
+            .findById(user.getId())
+            .orElseGet(
+                () -> {
+                  VehiclePreference vp = new VehiclePreference();
+                  vp.markAsNew();
+                  return vp;
+                });
 
-    preference.setUser(user);
     preference.setUserId(user.getId());
+    preference.setUser(user);
     preference.setVehicleType(vehicleType);
     preference.setFuelType(fuelType);
     preference.setAverageConsumption(consumption);
+
     return vehiclePreferenceRepository.save(preference);
   }
 
