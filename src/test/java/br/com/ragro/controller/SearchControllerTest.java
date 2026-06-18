@@ -50,7 +50,7 @@ class SearchControllerTest {
                 .producerId(UUID.fromString("550e8400-e29b-41d4-a716-446655440000"))
                 .farmerId(UUID.fromString("550e8400-e29b-41d4-a716-446655440000"))
                 .price(BigDecimal.valueOf(12.90))
-                .category("Horta")
+                .category("Frutas")
                 .unit("kg")
                 .build(),
             SearchResultResponse.builder()
@@ -70,7 +70,7 @@ class SearchControllerTest {
         .perform(
             get("/search")
                 .param("query", "tomate")
-                .param("category", "Horta")
+                .param("category", "FRUTAS")
                 .with(
                     jwt()
                         .jwt(jwt -> jwt.claim("sub", sub).claim("email", "customer@test.com"))
@@ -80,7 +80,7 @@ class SearchControllerTest {
         .andExpect(jsonPath("$[0].name").value("Tomate Cereja"))
         .andExpect(jsonPath("$[0].producer_id").value("550e8400-e29b-41d4-a716-446655440000"))
         .andExpect(jsonPath("$[0].farmer_id").value("550e8400-e29b-41d4-a716-446655440000"))
-        .andExpect(jsonPath("$[0].category").value("Horta"))
+        .andExpect(jsonPath("$[0].category").value("Frutas"))
         .andExpect(jsonPath("$[1].type").value("producer"))
         .andExpect(jsonPath("$[1].producer_id").value("660e8400-e29b-41d4-a716-446655440000"))
         .andExpect(jsonPath("$[1].farmer_id").value("660e8400-e29b-41d4-a716-446655440000"))

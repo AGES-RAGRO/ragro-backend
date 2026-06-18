@@ -28,9 +28,9 @@ public class SearchService {
 
     String query = request.getQuery().trim();
     String category =
-        request.getCategory() == null || request.getCategory().isBlank()
+        request.getCategory() == null
             ? null
-            : request.getCategory().trim().toLowerCase(Locale.ROOT);
+            : request.getCategory().getLabel().toLowerCase(Locale.ROOT);
 
     List<SearchResultResponse> results = new ArrayList<>();
 

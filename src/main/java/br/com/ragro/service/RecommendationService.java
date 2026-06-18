@@ -27,6 +27,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -150,6 +151,19 @@ public class RecommendationService {
 
     Set<UUID> excludeSet = resolveExcludeSet(request, purchasedSet);
     excludeSet.forEach(scoreMap::remove);
+
+    if (request.getCategory() != null) {
+      String requestedCategory = request.getCategory().getLabel().toLowerCase(Locale.ROOT);
+      scoreMap.keySet().removeIf(productId -> {
+        Product product = productCache.get(productId);
+        if (product == null || product.getCategories() == null) {
+          return true;
+        }
+        return product.getCategories().stream()
+            .map(category -> category.getName().toLowerCase(Locale.ROOT))
+            .noneMatch(requestedCategory::equals);
+      });
+    }
 
     int limit = request.getLimit();
     List<RecommendationProductResponse> recommendations =
