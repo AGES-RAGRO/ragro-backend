@@ -36,12 +36,37 @@ public class Co2Service {
   private final UserService userService;
 
   private static final Map<VehicleType, List<FuelType>> ALLOWED_FUELS_BY_VEHICLE =
-      Map.of(
-          VehicleType.MOTORCYCLE, List.of(FuelType.GASOLINE, FuelType.ETHANOL, FuelType.ELECTRIC),
-          VehicleType.CAR,
-              List.of(FuelType.GASOLINE, FuelType.ETHANOL, FuelType.DIESEL, FuelType.ELECTRIC),
-          VehicleType.VAN, List.of(FuelType.GASOLINE, FuelType.DIESEL, FuelType.ELECTRIC),
-          VehicleType.LIGHT_TRUCK, List.of(FuelType.DIESEL, FuelType.ELECTRIC));
+          Map.of(
+                  VehicleType.MOTORCYCLE, List.of(FuelType.GASOLINE, FuelType.ETHANOL, FuelType.ELECTRIC),
+                  VehicleType.CAR,
+                  List.of(FuelType.GASOLINE, FuelType.ETHANOL, FuelType.DIESEL, FuelType.ELECTRIC),
+                  VehicleType.VAN, List.of(FuelType.GASOLINE, FuelType.DIESEL, FuelType.ELECTRIC),
+                  VehicleType.LIGHT_TRUCK, List.of(FuelType.DIESEL, FuelType.ELECTRIC));
+
+  private static final Map<VehicleType, Map<FuelType, Double>> DEFAULT_AVERAGE_CONSUMPTION =
+          Map.of(
+                  VehicleType.MOTORCYCLE, Map.of(
+                          FuelType.GASOLINE, 30.0,
+                          FuelType.ETHANOL,  22.0
+                  ),
+                  VehicleType.CAR, Map.of(
+                          FuelType.GASOLINE, 12.0,
+                          FuelType.ETHANOL,   8.5,
+                          FuelType.DIESEL,   14.0
+                  ),
+                  VehicleType.VAN, Map.of(
+                          FuelType.GASOLINE, 8.0,
+                          FuelType.DIESEL,   8.0
+                  ),
+                  VehicleType.LIGHT_TRUCK, Map.of(
+                          FuelType.DIESEL, 6.0
+                  ));
+
+  private Double getDefaultAverageConsumption(VehicleType vehicleType, FuelType fuelType) {
+    return DEFAULT_AVERAGE_CONSUMPTION
+            .getOrDefault(vehicleType, Map.of())
+            .get(fuelType);
+  }
 
   @Transactional
   public Co2CalculationResponse calculate(Co2CalculationRequest request, Jwt jwt) {
@@ -52,14 +77,14 @@ public class Co2Service {
 
     if (consumption == null && request.getFuelType() != FuelType.ELECTRIC && user != null) {
       consumption =
-          vehiclePreferenceRepository
-              .findById(user.getId())
-              .filter(
-                  pref ->
-                      pref.getVehicleType() == request.getVehicleType()
-                          && pref.getFuelType() == request.getFuelType())
-              .map(VehiclePreference::getAverageConsumption)
-              .orElse(null);
+              vehiclePreferenceRepository
+                      .findById(user.getId())
+                      .filter(
+                              pref ->
+                                      pref.getVehicleType() == request.getVehicleType()
+                                              && pref.getFuelType() == request.getFuelType())
+                      .map(VehiclePreference::getAverageConsumption)
+                      .orElse(null);
     }
 
     if (request.getFuelType() != FuelType.ELECTRIC && (consumption == null || consumption <= 0)) {
@@ -69,57 +94,57 @@ public class Co2Service {
     double co2Emission = 0.0;
     if (request.getFuelType() != FuelType.ELECTRIC) {
       co2Emission =
-          (request.getDistanceKm() / consumption) * request.getFuelType().getEmissionFactor();
+              (request.getDistanceKm() / consumption) * request.getFuelType().getEmissionFactor();
     }
 
     if (user != null && consumption != null) {
       VehiclePreference preference =
-          saveOrUpdatePreference(
-              user, request.getVehicleType(), request.getFuelType(), consumption);
+              saveOrUpdatePreference(
+                      user, request.getVehicleType(), request.getFuelType(), consumption);
       recordEmission(preference, request.getDistanceKm(), co2Emission);
     }
 
     return Co2CalculationResponse.builder()
-        .co2Emission(round(co2Emission))
-        .distanceKm(request.getDistanceKm())
-        .vehicleType(request.getVehicleType())
-        .fuelType(request.getFuelType())
-        .averageConsumption(consumption)
-        .build();
+            .co2Emission(round(co2Emission))
+            .distanceKm(request.getDistanceKm())
+            .vehicleType(request.getVehicleType())
+            .fuelType(request.getFuelType())
+            .averageConsumption(consumption)
+            .build();
   }
 
   @Transactional(readOnly = true)
   public Optional<VehiclePreferenceResponse> getUserPreference(Jwt jwt) {
     User user = userService.getAuthenticatedUser(jwt);
     return vehiclePreferenceRepository
-        .findById(user.getId())
-        .map(
-            pref ->
-                VehiclePreferenceResponse.builder()
-                    .vehicleType(pref.getVehicleType())
-                    .fuelType(pref.getFuelType())
-                    .averageConsumption(pref.getAverageConsumption())
-                    .build());
+            .findById(user.getId())
+            .map(
+                    pref ->
+                            VehiclePreferenceResponse.builder()
+                                    .vehicleType(pref.getVehicleType())
+                                    .fuelType(pref.getFuelType())
+                                    .averageConsumption(pref.getAverageConsumption())
+                                    .build());
   }
 
   @Transactional(readOnly = true)
   public List<Co2EmissionResponse> getEmissionsHistory(Jwt jwt) {
     User user = userService.getAuthenticatedUser(jwt);
     return co2EmissionRepository
-        .findByVehiclePreferenceUserIdOrderByCreatedAtDesc(user.getId())
-        .stream()
-        .map(
-            emission ->
-                Co2EmissionResponse.builder()
-                    .id(emission.getId())
-                    .routeDistanceKm(emission.getRouteDistanceKm())
-                    .co2Emission(emission.getCo2Emission())
-                    .vehicleType(emission.getVehicleType())
-                    .fuelType(emission.getFuelType())
-                    .averageConsumption(emission.getAverageConsumption())
-                    .createdAt(emission.getCreatedAt())
-                    .build())
-        .toList();
+            .findByVehiclePreferenceUserIdOrderByCreatedAtDesc(user.getId())
+            .stream()
+            .map(
+                    emission ->
+                            Co2EmissionResponse.builder()
+                                    .id(emission.getId())
+                                    .routeDistanceKm(emission.getRouteDistanceKm())
+                                    .co2Emission(emission.getCo2Emission())
+                                    .vehicleType(emission.getVehicleType())
+                                    .fuelType(emission.getFuelType())
+                                    .averageConsumption(emission.getAverageConsumption())
+                                    .createdAt(emission.getCreatedAt())
+                                    .build())
+            .toList();
   }
 
   @Transactional(readOnly = true)
@@ -134,29 +159,29 @@ public class Co2Service {
     Double consumption = request.getAverageConsumption();
     if (consumption == null) {
       consumption =
-          vehiclePreferenceRepository
-              .findById(user.getId())
-              .filter(
-                  pref ->
-                      pref.getVehicleType() == request.getVehicleType()
-                          && pref.getFuelType() == request.getFuelType())
-              .map(VehiclePreference::getAverageConsumption)
-              .orElseThrow(
-                  () ->
-                      new BusinessException(
-                          "Consumo médio não informado e sem preferência salva."));
+              vehiclePreferenceRepository
+                      .findById(user.getId())
+                      .filter(
+                              pref ->
+                                      pref.getVehicleType() == request.getVehicleType()
+                                              && pref.getFuelType() == request.getFuelType())
+                      .map(VehiclePreference::getAverageConsumption)
+                      .orElseThrow(
+                              () ->
+                                      new BusinessException(
+                                              "Consumo médio não informado e sem preferência salva."));
     }
 
     double nonOptimizedDist = 0.0;
     if (request.getSeparateDeliveryDistances() != null
-        && !request.getSeparateDeliveryDistances().isEmpty()) {
+            && !request.getSeparateDeliveryDistances().isEmpty()) {
       nonOptimizedDist =
-          request.getSeparateDeliveryDistances().stream().mapToDouble(d -> d * 2).sum();
+              request.getSeparateDeliveryDistances().stream().mapToDouble(d -> d * 2).sum();
     } else if (request.getDistanceNonOptimized() != null) {
       nonOptimizedDist = request.getDistanceNonOptimized();
     } else {
       throw new BusinessException(
-          "É necessário informar a distância não otimizada ou as distâncias separadas das entregas.");
+              "É necessário informar a distância não otimizada ou as distâncias separadas das entregas.");
     }
 
     double co2NonOptimized = 0.0;
@@ -164,10 +189,10 @@ public class Co2Service {
 
     if (request.getFuelType() != FuelType.ELECTRIC) {
       co2NonOptimized =
-          (nonOptimizedDist / consumption) * request.getFuelType().getEmissionFactor();
+              (nonOptimizedDist / consumption) * request.getFuelType().getEmissionFactor();
       co2Optimized =
-          (request.getDistanceOptimized() / consumption)
-              * request.getFuelType().getEmissionFactor();
+              (request.getDistanceOptimized() / consumption)
+                      * request.getFuelType().getEmissionFactor();
     }
 
     double co2Saved = co2NonOptimized - co2Optimized;
@@ -183,14 +208,14 @@ public class Co2Service {
     co2SavingRepository.save(saving);
 
     VehiclePreference preference =
-        saveOrUpdatePreference(user, request.getVehicleType(), request.getFuelType(), consumption);
+            saveOrUpdatePreference(user, request.getVehicleType(), request.getFuelType(), consumption);
     recordEmission(preference, request.getDistanceOptimized(), co2Optimized);
   }
 
   private VehiclePreference saveOrUpdatePreference(
-      User user, VehicleType vehicleType, FuelType fuelType, Double consumption) {
+          User user, VehicleType vehicleType, FuelType fuelType, Double consumption) {
     VehiclePreference preference =
-        vehiclePreferenceRepository.findById(user.getId()).orElse(new VehiclePreference());
+            vehiclePreferenceRepository.findById(user.getId()).orElse(new VehiclePreference());
 
     preference.setUser(user);
     preference.setUserId(user.getId());
@@ -201,7 +226,7 @@ public class Co2Service {
   }
 
   private void recordEmission(
-      VehiclePreference preference, double routeDistanceKm, double co2Emission) {
+          VehiclePreference preference, double routeDistanceKm, double co2Emission) {
     Co2Emission emission = new Co2Emission();
     emission.setVehiclePreference(preference);
     emission.setRouteDistanceKm(routeDistanceKm);
@@ -221,29 +246,31 @@ public class Co2Service {
 
   public Co2OptionsResponse getOptions() {
     List<Co2OptionsResponse.VehicleOption> vehicleOptions =
-        ALLOWED_FUELS_BY_VEHICLE.entrySet().stream()
-            .map(
-                entry -> {
-                  VehicleType vehicleType = entry.getKey();
-                  List<FuelType> fuels = entry.getValue();
+            ALLOWED_FUELS_BY_VEHICLE.entrySet().stream()
+                    .map(
+                            entry -> {
+                              VehicleType vehicleType = entry.getKey();
+                              List<FuelType> fuels = entry.getValue();
 
-                  List<Co2OptionsResponse.FuelOption> fuelOptions =
-                      fuels.stream()
-                          .map(
-                              fuelType ->
-                                  Co2OptionsResponse.FuelOption.builder()
-                                      .type(fuelType)
-                                      .description(fuelType.getDescription())
-                                      .build())
-                          .toList();
+                              List<Co2OptionsResponse.FuelOption> fuelOptions =
+                                      fuels.stream()
+                                              .map(
+                                                      fuelType ->
+                                                              Co2OptionsResponse.FuelOption.builder()
+                                                                      .type(fuelType)
+                                                                      .description(fuelType.getDescription())
+                                                                      .defaultAverageConsumption(
+                                                                              getDefaultAverageConsumption(vehicleType, fuelType))
+                                                                      .build())
+                                              .toList();
 
-                  return Co2OptionsResponse.VehicleOption.builder()
-                      .type(vehicleType)
-                      .description(vehicleType.getDescription())
-                      .allowedFuels(fuelOptions)
-                      .build();
-                })
-            .toList();
+                              return Co2OptionsResponse.VehicleOption.builder()
+                                      .type(vehicleType)
+                                      .description(vehicleType.getDescription())
+                                      .allowedFuels(fuelOptions)
+                                      .build();
+                            })
+                    .toList();
 
     return Co2OptionsResponse.builder().vehicles(vehicleOptions).build();
   }
