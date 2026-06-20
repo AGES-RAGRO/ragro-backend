@@ -22,10 +22,12 @@ import br.com.ragro.mapper.ProducerMapper;
 import br.com.ragro.repository.AddressRepository;
 import br.com.ragro.repository.FarmerAvailabilityRepository;
 import br.com.ragro.repository.PaymentMethodRepository;
+import br.com.ragro.repository.ProducerProfileRepository;
 import br.com.ragro.repository.ProducerRepository;
 import br.com.ragro.repository.UserRepository;
 import br.com.ragro.service.api.IdentityProviderService;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -40,6 +42,7 @@ class ProducerRegistrationServiceTest {
 
   @Mock private UserRepository userRepository;
   @Mock private ProducerRepository producerRepository;
+  @Mock private ProducerProfileRepository producerProfileRepository;
   @Mock private IdentityProviderService identityProviderService;
   @Mock private AddressRepository addressRepository;
   @Mock private FarmerAvailabilityRepository availabilityRepository;
@@ -56,6 +59,7 @@ class ProducerRegistrationServiceTest {
         new ProducerRegistrationService(
             userRepository,
             producerRepository,
+            producerProfileRepository,
             identityProviderService,
             addressRepository,
             availabilityRepository,
@@ -120,7 +124,7 @@ class ProducerRegistrationServiceTest {
     user.setType(TypeUser.FARMER);
     user.setActive(true);
     user.setAuthSub("auth-sub-" + id);
-    user.setCreatedAt(OffsetDateTime.now());
+    user.setCreatedAt(OffsetDateTime.parse("2026-06-18T02:30:00Z"));
     user.setUpdatedAt(OffsetDateTime.now());
     return user;
   }
@@ -169,6 +173,12 @@ class ProducerRegistrationServiceTest {
     assertThat(response.getTotalOrders()).isEqualTo(0);
     assertThat(response.getAverageRating()).isEqualByComparingTo(BigDecimal.ZERO);
     assertThat(response.getTotalSalesAmount()).isEqualByComparingTo(BigDecimal.ZERO);
+    verify(producerProfileRepository)
+        .save(
+            org.mockito.ArgumentMatchers.argThat(
+                profile ->
+                    profile.getUser() == savedUser
+                        && profile.getMemberSince().equals(LocalDate.of(2026, 6, 17))));
   }
 
   @Test

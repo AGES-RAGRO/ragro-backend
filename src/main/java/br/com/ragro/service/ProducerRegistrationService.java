@@ -8,6 +8,7 @@ import br.com.ragro.domain.Address;
 import br.com.ragro.domain.FarmerAvailability;
 import br.com.ragro.domain.PaymentMethod;
 import br.com.ragro.domain.Producer;
+import br.com.ragro.domain.ProducerProfile;
 import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.TypeUser;
 import br.com.ragro.exception.BusinessException;
@@ -17,12 +18,14 @@ import br.com.ragro.mapper.ProducerMapper;
 import br.com.ragro.repository.AddressRepository;
 import br.com.ragro.repository.FarmerAvailabilityRepository;
 import br.com.ragro.repository.PaymentMethodRepository;
+import br.com.ragro.repository.ProducerProfileRepository;
 import br.com.ragro.repository.ProducerRepository;
 import br.com.ragro.repository.UserRepository;
 import br.com.ragro.service.api.IdentityProviderService;
 import com.google.maps.model.LatLng;
 import java.math.BigDecimal;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
 import java.util.HashSet;
 import java.util.List;
@@ -34,8 +37,11 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class ProducerRegistrationService {
 
+  private static final ZoneId PLATFORM_ZONE = ZoneId.of("America/Sao_Paulo");
+
   private final UserRepository userRepository;
   private final ProducerRepository producerRepository;
+  private final ProducerProfileRepository producerProfileRepository;
   private final IdentityProviderService identityProviderService;
   private final AddressRepository addressRepository;
   private final FarmerAvailabilityRepository availabilityRepository;
@@ -46,6 +52,7 @@ public class ProducerRegistrationService {
   public ProducerRegistrationService(
       UserRepository userRepository,
       ProducerRepository producerRepository,
+      ProducerProfileRepository producerProfileRepository,
       IdentityProviderService identityProviderService,
       AddressRepository addressRepository,
       FarmerAvailabilityRepository availabilityRepository,
@@ -54,6 +61,7 @@ public class ProducerRegistrationService {
       GoogleMapsService googleMapsService) {
     this.userRepository = userRepository;
     this.producerRepository = producerRepository;
+    this.producerProfileRepository = producerProfileRepository;
     this.identityProviderService = identityProviderService;
     this.addressRepository = addressRepository;
     this.availabilityRepository = availabilityRepository;
@@ -106,6 +114,12 @@ public class ProducerRegistrationService {
       Producer savedProducer =
           producerRepository.saveAndFlush(
               producerMapper.toEntity(savedUser, request, normalizedFiscalNumber));
+
+      ProducerProfile profile = new ProducerProfile();
+      profile.setUser(savedUser);
+      profile.setMemberSince(
+          savedUser.getCreatedAt().atZoneSameInstant(PLATFORM_ZONE).toLocalDate());
+      producerProfileRepository.save(profile);
 
       applyRegistrationPaymentMethod(savedProducer, request);
       applyAvailability(savedProducer, request.getAvailability());

@@ -32,6 +32,7 @@ import com.google.maps.model.LatLng;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
 import java.util.HashSet;
 import java.util.List;
@@ -48,6 +49,8 @@ import org.springframework.web.multipart.MultipartFile;
 @Service
 @RequiredArgsConstructor
 public class ProducerService {
+
+  private static final ZoneId PLATFORM_ZONE = ZoneId.of("America/Sao_Paulo");
 
   private final UserRepository userRepository;
   private final ProducerRepository producerRepository;
@@ -250,8 +253,15 @@ public class ProducerService {
                 () -> {
                   ProducerProfile p = new ProducerProfile();
                   p.setUser(targetUser);
+                  p.setMemberSince(
+                      targetUser.getCreatedAt().atZoneSameInstant(PLATFORM_ZONE).toLocalDate());
                   return p;
                 });
+
+    if (profile.getMemberSince() == null) {
+      profile.setMemberSince(
+          targetUser.getCreatedAt().atZoneSameInstant(PLATFORM_ZONE).toLocalDate());
+    }
 
     if (request.getStory() != null) {
       profile.setStory(request.getStory());

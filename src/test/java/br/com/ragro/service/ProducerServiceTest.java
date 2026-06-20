@@ -598,6 +598,7 @@ class ProducerServiceTest {
   void updateProducerProfile_shouldCreateProducerProfile_whenItDoesNotExistYet() {
     UUID producerId = UUID.randomUUID();
     User farmer = buildProducer(producerId);
+    farmer.setCreatedAt(OffsetDateTime.parse("2026-06-18T02:30:00Z"));
     Producer producer = buildProducerEntity(producerId, farmer);
 
     Jwt jwt = buildJwt(farmer.getAuthSub(), farmer.getEmail());
@@ -619,6 +620,7 @@ class ProducerServiceTest {
     ProducerGetResponse response = producerService.updateProducerProfile(producerId, jwt, request);
 
     assertThat(response).isNotNull();
+    assertThat(response.getMemberSince()).isEqualTo(LocalDate.of(2026, 6, 17));
     verify(producerProfileRepository).save(any(ProducerProfile.class));
   }
 
