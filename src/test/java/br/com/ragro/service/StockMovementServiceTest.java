@@ -366,7 +366,7 @@ class StockMovementServiceTest {
     stockMovementService.registerSale(product, new BigDecimal("1.000"), "order-note");
 
     verify(notificationService, times(1))
-        .createProducerLowStockNotification(product, farmer);
+        .createProducerLowStockNotification(product);
   }
 
   @Test
@@ -381,7 +381,7 @@ class StockMovementServiceTest {
     stockMovementService.registerSale(product, new BigDecimal("10.000"), "order-note");
 
     verify(notificationService, never())
-        .createProducerLowStockNotification(any(), any());
+        .createProducerLowStockNotification(any());
   }
 
   @Test
@@ -397,7 +397,7 @@ class StockMovementServiceTest {
     stockMovementService.registerSale(product, new BigDecimal("1.000"), "order-note");
 
     verify(notificationService, never())
-        .createProducerLowStockNotification(any(), any());
+        .createProducerLowStockNotification(any());
   }
 
   private Producer buildFarmerWithUser() {

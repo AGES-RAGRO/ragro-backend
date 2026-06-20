@@ -225,7 +225,8 @@ public class NotificationService {
   // ---------------------------------------------------------------------------
 
   @Transactional
-  public void createProducerLowStockNotification(Product product, Producer farmer) {
+  public void createProducerLowStockNotification(Product product) {
+    Producer farmer = product.getFarmer();
     String message =
         "O produto \""
             + product.getName()

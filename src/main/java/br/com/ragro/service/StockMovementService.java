@@ -139,7 +139,7 @@ public class StockMovementService {
         stockBefore.compareTo(LOW_STOCK_THRESHOLD) > 0
             && product.getStockQuantity().compareTo(LOW_STOCK_THRESHOLD) <= 0;
     if (crossedThreshold) {
-      notificationService.createProducerLowStockNotification(product, product.getFarmer());
+      notificationService.createProducerLowStockNotification(product);
     }
   }
 
