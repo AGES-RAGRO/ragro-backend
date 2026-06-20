@@ -34,7 +34,7 @@ public class ProducerProfile {
   @Column(name = "photo_url")
   private String photoUrl;
 
-  @Column(name = "member_since")
+  @Column(name = "member_since", nullable = false)
   private LocalDate memberSince;
 
   @CreationTimestamp
