@@ -8,5 +8,6 @@ public enum NotificationType {
   ORDER_REFUSED,
   // Producer-facing
   NEW_ORDER,
-  ORDER_CANCELLED_BY_CUSTOMER
+  ORDER_CANCELLED_BY_CUSTOMER,
+  LOW_STOCK
 }

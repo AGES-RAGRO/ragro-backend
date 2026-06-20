@@ -7,6 +7,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import br.com.ragro.domain.enums.NotificationReferenceType;
 import br.com.ragro.domain.enums.NotificationType;
 import br.com.ragro.event.OrderPushNotificationEvent;
 import br.com.ragro.repository.FcmTokenRepository;
@@ -41,7 +42,8 @@ class FcmServiceTest {
         "Pedido aceito",
         "Seu pedido foi aceito.",
         UUID.randomUUID(),
-        NotificationType.ORDER_CONFIRMED);
+        NotificationType.ORDER_CONFIRMED,
+        NotificationReferenceType.ORDER);
   }
 
   private BatchResponse batchResponse(SendResponse... responses) {
