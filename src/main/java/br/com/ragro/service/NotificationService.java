@@ -156,7 +156,9 @@ public class NotificationService {
         order.getCustomer().getUser(),
         NotificationType.ORDER_IN_DELIVERY,
         "Pedido saiu para entrega",
-        "Seu pedido saiu para entrega.");
+        "Informe o código "
+            + order.getConfirmationCode()
+            + " ao produtor para confirmar a entrega. Seu pedido saiu para entrega.");
   }
 
   @Transactional
