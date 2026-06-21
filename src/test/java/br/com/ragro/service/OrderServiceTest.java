@@ -28,6 +28,7 @@ import br.com.ragro.domain.Producer;
 import br.com.ragro.domain.Product;
 import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.OrderStatus;
+import br.com.ragro.domain.enums.PaymentStatus;
 import br.com.ragro.domain.enums.TypeUser;
 import br.com.ragro.exception.BusinessException;
 import br.com.ragro.exception.ForbiddenException;
@@ -1018,5 +1019,694 @@ class OrderServiceTest {
         Instant.now().plusSeconds(300),
         Map.of("alg", "none"),
         Map.of("sub", "sub"));
+  }
+
+  @Test
+  void createOrderFromCart_shouldPersistOrderWithSnapshottedItemValues() {
+    UUID customerId = UUID.randomUUID();
+    User user = buildUser(customerId, TypeUser.CUSTOMER);
+    Customer customer = buildCustomer(customerId);
+    Producer farmer = buildFarmer(UUID.randomUUID());
+    Address address = buildAddress();
+ 
+    Product product = buildProduct(new BigDecimal("5.00"), new BigDecimal("100"));
+    CartItem cartItem = new CartItem();
+    cartItem.setProduct(product);
+    cartItem.setQuantity(new BigDecimal("3"));
+    cartItem.setActive(true);
+ 
+    Cart cart = new Cart();
+    cart.setFarmer(farmer);
+    cart.getItems().add(cartItem);
+ 
+    PaymentMethod paymentMethod = new PaymentMethod();
+    paymentMethod.setId(UUID.randomUUID());
+    paymentMethod.setFarmer(farmer);
+ 
+    Jwt jwt = jwt();
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(user);
+    when(customerRepository.findById(customerId)).thenReturn(Optional.of(customer));
+    when(cartRepository.findByCustomerIdAndActiveTrue(customerId)).thenReturn(Optional.of(cart));
+    when(addressRepository.findByUserIdAndIsPrimaryTrue(customerId))
+        .thenReturn(Optional.of(address));
+    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(farmer.getId()))
+        .thenReturn(List.of(paymentMethod));
+    when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+ 
+    OrderResponse response = orderService.createOrderFromCart(jwt);
+ 
+    assertThat(response).isNotNull();
+    assertThat(response.getStatus()).isEqualTo(OrderStatus.PENDING);
+    verify(cartService).clearCart(customer);
+ 
+    org.mockito.ArgumentCaptor<Order> captor = org.mockito.ArgumentCaptor.forClass(Order.class);
+    verify(orderRepository).saveAndFlush(captor.capture());
+    Order savedOrder = captor.getValue();
+ 
+    assertThat(savedOrder.getDeliveryAddress()).isEqualTo(address);
+    assertThat(savedOrder.getDeliveryAddressSnapshot()).isNotNull();
+    assertThat(savedOrder.getPaymentStatus()).isEqualTo(PaymentStatus.PENDING);
+    assertThat(savedOrder.getNotes()).isNull();
+    assertThat(savedOrder.getItems()).hasSize(1);
+    OrderItem item = savedOrder.getItems().get(0);
+    assertThat(item.getProductNameSnapshot()).isEqualTo("Tomate");
+    assertThat(item.getUnitPriceSnapshot()).isEqualByComparingTo("5.00");
+    assertThat(item.getUnityTypeSnapshot()).isEqualTo("kg");
+    assertThat(item.getQuantity()).isEqualByComparingTo("3");
+    assertThat(item.getSubtotal()).isEqualByComparingTo("15.00");
+    assertThat(savedOrder.getStatusHistory()).hasSize(1);
+    assertThat(savedOrder.getStatusHistory().get(0).getStatus()).isEqualTo(OrderStatus.PENDING);
+    assertThat(savedOrder.getStatusHistory().get(0).getOrder()).isEqualTo(savedOrder);
+  }
+ 
+  @Test
+  void createOrderFromCart_shouldThrow_whenUserIsNotCustomer() {
+    User user = buildUser(UUID.randomUUID(), TypeUser.FARMER);
+    Jwt jwt = jwt();
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(user);
+ 
+    assertThatThrownBy(() -> orderService.createOrderFromCart(jwt))
+        .isInstanceOf(ForbiddenException.class);
+  }
+ 
+  @Test
+  void createOrderFromCart_shouldThrow_whenCartHasNoActiveItems() {
+    UUID customerId = UUID.randomUUID();
+    User user = buildUser(customerId, TypeUser.CUSTOMER);
+    Customer customer = buildCustomer(customerId);
+ 
+    CartItem inactiveItem = new CartItem();
+    inactiveItem.setActive(false);
+    Cart cart = new Cart();
+    cart.getItems().add(inactiveItem);
+ 
+    Jwt jwt = jwt();
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(user);
+    when(customerRepository.findById(customerId)).thenReturn(Optional.of(customer));
+    when(cartRepository.findByCustomerIdAndActiveTrue(customerId)).thenReturn(Optional.of(cart));
+ 
+    assertThatThrownBy(() -> orderService.createOrderFromCart(jwt))
+        .isInstanceOf(BusinessException.class)
+        .hasMessageContaining("itens ativos");
+  }
+ 
+  // ─── getMyOrders ─────────────────────────────────────────────────────────
+ 
+@Test
+  void getMyOrders_shouldReturnMappedList_whenCustomerHasOrders() {
+    UUID customerId = UUID.randomUUID();
+    User user = buildUser(customerId, TypeUser.CUSTOMER);
+    Customer customer = buildCustomer(customerId);
+    Order order = buildOrder(UUID.randomUUID(), customer, buildFarmer(UUID.randomUUID()), OrderStatus.PENDING);
+
+    Jwt jwt = jwt();
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(user);
+    when(customerRepository.findById(customerId)).thenReturn(Optional.of(customer));
+    when(orderRepository.findByCustomerIdOrderByCreatedAtDesc(customerId))
+        .thenReturn(List.of(order));
+    when(reviewRepository.existsByOrderId(order.getId())).thenReturn(true);
+
+    List<CustomerOrderResponse> result = orderService.getMyOrders(jwt);
+
+    assertThat(result).hasSize(1);
+    assertThat(result.get(0).isReviewed()).isTrue();
+  }
+
+  @Test
+  void getMyOrders_shouldReturnEmptyList_whenNoOrders() {
+    UUID customerId = UUID.randomUUID();
+    User user = buildUser(customerId, TypeUser.CUSTOMER);
+    Customer customer = buildCustomer(customerId);
+
+    Jwt jwt = jwt();
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(user);
+    when(customerRepository.findById(customerId)).thenReturn(Optional.of(customer));
+    when(orderRepository.findByCustomerIdOrderByCreatedAtDesc(customerId)).thenReturn(List.of());
+
+    List<CustomerOrderResponse> result = orderService.getMyOrders(jwt);
+
+    assertThat(result).isEmpty();
+  }
+
+  @Test
+  void getMyOrders_shouldThrow_whenUserIsNotCustomer() {
+    User user = buildUser(UUID.randomUUID(), TypeUser.FARMER);
+    Jwt jwt = jwt();
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(user);
+
+    assertThatThrownBy(() -> orderService.getMyOrders(jwt)).isInstanceOf(ForbiddenException.class);
+  }
+
+  @Test
+  void getMyOrders_shouldThrow_whenCustomerDataNotFound() {
+    UUID customerId = UUID.randomUUID();
+    User user = buildUser(customerId, TypeUser.CUSTOMER);
+    Jwt jwt = jwt();
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(user);
+    when(customerRepository.findById(customerId)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> orderService.getMyOrders(jwt)).isInstanceOf(NotFoundException.class);
+  }
+
+  // ─── getProducerOrders ───────────────────────────────────────────────────
+
+  @Test
+  void getProducerOrders_shouldReturnMappedList() {
+    UUID farmerId = UUID.randomUUID();
+    User user = buildUser(farmerId, TypeUser.FARMER);
+    Order order = buildOrder(UUID.randomUUID(), buildCustomer(UUID.randomUUID()), buildFarmer(farmerId), OrderStatus.PENDING);
+
+    Jwt jwt = jwt();
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(user);
+    when(orderRepository.findByFarmerIdOrderByCreatedAtDesc(farmerId)).thenReturn(List.of(order));
+
+    List<OrderResponse> result = orderService.getProducerOrders(jwt);
+
+    assertThat(result).hasSize(1);
+  }
+
+  @Test
+  void getProducerOrders_shouldThrow_whenUserIsNotFarmer() {
+    User user = buildUser(UUID.randomUUID(), TypeUser.CUSTOMER);
+    Jwt jwt = jwt();
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(user);
+
+    assertThatThrownBy(() -> orderService.getProducerOrders(jwt))
+        .isInstanceOf(ForbiddenException.class);
+  }
+
+  // ─── getMyOrderById ──────────────────────────────────────────────────────
+
+  @Test
+  void getMyOrderById_shouldReturnOrder_whenItBelongsToCustomer() {
+    UUID customerId = UUID.randomUUID();
+    UUID orderId = UUID.randomUUID();
+    User user = buildUser(customerId, TypeUser.CUSTOMER);
+    Customer customer = buildCustomer(customerId);
+    Order order = buildOrder(orderId, customer, buildFarmer(UUID.randomUUID()), OrderStatus.PENDING);
+
+    Jwt jwt = jwt();
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(user);
+    when(customerRepository.findById(customerId)).thenReturn(Optional.of(customer));
+    when(orderRepository.findByIdAndCustomerId(orderId, customerId)).thenReturn(Optional.of(order));
+    when(reviewRepository.existsByOrderId(orderId)).thenReturn(false);
+
+    CustomerOrderResponse result = orderService.getMyOrderById(orderId, jwt);
+
+    assertThat(result.getId()).isEqualTo(orderId);
+    assertThat(result.isReviewed()).isFalse();
+  }
+
+  @Test
+  void getMyOrderById_shouldThrow_whenOrderNotFoundForCustomer() {
+    UUID customerId = UUID.randomUUID();
+    UUID orderId = UUID.randomUUID();
+    User user = buildUser(customerId, TypeUser.CUSTOMER);
+    Customer customer = buildCustomer(customerId);
+
+    Jwt jwt = jwt();
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(user);
+    when(customerRepository.findById(customerId)).thenReturn(Optional.of(customer));
+    when(orderRepository.findByIdAndCustomerId(orderId, customerId)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> orderService.getMyOrderById(orderId, jwt))
+        .isInstanceOf(NotFoundException.class);
+  }
+
+  // ─── markOrderAsSeen ─────────────────────────────────────────────────────
+
+  @Test
+  void markOrderAsSeen_shouldSetSeenAndSave_whenNotYetSeen() {
+    UUID farmerId = UUID.randomUUID();
+    UUID orderId = UUID.randomUUID();
+    User user = buildUser(farmerId, TypeUser.FARMER);
+    Producer farmer = buildFarmer(farmerId);
+    Order order = buildOrder(orderId, buildCustomer(UUID.randomUUID()), farmer, OrderStatus.PENDING);
+    order.setSeenByFarmer(false);
+
+    Jwt jwt = jwt();
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(user);
+    when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+    when(orderRepository.saveAndFlush(order)).thenReturn(order);
+
+    OrderResponse response = orderService.markOrderAsSeen(orderId, jwt);
+
+    assertThat(response).isNotNull();
+    assertThat(order.isSeenByFarmer()).isTrue();
+    verify(orderRepository).saveAndFlush(order);
+  }
+
+  @Test
+  void markOrderAsSeen_shouldNotSave_whenAlreadySeen() {
+    UUID farmerId = UUID.randomUUID();
+    UUID orderId = UUID.randomUUID();
+    User user = buildUser(farmerId, TypeUser.FARMER);
+    Producer farmer = buildFarmer(farmerId);
+    Order order = buildOrder(orderId, buildCustomer(UUID.randomUUID()), farmer, OrderStatus.PENDING);
+    order.setSeenByFarmer(true);
+
+    Jwt jwt = jwt();
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(user);
+    when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+
+    orderService.markOrderAsSeen(orderId, jwt);
+
+    verify(orderRepository, never()).saveAndFlush(any(Order.class));
+  }
+
+  @Test
+  void markOrderAsSeen_shouldThrow_whenUserIsNotFarmer() {
+    User user = buildUser(UUID.randomUUID(), TypeUser.CUSTOMER);
+    Jwt jwt = jwt();
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(user);
+
+    assertThatThrownBy(() -> orderService.markOrderAsSeen(UUID.randomUUID(), jwt))
+        .isInstanceOf(ForbiddenException.class);
+  }
+
+  @Test
+  void markOrderAsSeen_shouldThrow_whenFarmerDoesNotOwnOrder() {
+    UUID farmerId = UUID.randomUUID();
+    UUID orderId = UUID.randomUUID();
+    User user = buildUser(farmerId, TypeUser.FARMER);
+    Producer otherFarmer = buildFarmer(UUID.randomUUID());
+    Order order = buildOrder(orderId, buildCustomer(UUID.randomUUID()), otherFarmer, OrderStatus.PENDING);
+
+    Jwt jwt = jwt();
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(user);
+    when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+
+    assertThatThrownBy(() -> orderService.markOrderAsSeen(orderId, jwt))
+        .isInstanceOf(ForbiddenException.class);
+  }
+
+  // ─── confirmOrder ────────────────────────────────────────────────────────
+
+  @Test
+  void confirmOrder_shouldRegisterSaleAndRecordHistory() {
+    UUID farmerId = UUID.randomUUID();
+    UUID orderId = UUID.randomUUID();
+    User user = buildUser(farmerId, TypeUser.FARMER);
+    Producer farmer = buildFarmer(farmerId);
+    Order order = buildOrder(orderId, buildCustomer(UUID.randomUUID()), farmer, OrderStatus.PENDING);
+
+    Product product = buildProduct(new BigDecimal("5.00"), new BigDecimal("10"));
+    OrderItem item = new OrderItem();
+    item.setProduct(product);
+    item.setQuantity(new BigDecimal("2"));
+    item.setSubtotal(new BigDecimal("10.00"));
+    order.getItems().add(item);
+
+    Jwt jwt = jwt();
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(user);
+    when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+    when(orderRepository.saveAndFlush(order)).thenReturn(order);
+
+    OrderResponse response = orderService.confirmOrder(orderId, jwt);
+
+    assertThat(response).isNotNull();
+    assertThat(order.getStatus()).isEqualTo(OrderStatus.CONFIRMED);
+    verify(stockMovementService).registerSale(eq(product), eq(new BigDecimal("2")), any());
+
+    org.mockito.ArgumentCaptor<br.com.ragro.domain.OrderStatusHistory> historyCaptor =
+        org.mockito.ArgumentCaptor.forClass(br.com.ragro.domain.OrderStatusHistory.class);
+    verify(orderStatusHistoryRepository).save(historyCaptor.capture());
+    assertThat(historyCaptor.getValue().getOrder()).isEqualTo(order);
+    assertThat(historyCaptor.getValue().getStatus()).isEqualTo(OrderStatus.CONFIRMED);
+
+    verify(notificationService).createCustomerOrderAcceptedNotification(order);
+  }
+
+  @Test
+  void confirmOrder_shouldThrow_whenOrderIsNotPending() {
+    UUID farmerId = UUID.randomUUID();
+    UUID orderId = UUID.randomUUID();
+    User user = buildUser(farmerId, TypeUser.FARMER);
+    Producer farmer = buildFarmer(farmerId);
+    Order order = buildOrder(orderId, buildCustomer(UUID.randomUUID()), farmer, OrderStatus.CONFIRMED);
+
+    Jwt jwt = jwt();
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(user);
+    when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+
+    assertThatThrownBy(() -> orderService.confirmOrder(orderId, jwt))
+        .isInstanceOf(BusinessException.class);
+  }
+
+  // ─── confirmDelivery ─────────────────────────────────────────────────────
+
+  @Test
+  void confirmDelivery_shouldSetDeliveredAtAndStatus() {
+    UUID customerId = UUID.randomUUID();
+    UUID orderId = UUID.randomUUID();
+    User user = buildUser(customerId, TypeUser.CUSTOMER);
+    Customer customer = buildCustomer(customerId);
+    Order order = buildOrder(orderId, customer, buildFarmer(UUID.randomUUID()), OrderStatus.IN_DELIVERY);
+
+    Jwt jwt = jwt();
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(user);
+    when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+    when(orderRepository.saveAndFlush(order)).thenReturn(order);
+
+    orderService.confirmDelivery(orderId, jwt);
+
+    assertThat(order.getStatus()).isEqualTo(OrderStatus.DELIVERED);
+    assertThat(order.getDeliveredAt()).isNotNull();
+    assertThat(order.getStatusHistory()).hasSize(1);
+    assertThat(order.getStatusHistory().get(0).getOrder()).isEqualTo(order);
+    verify(notificationService).createCustomerOrderDeliveredNotification(order);
+  }
+
+  @Test
+  void confirmDelivery_shouldThrow_whenOrderNotInDelivery() {
+    UUID customerId = UUID.randomUUID();
+    UUID orderId = UUID.randomUUID();
+    User user = buildUser(customerId, TypeUser.CUSTOMER);
+    Customer customer = buildCustomer(customerId);
+    Order order = buildOrder(orderId, customer, buildFarmer(UUID.randomUUID()), OrderStatus.PENDING);
+
+    Jwt jwt = jwt();
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(user);
+    when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+
+    assertThatThrownBy(() -> orderService.confirmDelivery(orderId, jwt))
+        .isInstanceOf(BusinessException.class);
+  }
+
+  // ─── updateOrderStatus ───────────────────────────────────────────────────
+
+  @Test
+  void updateOrderStatus_shouldSetDeliveredAt_whenNewStatusIsDelivered() {
+    UUID farmerId = UUID.randomUUID();
+    UUID orderId = UUID.randomUUID();
+    User user = buildUser(farmerId, TypeUser.FARMER);
+    Producer farmer = buildFarmer(farmerId);
+    Order order = buildOrder(orderId, buildCustomer(UUID.randomUUID()), farmer, OrderStatus.IN_DELIVERY);
+
+    Jwt jwt = jwt();
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(user);
+    when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+    when(orderRepository.saveAndFlush(order)).thenReturn(order);
+
+    orderService.updateOrderStatus(orderId, OrderStatus.DELIVERED, jwt);
+
+    assertThat(order.getDeliveredAt()).isNotNull();
+    org.mockito.ArgumentCaptor<br.com.ragro.domain.OrderStatusHistory> historyCaptor =
+        org.mockito.ArgumentCaptor.forClass(br.com.ragro.domain.OrderStatusHistory.class);
+    verify(orderStatusHistoryRepository).save(historyCaptor.capture());
+    assertThat(historyCaptor.getValue().getOrder()).isEqualTo(order);
+    assertThat(historyCaptor.getValue().getStatus()).isEqualTo(OrderStatus.DELIVERED);
+    verify(notificationService).createCustomerOrderDeliveredNotification(order);
+  }
+
+  @Test
+  void updateOrderStatus_shouldNotSetDeliveredAt_whenNewStatusIsNotDelivered() {
+    UUID farmerId = UUID.randomUUID();
+    UUID orderId = UUID.randomUUID();
+    User user = buildUser(farmerId, TypeUser.FARMER);
+    Producer farmer = buildFarmer(farmerId);
+    Order order = buildOrder(orderId, buildCustomer(UUID.randomUUID()), farmer, OrderStatus.PENDING);
+
+    Jwt jwt = jwt();
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(user);
+    when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+    when(orderRepository.saveAndFlush(order)).thenReturn(order);
+
+    orderService.updateOrderStatus(orderId, OrderStatus.CONFIRMED, jwt);
+
+    assertThat(order.getDeliveredAt()).isNull();
+    verify(notificationService).createCustomerOrderAcceptedNotification(order);
+  }
+
+  @Test
+  void updateOrderStatus_shouldNotifyForCancelled() {
+    UUID farmerId = UUID.randomUUID();
+    UUID orderId = UUID.randomUUID();
+    User user = buildUser(farmerId, TypeUser.FARMER);
+    Producer farmer = buildFarmer(farmerId);
+    Order order = buildOrder(orderId, buildCustomer(UUID.randomUUID()), farmer, OrderStatus.PENDING);
+
+    Jwt jwt = jwt();
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(user);
+    when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+    when(orderRepository.saveAndFlush(order)).thenReturn(order);
+
+    orderService.updateOrderStatus(orderId, OrderStatus.CANCELLED, jwt);
+
+    verify(notificationService).createCustomerOrderRefusedNotification(order);
+  }
+
+  @Test
+  void updateOrderStatus_shouldNotifyForInDelivery() {
+    UUID farmerId = UUID.randomUUID();
+    UUID orderId = UUID.randomUUID();
+    User user = buildUser(farmerId, TypeUser.FARMER);
+    Producer farmer = buildFarmer(farmerId);
+    Order order = buildOrder(orderId, buildCustomer(UUID.randomUUID()), farmer, OrderStatus.CONFIRMED);
+
+    Jwt jwt = jwt();
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(user);
+    when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+    when(orderRepository.saveAndFlush(order)).thenReturn(order);
+
+    orderService.updateOrderStatus(orderId, OrderStatus.IN_DELIVERY, jwt);
+
+    verify(notificationService).createCustomerOrderInDeliveryNotification(order);
+  }
+
+  @Test
+  void updateOrderStatus_shouldThrow_whenFarmerDoesNotOwnOrder() {
+    UUID farmerId = UUID.randomUUID();
+    UUID orderId = UUID.randomUUID();
+    User user = buildUser(farmerId, TypeUser.FARMER);
+    Producer otherFarmer = buildFarmer(UUID.randomUUID());
+    Order order = buildOrder(orderId, buildCustomer(UUID.randomUUID()), otherFarmer, OrderStatus.PENDING);
+
+    Jwt jwt = jwt();
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(user);
+    when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+
+    assertThatThrownBy(() -> orderService.updateOrderStatus(orderId, OrderStatus.CONFIRMED, jwt))
+        .isInstanceOf(ForbiddenException.class);
+  }
+
+  // ─── findPrimaryPaymentMethod / createAddressSnapshot (via repeatOrder) ──
+
+  @Test
+  void repeatOrder_shouldReturnNullPaymentMethod_whenFarmerHasNoneActive() {
+    UUID customerId = UUID.randomUUID();
+    UUID orderId = UUID.randomUUID();
+    User user = buildUser(customerId, TypeUser.CUSTOMER);
+    Customer customer = buildCustomer(customerId);
+    Producer farmer = buildFarmer(UUID.randomUUID());
+    Order order = buildOrder(orderId, customer, farmer, OrderStatus.DELIVERED);
+
+    Product product = buildProduct(new BigDecimal("4.00"), new BigDecimal("10"));
+    OrderItem orderItem = new OrderItem();
+    orderItem.setProduct(product);
+    orderItem.setQuantity(BigDecimal.ONE);
+    orderItem.setSubtotal(new BigDecimal("4.00")); 
+    order.getItems().add(orderItem);
+
+    Jwt jwt = jwt();
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(user);
+    when(customerRepository.findById(customerId)).thenReturn(Optional.of(customer));
+    when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+    when(cartRepository.findByCustomerIdAndActiveTrue(customerId)).thenReturn(Optional.empty());
+    when(cartRepository.saveAndFlush(any(Cart.class))).thenAnswer(inv -> inv.getArgument(0));
+    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(farmer.getId()))
+        .thenReturn(List.of());
+
+CartResponse response = orderService.repeatOrder(orderId, jwt);
+
+    assertThat(response).isNotNull();
+    assertThat(response.getBankInfo()).isNull();
+  }
+ 
+  @Test
+  void repeatOrder_shouldClampQuantity_toAvailableStock() {
+    UUID customerId = UUID.randomUUID();
+    UUID orderId = UUID.randomUUID();
+    User user = buildUser(customerId, TypeUser.CUSTOMER);
+    Customer customer = buildCustomer(customerId);
+    Producer farmer = buildFarmer(UUID.randomUUID());
+    Order order = buildOrder(orderId, customer, farmer, OrderStatus.DELIVERED);
+ 
+    Product product = buildProduct(new BigDecimal("4.00"), new BigDecimal("2")); // only 2 in stock
+    OrderItem orderItem = new OrderItem();
+    orderItem.setProduct(product);
+    orderItem.setQuantity(new BigDecimal("5")); // wants 5
+    orderItem.setSubtotal(new BigDecimal("20.00"));
+    order.getItems().add(orderItem);
+ 
+    Jwt jwt = jwt();
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(user);
+    when(customerRepository.findById(customerId)).thenReturn(Optional.of(customer));
+    when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+    when(cartRepository.findByCustomerIdAndActiveTrue(customerId)).thenReturn(Optional.empty());
+    when(cartRepository.saveAndFlush(any(Cart.class))).thenAnswer(inv -> inv.getArgument(0));
+    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(farmer.getId()))
+        .thenReturn(List.of());
+ 
+    CartResponse response = orderService.repeatOrder(orderId, jwt);
+ 
+    assertThat(response.getItems()).hasSize(1);
+    assertThat(response.getItems().get(0).getQuantity()).isEqualByComparingTo("2");
+  }
+ 
+  @Test
+  void repeatOrder_shouldSkipInactiveProducts() {
+    UUID customerId = UUID.randomUUID();
+    UUID orderId = UUID.randomUUID();
+    User user = buildUser(customerId, TypeUser.CUSTOMER);
+    Customer customer = buildCustomer(customerId);
+    Producer farmer = buildFarmer(UUID.randomUUID());
+    Order order = buildOrder(orderId, customer, farmer, OrderStatus.DELIVERED);
+ 
+    Product inactiveProduct = buildProduct(new BigDecimal("4.00"), new BigDecimal("10"));
+    inactiveProduct.setActive(false);
+    OrderItem orderItem = new OrderItem();
+    orderItem.setProduct(inactiveProduct);
+    orderItem.setQuantity(BigDecimal.ONE);
+    orderItem.setSubtotal(new BigDecimal("4.00"));
+    order.getItems().add(orderItem);
+ 
+    Jwt jwt = jwt();
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(user);
+    when(customerRepository.findById(customerId)).thenReturn(Optional.of(customer));
+    when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+    when(cartRepository.findByCustomerIdAndActiveTrue(customerId)).thenReturn(Optional.empty());
+ 
+    assertThatThrownBy(() -> orderService.repeatOrder(orderId, jwt))
+        .isInstanceOf(BusinessException.class)
+        .hasMessageContaining("disponível em estoque");
+  }
+ 
+  @Test
+  void repeatOrder_shouldClearExistingCart_whenItBelongsToDifferentFarmer() {
+    UUID customerId = UUID.randomUUID();
+    UUID orderId = UUID.randomUUID();
+    User user = buildUser(customerId, TypeUser.CUSTOMER);
+    Customer customer = buildCustomer(customerId);
+    Producer orderFarmer = buildFarmer(UUID.randomUUID());
+    Producer existingCartFarmer = buildFarmer(UUID.randomUUID());
+ 
+    Order order = buildOrder(orderId, customer, orderFarmer, OrderStatus.DELIVERED);
+    Product product = buildProduct(new BigDecimal("4.00"), new BigDecimal("10"));
+    OrderItem orderItem = new OrderItem();
+    orderItem.setProduct(product);
+    orderItem.setQuantity(BigDecimal.ONE);
+    orderItem.setSubtotal(new BigDecimal("4.00"));
+    order.getItems().add(orderItem);
+ 
+    Cart existingCart = new Cart();
+    existingCart.setFarmer(existingCartFarmer);
+ 
+    Jwt jwt = jwt();
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(user);
+    when(customerRepository.findById(customerId)).thenReturn(Optional.of(customer));
+    when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+    when(cartRepository.findByCustomerIdAndActiveTrue(customerId))
+        .thenReturn(Optional.of(existingCart));
+    when(cartRepository.saveAndFlush(any(Cart.class))).thenAnswer(inv -> inv.getArgument(0));
+    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(orderFarmer.getId()))
+        .thenReturn(List.of());
+ 
+    orderService.repeatOrder(orderId, jwt);
+ 
+    verify(cartService).clearCart(customer);
+    verify(cartRepository).flush();
+  }
+ 
+  @Test
+  void repeatOrder_shouldThrow_whenCustomerDoesNotOwnOrder() {
+    UUID customerId = UUID.randomUUID();
+    UUID orderId = UUID.randomUUID();
+    User user = buildUser(customerId, TypeUser.CUSTOMER);
+    Customer customer = buildCustomer(customerId);
+    Order order = buildOrder(orderId, buildCustomer(UUID.randomUUID()), buildFarmer(UUID.randomUUID()), OrderStatus.DELIVERED);
+ 
+    Jwt jwt = jwt();
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(user);
+    when(customerRepository.findById(customerId)).thenReturn(Optional.of(customer));
+    when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+ 
+    assertThatThrownBy(() -> orderService.repeatOrder(orderId, jwt))
+        .isInstanceOf(ForbiddenException.class);
+  }
+
+  // ─── helpers (added to support the extra test cases below) ─────────────
+
+  private User buildUser(UUID id, TypeUser type) {
+    User builtUser = new User();
+    builtUser.setId(id);
+    builtUser.setName("Test User");
+    builtUser.setType(type);
+    builtUser.setActive(true);
+    return builtUser;
+  }
+
+  private Customer buildCustomer(UUID id) {
+    User customerUser = new User();
+    customerUser.setId(id);
+    customerUser.setName("Test Customer");
+    customerUser.setType(TypeUser.CUSTOMER);
+    customerUser.setActive(true);
+
+    Customer builtCustomer = new Customer();
+    builtCustomer.setId(id);
+    builtCustomer.setUser(customerUser);
+    return builtCustomer;
+  }
+
+  private Producer buildFarmer(UUID id) {
+    User farmerUser = new User();
+    farmerUser.setId(id);
+    farmerUser.setName("Test Farmer");
+    farmerUser.setType(TypeUser.FARMER);
+    farmerUser.setActive(true);
+
+    Producer builtFarmer = new Producer();
+    builtFarmer.setId(id);
+    builtFarmer.setFarmName("Farm Test");
+    builtFarmer.setUser(farmerUser);
+    return builtFarmer;
+  }
+
+  private Product buildProduct(BigDecimal price, BigDecimal stockQuantity) {
+    Product builtProduct = new Product();
+    builtProduct.setId(UUID.randomUUID());
+    builtProduct.setName("Tomate");
+    builtProduct.setPrice(price);
+    builtProduct.setUnityType("kg");
+    builtProduct.setStockQuantity(stockQuantity);
+    builtProduct.setActive(true);
+    return builtProduct;
+  }
+
+  private Address buildAddress() {
+    Address builtAddress = new Address();
+    builtAddress.setId(UUID.randomUUID());
+    builtAddress.setStreet("Rua das Flores");
+    builtAddress.setNumber("123");
+    builtAddress.setNeighborhood("Centro");
+    builtAddress.setCity("Porto Alegre");
+    builtAddress.setState("RS");
+    builtAddress.setZipCode("90010120");
+    builtAddress.setPrimary(true);
+    return builtAddress;
+  }
+
+  private Order buildOrder(
+      UUID orderId, Customer orderCustomer, Producer orderFarmer, OrderStatus status) {
+    Order builtOrder = new Order();
+    builtOrder.setId(orderId);
+    builtOrder.setCustomer(orderCustomer);
+    builtOrder.setFarmer(orderFarmer);
+    builtOrder.setStatus(status);
+    builtOrder.setDeliveryAddressSnapshot(AddressSnapshot.builder().city("Test City").build());
+    builtOrder.setPaymentMethod(paymentMethod);
+    builtOrder.setSeenByFarmer(false);
+    return builtOrder;
   }
 }
