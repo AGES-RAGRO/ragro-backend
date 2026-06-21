@@ -44,36 +44,3 @@ variable "db_subnet_group_name" {
   type        = string
 }
 
-# Ajustes de RDS por ambiente. Defaults = AGES (não muda nada lá). No Free Tier
-# (cliente) reduzimos/desligamos features pagas via prod.tfvars.
-variable "backup_retention_period" {
-  description = "Dias de retenção de backup do RDS (0 desativa; Free Tier limita)."
-  type        = number
-  default     = 7
-}
-
-variable "performance_insights_enabled" {
-  description = "Habilita Performance Insights (pago; desligar no Free Tier)."
-  type        = bool
-  default     = true
-}
-
-variable "monitoring_interval" {
-  description = "Intervalo do Enhanced Monitoring em segundos (0 desativa; pago)."
-  type        = number
-  default     = 60
-}
-
-# gp3 com < 400 GB não permite IOPS/throughput explícitos ao CRIAR. AGES foi
-# importado com 3000/125; para criar do zero (cliente) usar null (baseline).
-variable "storage_iops" {
-  description = "IOPS do RDS gp3 (null = baseline, obrigatório p/ < 400 GB ao criar)."
-  type        = number
-  default     = 3000
-}
-
-variable "storage_throughput" {
-  description = "Throughput do RDS gp3 em MBps (null = baseline ao criar)."
-  type        = number
-  default     = 125
-}
