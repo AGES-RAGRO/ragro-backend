@@ -12,20 +12,21 @@ on:
 permissions:
   contents: read
   pull-requests: write
+  issues: write
 
 jobs:
   plan:
     name: Plan (${{ matrix.env }})
     runs-on: ubuntu-latest
     # Um job por ambiente. Cada ambiente usa as credenciais (secrets) e os
-    # valores (variables) do GitHub Environment de mesmo nome. Para ligar o
-    # cliente no bring-up, basta adicionar 'cliente' à lista abaixo.
+    # valores (variables) do GitHub Environment de mesmo nome.
     strategy:
       fail-fast: false
       matrix:
-        env: [ages]
+        env: [ages, prod]
     environment: ${{ matrix.env }}
     env:
+      TF_VAR_environment: ${{ matrix.env }}
       TF_VAR_kms_key_id: ${{ vars.RDS_KMS_KEY_ARN }}
       TF_VAR_monitoring_role_arn: ${{ vars.RDS_MONITORING_ROLE_ARN }}
       TF_VAR_db_subnet_group_name: ${{ vars.RDS_DB_SUBNET_GROUP }}
@@ -82,6 +83,9 @@ jobs:
             const marker = `<!-- tf-plan-${env} -->`;
             const plan = (process.env.PLAN || '').substring(0, 60000);
             const body = `${marker}
+            > [!WARNING]
+            > **Este PR altera \`infra/\`.** Aprovar e mergear na \`main\` vai **APLICAR** estas mudanças na conta AWS \`${env}\` automaticamente (workflow _Terraform Apply_). A aprovação do PR é o gate humano — revise o plan abaixo com atenção.
+
             ### Terraform — ambiente \`${env}\`
             #### \`fmt\` \`${{ steps.fmt.outcome }}\` · \`init\` \`${{ steps.init.outcome }}\` · \`validate\` \`${{ steps.validate.outcome }}\` · \`plan\` \`${{ steps.plan.outcome }}\`
 
@@ -115,6 +119,18 @@ jobs:
                 issue_number: context.issue.number,
                 body,
               });
+            }
+
+            // Sinaliza visualmente na lista de PRs que este toca a infra.
+            try {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                labels: ['infra'],
+              });
+            } catch (e) {
+              core.warning(`Não consegui aplicar a label 'infra': ${e.message}`);
             }
 
       - name: Fail if checks failed
