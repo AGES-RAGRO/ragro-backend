@@ -16,7 +16,17 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
 
   List<Product> findAllByFarmerId(UUID farmerId);
 
-  List<Product> findAllByFarmerIdAndActiveTrue(UUID farmerId);
+  @Query(
+      """
+      SELECT p
+      FROM Product p
+      JOIN p.farmer f
+      JOIN f.user u
+      WHERE p.farmer.id = :farmerId
+        AND p.active = true
+        AND u.active = true
+      """)
+  List<Product> findAllByFarmerIdAndActiveTrue(@Param("farmerId") UUID farmerId);
 
   Optional<Product> findByIdAndFarmerId(UUID id, UUID farmerId);
 
@@ -43,16 +53,33 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
   List<Product> searchActiveMarketplaceProducts(
       @Param("query") String query, @Param("category") String category);
 
+  @Query(
+      """
+      SELECT p
+      FROM Product p
+      JOIN p.farmer f
+      JOIN f.user u
+      WHERE p.id IN :ids
+        AND p.active = true
+        AND u.active = true
+      """)
+  List<Product> findAllByIdAndFarmerUserActiveTrue(@Param("ids") List<UUID> ids);
+
   // ── Recommendation algorithm queries ──────────────────────────
 
   @Query(
       """
-      SELECT oi.product
+      SELECT p
       FROM OrderItem oi
       JOIN oi.order o
+      JOIN oi.product p
+      JOIN p.farmer f
+      JOIN f.user u
       WHERE o.createdAt >= :since
         AND o.status <> br.com.ragro.domain.enums.OrderStatus.CANCELLED
-      GROUP BY oi.product
+        AND p.active = true
+        AND u.active = true
+      GROUP BY p
       ORDER BY COUNT(oi) DESC
       """)
   Page<Product> findTrendingProducts(@Param("since") OffsetDateTime since, Pageable pageable);
@@ -61,7 +88,10 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
       """
       SELECT p
       FROM Product p
+      JOIN p.farmer f
+      JOIN f.user u
       WHERE p.active = true
+        AND u.active = true
       ORDER BY p.createdAt DESC
       """)
   Page<Product> findRecentActiveProducts(Pageable pageable);
@@ -71,7 +101,10 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
       SELECT DISTINCT p
       FROM Product p
       JOIN p.categories c
+      JOIN p.farmer f
+      JOIN f.user u
       WHERE p.active = true
+        AND u.active = true
         AND c.id IN :categoryIds
       """)
   List<Product> findActiveProductsByCategoryIds(@Param("categoryIds") List<Integer> categoryIds);

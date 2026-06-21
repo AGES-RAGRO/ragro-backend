@@ -309,8 +309,8 @@ class RecommendationServiceTest {
     stubFarmerIds(customer.getId(), List.of());
     // Signal 2: co-occurrence returns coProduct
     stubCoOccurrence(customer.getId(), List.of(purchasedId), List.of(coProduct.getId()));
-    // findAllById called with the co-occurring IDs (signal 2)
-    when(productRepository.findAllById(List.of(coProduct.getId()))).thenReturn(List.of(coProduct));
+    // findAllByIdAndFarmerUserActiveTrue called with the co-occurring IDs (signal 2)
+    when(productRepository.findAllByIdAndFarmerUserActiveTrue(List.of(coProduct.getId()))).thenReturn(List.of(coProduct));
     // Signal 3: findAllById with purchasedIds to extract categories (none here)
     when(productRepository.findAllById(List.of(purchasedId)))
         .thenReturn(List.of(buildProduct(farmerId)));
