@@ -6,6 +6,7 @@ import br.com.ragro.controller.request.UpdateOrderStatusRequest;
 import br.com.ragro.controller.response.CartResponse;
 import br.com.ragro.controller.response.CustomerOrderResponse;
 import br.com.ragro.controller.response.OrderResponse;
+import br.com.ragro.domain.enums.OrderStatus;
 import br.com.ragro.service.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -47,18 +49,32 @@ public class OrderController {
   @ResponseStatus(HttpStatus.OK)
   @Operation(
       summary = "List my orders as consumer",
-      description = "Returns all orders for the authenticated consumer.")
-  public List<CustomerOrderResponse> getMyOrders(@AuthenticationPrincipal Jwt jwt) {
-    return orderService.getMyOrders(jwt);
+      description =
+          "Returns orders for the authenticated consumer, newest first. Optional filters:"
+              + " status (the app already sent it; it used to be ignored) and page/size for"
+              + " pagination — without them the full list is returned (backward compatible).")
+  public List<CustomerOrderResponse> getMyOrders(
+      @AuthenticationPrincipal Jwt jwt,
+      @RequestParam(required = false) OrderStatus status,
+      @RequestParam(required = false) Integer page,
+      @RequestParam(required = false) Integer size) {
+    return orderService.getMyOrders(jwt, status, page, size);
   }
 
   @GetMapping("/producer")
   @ResponseStatus(HttpStatus.OK)
   @Operation(
       summary = "List orders as producer",
-      description = "Returns received orders for the authenticated producer.")
-  public List<OrderResponse> getProducerOrders(@AuthenticationPrincipal Jwt jwt) {
-    return orderService.getProducerOrders(jwt);
+      description =
+          "Returns received orders for the authenticated producer, newest first. Optional"
+              + " status filter and page/size pagination; without them the full list is"
+              + " returned (backward compatible).")
+  public List<OrderResponse> getProducerOrders(
+      @AuthenticationPrincipal Jwt jwt,
+      @RequestParam(required = false) OrderStatus status,
+      @RequestParam(required = false) Integer page,
+      @RequestParam(required = false) Integer size) {
+    return orderService.getProducerOrders(jwt, status, page, size);
   }
 
   @GetMapping("/customer/{id}")
