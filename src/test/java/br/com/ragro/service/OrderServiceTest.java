@@ -1219,8 +1219,10 @@ class OrderServiceTest {
             });
     when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
 
-    // PENDING → DELIVERED pula CONFIRMED/IN_DELIVERY (e o débito de estoque) — rejeitado.
-    assertThatThrownBy(() -> orderService.updateOrderStatus(orderId, OrderStatus.DELIVERED, jwt()))
+    // PENDING → IN_DELIVERY pula CONFIRMED (e o débito de estoque) — rejeitado pela máquina de
+    // estados. (DELIVERED não cabe mais aqui: é barrado antes pela exigência do código.)
+    assertThatThrownBy(
+            () -> orderService.updateOrderStatus(orderId, OrderStatus.IN_DELIVERY, jwt()))
         .isInstanceOf(BusinessException.class)
         .hasMessageContaining("Transição de status inválida");
     verify(orderRepository, never()).saveAndFlush(any(Order.class));
@@ -1287,6 +1289,22 @@ class OrderServiceTest {
             () -> orderService.updateOrderStatus(UUID.randomUUID(), OrderStatus.PENDING, jwt()))
         .isInstanceOf(BusinessException.class)
         .hasMessageContaining("não pode voltar para PENDING");
+  }
+
+  @Test
+  void updateOrderStatus_shouldRejectDelivered_andRequireConfirmationCode() {
+    // Segurança: concluir a entrega pela via genérica de status é barrado — o produtor precisa do
+    // código do consumidor (confirmDeliveryWithCode). O pedido permanece IN_DELIVERY e a máquina de
+    // estados nem é tocada (curto-circuito no switch, antes de carregar o pedido).
+    stubFarmerAuthenticated();
+
+    assertThatThrownBy(
+            () -> orderService.updateOrderStatus(UUID.randomUUID(), OrderStatus.DELIVERED, jwt()))
+        .isInstanceOf(BusinessException.class)
+        .hasMessageContaining("informe o código");
+
+    verify(orderRepository, never()).findById(any());
+    verify(orderRepository, never()).saveAndFlush(any(Order.class));
   }
 
   @Test

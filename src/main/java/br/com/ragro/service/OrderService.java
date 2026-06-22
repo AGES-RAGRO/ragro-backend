@@ -443,7 +443,13 @@ public class OrderService {
     return switch (newStatus) {
       case CONFIRMED -> confirmOrder(orderId, jwt);
       case CANCELLED -> refuseOrderAsFarmer(orderId, jwt, null);
-      case IN_DELIVERY, DELIVERED -> applyFarmerTransition(orderId, jwt, newStatus);
+      case IN_DELIVERY -> applyFarmerTransition(orderId, jwt, newStatus);
+      // DELIVERED NÃO é alcançável por esta via genérica: concluir a entrega exige o código do
+      // consumidor, validado só em confirmDeliveryWithCode (com lockout). Antes, este caminho
+      // marcava DELIVERED sem código — furava a confirmação de entrega.
+      case DELIVERED ->
+          throw new BusinessException(
+              "Para concluir a entrega, informe o código de confirmação do consumidor");
       case PENDING ->
           throw new BusinessException(
               "Transição de status inválida: um pedido não pode voltar para PENDING");

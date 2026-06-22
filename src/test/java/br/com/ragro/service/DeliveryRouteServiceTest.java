@@ -71,6 +71,26 @@ class DeliveryRouteServiceTest {
     return Jwt.withTokenValue("token").header("alg", "none").claim("sub", "sub").build();
   }
 
+  /** requireRole devolve o produtor autenticado; outro tipo lança ForbiddenException. */
+  private void stubFarmerAuthenticated() {
+    when(userService.getAuthenticatedUser(any())).thenReturn(farmerUser);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
+  }
+
   private Order order(OrderStatus status, double lat, double lng) {
     User customerUser = new User();
     customerUser.setId(UUID.randomUUID());
@@ -594,11 +614,109 @@ class DeliveryRouteServiceTest {
 
     RouteResponse response =
         deliveryRouteService.updateStop(
-            route.getId(), pending.getId(), RouteStopStatus.DELIVERED, jwt());
+            route.getId(), pending.getId(), RouteStopStatus.DELIVERED, "1234", jwt());
 
-    verify(orderService).updateOrderStatus(order.getId(), OrderStatus.DELIVERED, jwt());
+    // Concluir a parada delega ao caminho endurecido (código + lockout), NÃO mais ao
+    // updateOrderStatus(...DELIVERED...) que furava a confirmação de entrega.
+    verify(orderService).confirmDeliveryWithCode(order.getId(), "1234", jwt());
+    verify(orderService, never()).updateOrderStatus(any(), eq(OrderStatus.DELIVERED), any());
+    assertThat(pending.getStatus()).isEqualTo(RouteStopStatus.DELIVERED);
     assertThat(pending.getCompletedAt()).isNotNull();
     assertThat(response.getStatus()).isEqualTo(DeliveryRouteStatus.COMPLETED);
+  }
+
+  @Test
+  void updateStop_shouldRejectDelivered_whenCodeMissing() {
+    // Segurança: concluir a entrega SEM o código do consumidor é barrado antes de tocar a parada
+    // ou chamar o caminho de confirmação — o produtor não fecha a entrega sozinho.
+    Order order = order(OrderStatus.IN_DELIVERY, -30.1, -51.1);
+    RouteStop pending = stop(order, RouteStopStatus.PENDING);
+    DeliveryRoute route = activeRouteWithStops(pending);
+
+    stubFarmerAuthenticated();
+    when(deliveryRouteRepository.findWithStopsById(route.getId())).thenReturn(Optional.of(route));
+
+    assertThatThrownBy(
+            () ->
+                deliveryRouteService.updateStop(
+                    route.getId(), pending.getId(), RouteStopStatus.DELIVERED, null, jwt()))
+        .isInstanceOf(BusinessException.class)
+        .hasMessageContaining("obrigatório");
+
+    verify(orderService, never()).confirmDeliveryWithCode(any(), any(), any());
+    assertThat(pending.getStatus()).isEqualTo(RouteStopStatus.PENDING);
+    assertThat(pending.getCompletedAt()).isNull();
+  }
+
+  @Test
+  void updateStop_shouldRejectDelivered_whenCodeBlank() {
+    Order order = order(OrderStatus.IN_DELIVERY, -30.1, -51.1);
+    RouteStop pending = stop(order, RouteStopStatus.PENDING);
+    DeliveryRoute route = activeRouteWithStops(pending);
+
+    stubFarmerAuthenticated();
+    when(deliveryRouteRepository.findWithStopsById(route.getId())).thenReturn(Optional.of(route));
+
+    assertThatThrownBy(
+            () ->
+                deliveryRouteService.updateStop(
+                    route.getId(), pending.getId(), RouteStopStatus.DELIVERED, "", jwt()))
+        .isInstanceOf(BusinessException.class)
+        .hasMessageContaining("obrigatório");
+
+    verify(orderService, never()).confirmDeliveryWithCode(any(), any(), any());
+    assertThat(pending.getStatus()).isEqualTo(RouteStopStatus.PENDING);
+    assertThat(pending.getCompletedAt()).isNull();
+  }
+
+  @Test
+  void updateStop_shouldConfirmWithCode_whenCodeProvided() {
+    Order order = order(OrderStatus.IN_DELIVERY, -30.1, -51.1);
+    RouteStop pending = stop(order, RouteStopStatus.PENDING);
+    RouteStop other = stop(order(OrderStatus.IN_DELIVERY, -30.2, -51.2), RouteStopStatus.PENDING);
+    DeliveryRoute route = activeRouteWithStops(pending, other);
+
+    stubFarmerAuthenticated();
+    when(deliveryRouteRepository.findWithStopsById(route.getId())).thenReturn(Optional.of(route));
+    when(deliveryRouteRepository.saveAndFlush(any(DeliveryRoute.class)))
+        .thenAnswer(inv -> inv.getArgument(0));
+    // confirmDeliveryWithCode bem-sucedido (código correto + sem lockout).
+    when(orderService.confirmDeliveryWithCode(order.getId(), "1234", jwt())).thenReturn(null);
+
+    RouteResponse response =
+        deliveryRouteService.updateStop(
+            route.getId(), pending.getId(), RouteStopStatus.DELIVERED, "1234", jwt());
+
+    verify(orderService).confirmDeliveryWithCode(order.getId(), "1234", jwt());
+    assertThat(pending.getStatus()).isEqualTo(RouteStopStatus.DELIVERED);
+    assertThat(pending.getCompletedAt()).isNotNull();
+    // Ainda há outra parada PENDING — a rota segue ativa.
+    assertThat(response.getStatus()).isEqualTo(DeliveryRouteStatus.ACTIVE);
+  }
+
+  @Test
+  void updateStop_shouldPropagateAndNotDeliver_whenCodeWrong() {
+    // Código errado: confirmDeliveryWithCode lança (validação + contador no caminho endurecido);
+    // a exceção propaga e a parada NÃO vira DELIVERED.
+    Order order = order(OrderStatus.IN_DELIVERY, -30.1, -51.1);
+    RouteStop pending = stop(order, RouteStopStatus.PENDING);
+    DeliveryRoute route = activeRouteWithStops(pending);
+
+    stubFarmerAuthenticated();
+    when(deliveryRouteRepository.findWithStopsById(route.getId())).thenReturn(Optional.of(route));
+    when(orderService.confirmDeliveryWithCode(order.getId(), "0000", jwt()))
+        .thenThrow(new BusinessException("Código de confirmação incorreto"));
+
+    assertThatThrownBy(
+            () ->
+                deliveryRouteService.updateStop(
+                    route.getId(), pending.getId(), RouteStopStatus.DELIVERED, "0000", jwt()))
+        .isInstanceOf(BusinessException.class)
+        .hasMessageContaining("incorreto");
+
+    assertThat(pending.getStatus()).isEqualTo(RouteStopStatus.PENDING);
+    assertThat(pending.getCompletedAt()).isNull();
+    verify(deliveryRouteRepository, never()).saveAndFlush(any());
   }
 
   @Test
@@ -630,9 +748,10 @@ class DeliveryRouteServiceTest {
 
     RouteResponse response =
         deliveryRouteService.updateStop(
-            route.getId(), pending.getId(), RouteStopStatus.FAILED, jwt());
+            route.getId(), pending.getId(), RouteStopStatus.FAILED, null, jwt());
 
     verify(orderService, never()).updateOrderStatus(any(), any(), any());
+    verify(orderService, never()).confirmDeliveryWithCode(any(), any(), any());
     // Ainda há parada PENDING — rota segue ativa.
     assertThat(response.getStatus()).isEqualTo(DeliveryRouteStatus.ACTIVE);
   }
@@ -664,7 +783,7 @@ class DeliveryRouteServiceTest {
     assertThatThrownBy(
             () ->
                 deliveryRouteService.updateStop(
-                    route.getId(), delivered.getId(), RouteStopStatus.ARRIVED, jwt()))
+                    route.getId(), delivered.getId(), RouteStopStatus.ARRIVED, null, jwt()))
         .isInstanceOf(BusinessException.class)
         .hasMessageContaining("Transição de parada inválida");
   }
@@ -697,7 +816,7 @@ class DeliveryRouteServiceTest {
     assertThatThrownBy(
             () ->
                 deliveryRouteService.updateStop(
-                    route.getId(), UUID.randomUUID(), RouteStopStatus.ARRIVED, jwt()))
+                    route.getId(), UUID.randomUUID(), RouteStopStatus.ARRIVED, null, jwt()))
         .isInstanceOf(ForbiddenException.class);
   }
 
@@ -868,7 +987,7 @@ class DeliveryRouteServiceTest {
     assertThatThrownBy(
             () ->
                 deliveryRouteService.updateStop(
-                    route.getId(), UUID.randomUUID(), RouteStopStatus.ARRIVED, jwt()))
+                    route.getId(), UUID.randomUUID(), RouteStopStatus.ARRIVED, null, jwt()))
         .isInstanceOf(BusinessException.class)
         .hasMessageContaining("não está mais ativa");
   }

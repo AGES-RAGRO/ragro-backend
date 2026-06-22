@@ -63,14 +63,16 @@ public class RouteController {
   @Operation(
       summary = "Update route stop status",
       description =
-          "Marks a stop as ARRIVED, DELIVERED (completes the order through the state machine) or"
-              + " FAILED. Completing every stop closes the route. No Google call is made.")
+          "Marks a stop as ARRIVED, DELIVERED or FAILED. DELIVERED completes the order and EXIGE o"
+              + " código de confirmação de 4 dígitos do consumidor (mesma validação/lockout do"
+              + " /confirm-delivery-with-code). Completing every stop closes the route.")
   public ResponseEntity<RouteResponse> updateStop(
       @PathVariable UUID routeId,
       @PathVariable UUID stopId,
       @Valid @RequestBody UpdateRouteStopRequest request,
       @AuthenticationPrincipal Jwt jwt) {
     return ResponseEntity.ok(
-        deliveryRouteService.updateStop(routeId, stopId, request.getStatus(), jwt));
+        deliveryRouteService.updateStop(
+            routeId, stopId, request.getStatus(), request.getCode(), jwt));
   }
 }

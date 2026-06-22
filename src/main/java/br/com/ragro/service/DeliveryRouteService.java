@@ -236,8 +236,9 @@ public class DeliveryRouteService {
    * de estados; FAILED registra tentativa frustrada sem mexer no pedido). Quando todas as paradas
    * terminam, a rota fecha como COMPLETED. Nenhuma chamada ao Google acontece aqui.
    */
-  @Transactional
-  public RouteResponse updateStop(UUID routeId, UUID stopId, RouteStopStatus newStatus, Jwt jwt) {
+  @Transactional(noRollbackFor = BusinessException.class)
+  public RouteResponse updateStop(
+      UUID routeId, UUID stopId, RouteStopStatus newStatus, String code, Jwt jwt) {
     User user = requireFarmer(jwt);
 
     DeliveryRoute route =
@@ -258,13 +259,21 @@ public class DeliveryRouteService {
             .orElseThrow(() -> new NotFoundException("Parada não encontrada nesta rota"));
 
     validateStopTransition(stop.getStatus(), newStatus);
+
+    // Concluir a entrega exige o código do consumidor — delega ao confirmDeliveryWithCode (mesma
+    // validação + lockout 5/15min do detalhe do pedido). Valida ANTES de marcar a parada: código
+    // errado lança e a parada NÃO vira terminal; o contador de tentativas ainda persiste, porque o
+    // noRollbackFor desta @Transactional impede o rollback do incremento gravado lá dentro.
+    if (newStatus == RouteStopStatus.DELIVERED) {
+      if (code == null || code.isBlank()) {
+        throw new BusinessException("Código de confirmação obrigatório para concluir a entrega");
+      }
+      orderService.confirmDeliveryWithCode(stop.getOrder().getId(), code, jwt);
+    }
+
     stop.setStatus(newStatus);
     if (TERMINAL_STOP_STATUSES.contains(newStatus)) {
       stop.setCompletedAt(OffsetDateTime.now());
-    }
-
-    if (newStatus == RouteStopStatus.DELIVERED) {
-      orderService.updateOrderStatus(stop.getOrder().getId(), OrderStatus.DELIVERED, jwt);
     }
 
     boolean allDone =
