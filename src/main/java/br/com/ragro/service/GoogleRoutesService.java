@@ -37,8 +37,13 @@ public class GoogleRoutesService {
   /** Limite documentado de intermediates do computeRoutes com otimização. */
   public static final int MAX_INTERMEDIATE_WAYPOINTS = 25;
 
-  /** Tentativas totais (1 inicial + 2 retries) para falhas de transporte transitórias. */
-  private static final int MAX_ATTEMPTS = 3;
+  /**
+   * Tentativas totais (1 inicial + 4 retries) para falhas de transporte transitórias. Com o backoff
+   * abaixo a janela do retry cobre ~1–2s — suficiente para os blips esporádicos de resolução DNS do
+   * musl/Alpine (que, com {@code -Dsun.net.inetaddr.negative.ttl=0}, re-resolvem de verdade a cada
+   * tentativa em vez de bater no cache negativo).
+   */
+  private static final int MAX_ATTEMPTS = 5;
 
   /** Teto do backoff entre retries, em ms. */
   private static final long BACKOFF_CAP_MILLIS = 1000;

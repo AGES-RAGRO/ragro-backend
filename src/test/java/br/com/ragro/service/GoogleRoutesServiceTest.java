@@ -154,14 +154,14 @@ class GoogleRoutesServiceTest {
   void computeOptimizedRoundTrip_shouldThrowTransient_whenDnsFailsEveryAttempt() {
     server
         .expect(
-            ExpectedCount.times(3), requestTo("https://routes.test/directions/v2:computeRoutes"))
+            ExpectedCount.times(5), requestTo("https://routes.test/directions/v2:computeRoutes"))
         .andRespond(withException(new UnknownHostException("routes.googleapis.com: Try again")));
 
     assertThatThrownBy(() -> service.computeOptimizedRoundTrip(origin, stops))
         .isInstanceOf(GoogleApiException.class)
         .extracting(e -> ((GoogleApiException) e).getKind())
         .isEqualTo(GoogleApiException.Kind.TRANSIENT);
-    server.verify(); // exatamente 3 tentativas (1 inicial + 2 retries), depois desiste.
+    server.verify(); // exatamente 5 tentativas (1 inicial + 4 retries), depois desiste.
   }
 
   @Test
