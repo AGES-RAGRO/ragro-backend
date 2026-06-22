@@ -22,3 +22,19 @@ spring:
   ai:
     openai:
       api-key: test-key
+
+# Resolve os placeholders sem default do application.yml (credenciais são fail-fast em prod).
+# Nenhum teste fala com Keycloak/MinIO reais — os clients são construídos mas nunca conectam.
+keycloak:
+  admin:
+    password: test-admin
+
+ragro:
+  rate-limit:
+    # Desligado nos testes para não interferir em suítes que repetem chamadas ao mesmo endpoint.
+    # O RateLimitFilterTest reabilita via @TestPropertySource.
+    enabled: false
+
+minio:
+  access-key: test-access
+  secret-key: test-secret

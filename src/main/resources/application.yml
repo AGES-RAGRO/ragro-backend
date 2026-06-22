@@ -1,8 +1,11 @@
+# Credenciais NÃO têm default aqui de propósito: secret faltando no deploy derruba o boot
+# (fail-fast) em vez de subir silenciosamente com credencial conhecida. Para rodar local sem
+# docker-compose, use o profile "local" (SPRING_PROFILES_ACTIVE=local), que define os valores de dev.
 spring:
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/gearheads}
     username: ${SPRING_DATASOURCE_USERNAME:postgres}
-    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD}
 
   jpa:
     hibernate:
@@ -11,6 +14,9 @@ spring:
     properties:
       hibernate:
         format_sql: false
+        # Carrega coleções LAZY em lotes de 16 (IN (...)) em vez de 1 query por entidade —
+        # atenua o N+1 das listagens (ex.: items dos pedidos) sem fetch join na paginação.
+        default_batch_fetch_size: 16
 
   flyway:
     locations: classpath:db/migration
@@ -63,14 +69,14 @@ keycloak:
   realm: ragro
   admin:
     username: ${KEYCLOAK_ADMIN:admin}
-    password: ${KEYCLOAK_ADMIN_PASSWORD:admin}
+    password: ${KEYCLOAK_ADMIN_PASSWORD}
 
 minio:
   endpoint: ${STORAGE_ENDPOINT:http://localhost:9000}
   media-public-url: ${MEDIA_PUBLIC_URL:http://localhost:8080}
   region: ${STORAGE_REGION:us-east-1}
-  access-key: ${STORAGE_ACCESS_KEY:minioadmin}
-  secret-key: ${STORAGE_SECRET_KEY:minioadmin}
+  access-key: ${STORAGE_ACCESS_KEY}
+  secret-key: ${STORAGE_SECRET_KEY}
   bucket: ${STORAGE_BUCKET:ragro-media}
 
 springdoc:
@@ -94,6 +100,25 @@ ragro:
     rerank:
       # Liga/desliga o reranker por IA. Desligado, usa só a ordenação heurística.
       enabled: ${RECOMMENDATION_RERANK_ENABLED:true}
+    cache:
+      # Cache do ranking por cliente (Caffeine). Ligado: hit responde em ms e a LLM roda
+      # assíncrona no máximo 1×/cliente/TTL (ou após novo pedido — evicção por evento).
+      # Desligado: comportamento antigo (rerank síncrono a cada chamada).
+      enabled: ${RECOMMENDATION_CACHE_ENABLED:true}
+      ttl-hours: ${RECOMMENDATION_CACHE_TTL_HOURS:6}
+  tracking:
+    # Rastreamento em tempo real (WebSocket/STOMP). Desligado, o canal /ws não sobe e
+    # GET /orders/{id}/tracking responde available=false (o app cai no fluxo sem mapa).
+    enabled: ${TRACKING_ENABLED:true}
+    retention-days: ${TRACKING_RETENTION_DAYS:7}
+  rate-limit:
+    # Token bucket in-memory (RateLimitFilter): register/forgot por IP; recommendations/routes
+    # por usuário (custo de LLM/Google). Limites em requisições por minuto.
+    enabled: ${RATE_LIMIT_ENABLED:true}
+    register-per-minute: ${RATE_LIMIT_REGISTER_PER_MINUTE:5}
+    forgot-per-minute: ${RATE_LIMIT_FORGOT_PER_MINUTE:5}
+    recommendations-per-minute: ${RATE_LIMIT_RECOMMENDATIONS_PER_MINUTE:10}
+    routes-per-minute: ${RATE_LIMIT_ROUTES_PER_MINUTE:10}
 
 server:
   error:
