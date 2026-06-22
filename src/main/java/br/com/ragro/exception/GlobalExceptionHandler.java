@@ -236,11 +236,14 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
   public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(
       org.springframework.dao.DataIntegrityViolationException ex, HttpServletRequest request) {
+    // Loga só o tipo da causa, nunca a mensagem crua do banco (pode conter e-mail/valores/SQL → PII).
     log.warn(
-        "Data integrity conflict at {} {}: {}",
+        "Data integrity conflict at {} {} ({})",
         request.getMethod(),
         request.getRequestURI(),
-        ex.getMostSpecificCause().getMessage());
+        ex.getMostSpecificCause() != null
+            ? ex.getMostSpecificCause().getClass().getSimpleName()
+            : ex.getClass().getSimpleName());
     ErrorResponse response =
         ErrorResponse.builder()
             .timestamp(java.time.LocalDateTime.now())

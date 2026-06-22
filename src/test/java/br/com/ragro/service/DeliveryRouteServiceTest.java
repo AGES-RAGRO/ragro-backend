@@ -168,6 +168,47 @@ class DeliveryRouteServiceTest {
   }
 
   @Test
+  void createRoute_shouldThrowBusinessException_whenOptimizedOrderIndexOutOfRange() {
+    // Fix #6: a corrupt optimizedOrder index (5 with a single order) must surface a BusinessException
+    // via the guard, NOT an IndexOutOfBoundsException (500) when indexing orders.get(inputIndex).
+    Order single = order(OrderStatus.IN_DELIVERY, -30.1, -51.1);
+
+    when(userService.getAuthenticatedUser(any())).thenReturn(farmerUser);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
+    when(deliveryRouteRepository.findByFarmerIdAndStatus(any(), any()))
+        .thenReturn(Optional.empty());
+    when(orderRepository.findByFarmerIdAndStatusInOrderByCreatedAtAsc(any(), any()))
+        .thenReturn(List.of(single));
+    // Single order (index 0 valid), but the optimizer hands back index 5 → out of range.
+    when(googleRoutesService.computeOptimizedRoundTrip(any(), any()))
+        .thenReturn(
+            new ComputedRoute(
+                BigDecimal.ONE,
+                60,
+                "poly",
+                List.of(5),
+                List.of(new RouteLeg(BigDecimal.ONE, 60), new RouteLeg(BigDecimal.ONE, 60))));
+
+    assertThatThrownBy(() -> deliveryRouteService.createRoute(request(), jwt()))
+        .isInstanceOf(BusinessException.class)
+        .hasMessageContaining("índice fora do intervalo");
+  }
+
+  @Test
   void createRoute_shouldCancelPreviousActiveRoute() {
     Order stillOpen = order(OrderStatus.IN_DELIVERY, -30.3, -51.3);
     DeliveryRoute previous = activeRouteWithStops(stop(stillOpen, RouteStopStatus.PENDING));

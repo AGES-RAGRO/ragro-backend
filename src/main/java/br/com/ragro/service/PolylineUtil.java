@@ -24,6 +24,9 @@ public final class PolylineUtil {
       int result = 0;
       int b;
       do {
+        if (index >= encoded.length()) {
+          throw new IllegalArgumentException("Encoded polyline truncada/inválida");
+        }
         b = encoded.charAt(index++) - 63;
         result |= (b & 0x1f) << shift;
         shift += 5;
@@ -33,6 +36,9 @@ public final class PolylineUtil {
       shift = 0;
       result = 0;
       do {
+        if (index >= encoded.length()) {
+          throw new IllegalArgumentException("Encoded polyline truncada/inválida");
+        }
         b = encoded.charAt(index++) - 63;
         result |= (b & 0x1f) << shift;
         shift += 5;
@@ -78,7 +84,13 @@ public final class PolylineUtil {
    */
   public static String clip(
       String encoded, double fromLat, double fromLng, double toLat, double toLng) {
-    List<Point> points = decode(encoded);
+    List<Point> points;
+    try {
+      points = decode(encoded);
+    } catch (IllegalArgumentException e) {
+      // Polyline malformada não pode derrubar o recorte (500); devolve a original.
+      return encoded;
+    }
     if (points.size() < 2) {
       return encoded;
     }

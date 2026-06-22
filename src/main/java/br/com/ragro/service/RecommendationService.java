@@ -232,11 +232,13 @@ public class RecommendationService {
     List<RankedRecommendation> selected =
         cached.stream().filter(r -> !excludeSet.contains(r.productId())).toList();
 
+    // findAllByIdAndFarmerUserActiveTrue filtra produto ativo E produtor ativo (igual aos demais
+    // caminhos de serve) — findAllById sozinho reintroduzia produtos de produtor inativo no cache hit.
     Map<UUID, Product> products =
         productRepository
-            .findAllById(selected.stream().map(RankedRecommendation::productId).toList())
+            .findAllByIdAndFarmerUserActiveTrue(
+                selected.stream().map(RankedRecommendation::productId).toList())
             .stream()
-            .filter(Product::isActive)
             .collect(Collectors.toMap(Product::getId, p -> p));
 
     return selected.stream()

@@ -120,12 +120,6 @@ public class TrackingService {
       }
     }
 
-    lastAcceptedAt.put(routeId, now);
-    LastPosition position =
-        new LastPosition(
-            message.getLatitude(), message.getLongitude(), recordedAt, message.getSpeedKmh());
-    positionStore.put(routeId, position);
-
     RoutePosition trailPoint = new RoutePosition();
     trailPoint.setRoute(route);
     trailPoint.setLatitude(message.getLatitude());
@@ -138,6 +132,14 @@ public class TrackingService {
         message.getSpeedKmh() != null ? BigDecimal.valueOf(message.getSpeedKmh()) : null);
     trailPoint.setRecordedAt(recordedAt);
     routePositionRepository.save(trailPoint);
+
+    // Atualiza o estado em memória (rate-limit + última posição) só APÓS persistir — se o save
+    // falhar, não fica posição "fantasma" no store nem o rate-limit consumido por algo não gravado.
+    lastAcceptedAt.put(routeId, now);
+    LastPosition position =
+        new LastPosition(
+            message.getLatitude(), message.getLongitude(), recordedAt, message.getSpeedKmh());
+    positionStore.put(routeId, position);
 
     return Optional.of(buildBroadcast(route, lat, lng, recordedAt));
   }

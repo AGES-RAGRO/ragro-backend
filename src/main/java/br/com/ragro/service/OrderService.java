@@ -32,11 +32,11 @@ import br.com.ragro.repository.OrderRepository;
 import br.com.ragro.repository.PaymentMethodRepository;
 import br.com.ragro.repository.ReviewRepository;
 import java.math.BigDecimal;
+import java.security.SecureRandom;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -68,9 +68,14 @@ public class OrderService {
           OrderStatus.CANCELLED, Set.of());
 
   private static final int DEFAULT_PAGE_SIZE = 20;
+  /** Teto para o {@code size} vindo do cliente — evita página gigante sob demanda. */
+  private static final int MAX_PAGE_SIZE = 100;
 
   private static final int MAX_CONFIRMATION_ATTEMPTS = 5;
   private static final int LOCKOUT_MINUTES = 15;
+
+  /** Código de confirmação é segredo de autorização da entrega — SecureRandom, não Random. */
+  private static final SecureRandom CONFIRMATION_CODE_RANDOM = new SecureRandom();
 
   private final UserService userService;
   private final CustomerRepository customerRepository;
@@ -237,7 +242,12 @@ public class OrderService {
    * proteção anti-brute-force (bloqueio após {@value #MAX_CONFIRMATION_ATTEMPTS} tentativas por
    * {@value #LOCKOUT_MINUTES} minutos).
    */
-  @Transactional
+  // noRollbackFor: as tentativas/lockout são gravadas com saveAndFlush e EM SEGUIDA lança-se
+  // BusinessException (código errado). Como BusinessException é unchecked, o rollback padrão
+  // desfazia esse incremento — zerando o contador a cada request e anulando o anti-brute-force
+  // (5 tentativas / 15 min). As demais BusinessException deste método lançam antes de alterar
+  // estado, então não reverter nelas é seguro.
+  @Transactional(noRollbackFor = BusinessException.class)
   public OrderResponse confirmDeliveryWithCode(UUID orderId, String code, Jwt jwt) {
     Order order =
         loadOrderOwnedByFarmer(
@@ -285,7 +295,7 @@ public class OrderService {
 
   /** Gera um código de confirmação aleatório de 4 dígitos com zero à esquerda (ex.: "0042"). */
   private String generateConfirmationCode() {
-    return String.format("%04d", new Random().nextInt(10000));
+    return String.format("%04d", CONFIRMATION_CODE_RANDOM.nextInt(10_000));
   }
 
   /**
@@ -382,7 +392,7 @@ public class OrderService {
     }
     return PageRequest.of(
         page != null ? Math.max(page, 0) : 0,
-        size != null && size > 0 ? size : DEFAULT_PAGE_SIZE,
+        size != null && size > 0 ? Math.min(size, MAX_PAGE_SIZE) : DEFAULT_PAGE_SIZE,
         sort);
   }
 

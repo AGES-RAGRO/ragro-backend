@@ -590,7 +590,10 @@ class RecommendationServiceTest {
             List.of(
                 new RankedRecommendation(
                     cachedProduct.getId(), 95, RecommendationReason.LLM_RERANKED)));
-    when(productRepository.findAllById(List.of(cachedProduct.getId())))
+    // Fix #17: the cache-hit re-hydration must go through findAllByIdAndFarmerUserActiveTrue (which
+    // filters product AND farmer active) — NOT the bare findAllById that leaked inactive-producer
+    // products from the cache.
+    when(productRepository.findAllByIdAndFarmerUserActiveTrue(List.of(cachedProduct.getId())))
         .thenReturn(List.of(cachedProduct));
 
     RecommendationResponse response =
@@ -600,6 +603,52 @@ class RecommendationServiceTest {
     assertThat(response.getRecommendations().get(0).getScore()).isEqualTo(95);
     verifyNoInteractions(llmRerankerPort);
     verify(warmupService, never()).warmAsync(any(), any(), any(), any());
+    // Fix #17 guard: active-filtering query is used; the unfiltered one is never called on the
+    // cache-hit path.
+    verify(productRepository).findAllByIdAndFarmerUserActiveTrue(List.of(cachedProduct.getId()));
+    verify(productRepository, never()).findAllById(any());
+  }
+
+  @Test
+  void getRecommendations_shouldDropInactiveProducerProduct_onCacheHit() {
+    // Fix #17: a product whose producer went inactive after being cached must not leak. The
+    // filtering query returns nothing for it, so the cache-hit response drops it.
+    org.springframework.test.util.ReflectionTestUtils.setField(
+        recommendationService, "cacheEnabled", true);
+    User customer = buildCustomer();
+    when(userService.getAuthenticatedUser(any())).thenReturn(customer);
+    org.mockito.Mockito.lenient()
+        .when(
+            userService.requireRole(
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(inv -> userService.getAuthenticatedUser(inv.getArgument(0)));
+    when(orderItemRepository.findDistinctProductIdsByCustomerId(customer.getId()))
+        .thenReturn(List.of());
+
+    UUID farmerId = UUID.randomUUID();
+    Product activeProduct = buildProduct(farmerId);
+    Product inactiveProducerProduct = buildProduct(UUID.randomUUID());
+    when(warmupService.getCached(customer.getId()))
+        .thenReturn(
+            List.of(
+                new RankedRecommendation(
+                    activeProduct.getId(), 90, RecommendationReason.LLM_RERANKED),
+                new RankedRecommendation(
+                    inactiveProducerProduct.getId(), 80, RecommendationReason.LLM_RERANKED)));
+    // The filtering query only returns the active-producer product; the inactive one is excluded
+    // server-side (exactly the leak the fix closes).
+    when(productRepository.findAllByIdAndFarmerUserActiveTrue(
+            List.of(activeProduct.getId(), inactiveProducerProduct.getId())))
+        .thenReturn(List.of(activeProduct));
+
+    RecommendationResponse response =
+        recommendationService.getRecommendations(defaultRequest(), jwt());
+
+    assertThat(response.getRecommendations()).hasSize(1);
+    assertThat(response.getRecommendations().get(0).getId()).isEqualTo(activeProduct.getId());
+    verify(productRepository, never()).findAllById(any());
   }
 
   @Test
@@ -638,7 +687,8 @@ class RecommendationServiceTest {
                     fruitProduct.getId(), 90, RecommendationReason.LLM_RERANKED),
                 new RankedRecommendation(
                     veggieProduct.getId(), 80, RecommendationReason.LLM_RERANKED)));
-    when(productRepository.findAllById(List.of(fruitProduct.getId(), veggieProduct.getId())))
+    when(productRepository.findAllByIdAndFarmerUserActiveTrue(
+            List.of(fruitProduct.getId(), veggieProduct.getId())))
         .thenReturn(List.of(fruitProduct, veggieProduct));
 
     RecommendationRequest request = defaultRequest();
@@ -724,7 +774,8 @@ class RecommendationServiceTest {
             List.of(
                 new RankedRecommendation(excluded.getId(), 99, RecommendationReason.LLM_RERANKED),
                 new RankedRecommendation(keep.getId(), 80, RecommendationReason.LLM_RERANKED)));
-    when(productRepository.findAllById(List.of(keep.getId()))).thenReturn(List.of(keep));
+    when(productRepository.findAllByIdAndFarmerUserActiveTrue(List.of(keep.getId())))
+        .thenReturn(List.of(keep));
 
     RecommendationRequest request = defaultRequest();
     request.setExcludeProductIds(List.of(excluded.getId()));

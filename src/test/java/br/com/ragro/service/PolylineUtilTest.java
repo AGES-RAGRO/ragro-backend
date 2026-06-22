@@ -1,12 +1,43 @@
 package br.com.ragro.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import br.com.ragro.service.PolylineUtil.Point;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class PolylineUtilTest {
+
+  // A single char whose continuation bit (>= 0x20) is set, so the decoder expects another byte but
+  // the string ends → truncated/invalid encoding. ('~' = 126; 126 - 63 = 0x3F, continuation set.)
+  private static final String TRUNCATED = "~";
+
+  @Test
+  void decode_shouldThrowIllegalArgument_whenEncodedIsTruncated() {
+    // Fix #14: the do-while loops bounds-check `index >= length` and throw instead of running off
+    // the end of the string (StringIndexOutOfBounds / silent corruption).
+    assertThatThrownBy(() -> PolylineUtil.decode(TRUNCATED))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  void decode_shouldThrowIllegalArgument_whenLngHalfIsTruncated() {
+    // A valid first coordinate (lat) followed by a truncated lng half: ensures BOTH do-while loops
+    // are guarded, not just the first.
+    String latOk = PolylineUtil.encode(List.of(new Point(-30.0, -51.0)));
+    // Keep the complete lat+lng pair, then append a dangling continuation char (new value, no end).
+    String dangling = latOk + "~";
+    assertThatThrownBy(() -> PolylineUtil.decode(dangling))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  void clip_shouldReturnInputUnchanged_whenEncodedIsTruncated() {
+    // Fix #14: clip wraps decode in try/catch and returns the original input on malformed polyline
+    // instead of bubbling a 500.
+    assertThat(PolylineUtil.clip(TRUNCATED, -30.0, -51.0, -30.1, -51.1)).isEqualTo(TRUNCATED);
+  }
 
   @Test
   void encodeDecode_shouldRoundTrip() {

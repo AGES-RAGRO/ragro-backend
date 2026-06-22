@@ -105,6 +105,12 @@ public class DeliveryRouteService {
     List<Integer> visitOrder = computed.optimizedOrder();
     for (int visit = 0; visit < visitOrder.size(); visit++) {
       int inputIndex = visitOrder.get(visit);
+      // Defesa: a ordem otimizada já é validada em GoogleRoutesService, mas um índice fora de
+      // faixa aqui estouraria IndexOutOfBounds (500). Falha cedo e clara.
+      if (inputIndex < 0 || inputIndex >= orders.size()) {
+        throw new BusinessException(
+            "Rota calculada com parada inválida (índice fora do intervalo)");
+      }
       Order order = orders.get(inputIndex);
       RouteLeg leg = visit < computed.legs().size() ? computed.legs().get(visit) : null;
       if (leg != null) {

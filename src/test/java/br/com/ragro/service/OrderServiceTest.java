@@ -1127,6 +1127,9 @@ class OrderServiceTest {
     assertThat(response.getStatus()).isEqualTo(OrderStatus.IN_DELIVERY);
     assertThat(order.getStatusHistory())
         .anyMatch(h -> h.getStatus() == OrderStatus.IN_DELIVERY);
+    // Fix #10: the transition into IN_DELIVERY generates a 4-digit confirmation code (via the
+    // static SecureRandom). Format is the deterministic seam we can assert here.
+    assertThat(order.getConfirmationCode()).matches("^\\d{4}$");
     verify(eventPublisher)
         .publishEvent(
             argThat((OrderStatusChangedEvent e) -> e.newStatus() == OrderStatus.IN_DELIVERY));
@@ -2018,6 +2021,25 @@ class OrderServiceTest {
     item.setSubtotal(new BigDecimal("20.00"));
     order.getItems().add(item);
     return order;
+  }
+
+  @Test
+  void getProducerOrders_shouldCapPageSizeAt100_whenClientRequestsMore() {
+    // Fix #11: buildPageable uses Math.min(size, MAX_PAGE_SIZE=100), so an oversized client `size`
+    // can't request a giant page.
+    User farmerUser = new User();
+    farmerUser.setId(UUID.randomUUID());
+    farmerUser.setType(TypeUser.FARMER);
+    when(userService.requireRole(any(), eq(TypeUser.FARMER), anyString())).thenReturn(farmerUser);
+    when(orderRepository.findByFarmerId(eq(farmerUser.getId()), any()))
+        .thenReturn(org.springframework.data.domain.Page.empty());
+
+    orderService.getProducerOrders(jwt(), null, 0, 500);
+
+    org.mockito.ArgumentCaptor<org.springframework.data.domain.Pageable> captor =
+        org.mockito.ArgumentCaptor.forClass(org.springframework.data.domain.Pageable.class);
+    verify(orderRepository).findByFarmerId(eq(farmerUser.getId()), captor.capture());
+    assertThat(captor.getValue().getPageSize()).isEqualTo(100);
   }
 
   private Jwt jwt() {

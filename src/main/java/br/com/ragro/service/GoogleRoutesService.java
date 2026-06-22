@@ -119,6 +119,9 @@ public class GoogleRoutesService {
       log.error("Routes API computeRoutes failed after {} attempts", MAX_ATTEMPTS, e);
       throw new GoogleApiException(
           Kind.TRANSIENT, "Serviço de rotas temporariamente indisponível", e);
+    } catch (GoogleApiException e) {
+      // Já classificada (ex.: Kind.TRANSIENT do interrupt no backoff de withRetry) — preserva.
+      throw e;
     } catch (Exception e) {
       log.error("Routes API computeRoutes failed", e);
       throw new GoogleApiException(Kind.UNAVAILABLE, "Falha ao calcular a rota", e);

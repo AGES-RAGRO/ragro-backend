@@ -3,6 +3,7 @@ package br.com.ragro.config;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import java.time.Duration;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ThreadPoolExecutor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
@@ -50,6 +51,9 @@ public class CacheConfig {
     executor.setMaxPoolSize(2);
     executor.setQueueCapacity(100);
     executor.setThreadNamePrefix("rec-warmup-");
+    // Warm-up é best-effort: em saturação, descarta o excedente em vez de lançar
+    // RejectedExecutionException (que quebraria a request que já respondeu com a heurística).
+    executor.setRejectedExecutionHandler(new ThreadPoolExecutor.DiscardPolicy());
     executor.initialize();
     return executor;
   }

@@ -5,6 +5,7 @@ import com.google.maps.GeoApiContext;
 import com.google.maps.GeocodingApi;
 import com.google.maps.errors.OverDailyLimitException;
 import com.google.maps.errors.OverQueryLimitException;
+import com.google.maps.model.ComponentFilter;
 import com.google.maps.model.GeocodingResult;
 import com.google.maps.model.LatLng;
 import com.google.maps.model.LocationType;
@@ -66,7 +67,10 @@ public class GoogleMapsService {
   public GeocodeOutcome geocode(String address) {
     meterRegistry.counter("ragro.google.calls", "api", "geocoding").increment();
     try {
-      GeocodingResult[] results = GeocodingApi.geocode(context, address).region("br").await();
+      // components(country=BR) é filtro RÍGIDO (region("br") era só viés — podia retornar coords
+      // fora do Brasil em endereços ambíguos).
+      GeocodingResult[] results =
+          GeocodingApi.geocode(context, address).components(ComponentFilter.country("BR")).await();
       if (results == null || results.length == 0) {
         return GeocodeOutcome.failed();
       }
@@ -91,7 +95,8 @@ public class GoogleMapsService {
       Thread.currentThread().interrupt();
       return GeocodeOutcome.failed();
     } catch (Exception e) {
-      log.error("Failed to geocode address: {}", address, e);
+      // Não loga o endereço (rua/número/CEP = PII); o stacktrace basta para diagnóstico.
+      log.error("Failed to geocode address", e);
       return GeocodeOutcome.failed();
     }
   }

@@ -312,6 +312,32 @@ class TrackingServiceTest {
   }
 
   @Test
+  void ingestPosition_shouldNotUpdateInMemoryState_whenPersistFails() {
+    // Fix #20: positionStore/lastAcceptedAt are updated only AFTER routePositionRepository.save
+    // succeeds. If the DB write throws, the in-memory state must keep its previous value (no
+    // "ghost" position, no rate-limit window consumed by a ping that was never persisted).
+    when(deliveryRouteRepository.findWithStopsById(routeId)).thenReturn(Optional.of(route));
+
+    OffsetDateTime previousTime = OffsetDateTime.now().minusSeconds(5);
+    LastPosition previous =
+        new LastPosition(
+            BigDecimal.valueOf(-30.0), BigDecimal.valueOf(-51.0), previousTime, null);
+    positionStore.put(routeId, previous);
+
+    when(routePositionRepository.save(any(RoutePosition.class)))
+        .thenThrow(new RuntimeException("DB down"));
+
+    // The new ping is close to `previous` (no impossible-jump) so it reaches the save call.
+    assertThatThrownBy(
+            () -> trackingService.ingestPosition(routeId, farmerId, ping(-30.001, -51.001, 10.0)))
+        .isInstanceOf(RuntimeException.class)
+        .hasMessage("DB down");
+
+    // The store still holds the PREVIOUS position — the failed write left no trace.
+    assertThat(positionStore.get(routeId)).isSameAs(previous);
+  }
+
+  @Test
   void clearRoute_shouldDropLastPosition() {
     positionStore.put(
         routeId,
