@@ -151,14 +151,20 @@ public class NotificationService {
 
   @Transactional
   public void createCustomerOrderInDeliveryNotification(Order order) {
+    // O código só existe enquanto o pedido está IN_DELIVERY; este método é
+    // chamado nessa transição, mas guardamos contra nulo para nunca exibir
+    // "código null" caso seja invocado fora desse fluxo.
+    String code = order.getConfirmationCode();
+    String message =
+        (code == null || code.isBlank())
+            ? "Seu pedido saiu para entrega."
+            : "Informe o código " + code + " ao produtor para confirmar a entrega.";
     createOrderNotification(
         order,
         order.getCustomer().getUser(),
         NotificationType.ORDER_IN_DELIVERY,
         "Pedido saiu para entrega",
-        "Informe o código "
-            + order.getConfirmationCode()
-            + " ao produtor para confirmar a entrega. Seu pedido saiu para entrega.");
+        message);
   }
 
   @Transactional
