@@ -77,7 +77,9 @@ public class Co2Controller {
   @GetMapping("/total-saved")
   @Operation(
       summary = "Get total CO2 saved",
-      description = "Returns total CO2 saved in tons across all optimized routes.")
+      description =
+          "Returns total CO2 saved in KG across all optimized routes (emission factors are kg"
+              + " CO2/liter; clients converting to tonnes must divide by 1000).")
   public ResponseEntity<Map<String, Double>> getTotalCo2Saved() {
     return ResponseEntity.ok(Map.of("totalCo2Saved", co2Service.getTotalCo2Saved()));
   }

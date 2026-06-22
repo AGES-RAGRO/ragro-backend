@@ -187,6 +187,44 @@ class ProductServiceTest {
         .hasMessage("Produto não encontrado");
   }
 
+  // ─── getActiveProductById ───────────────────────────────────────────────────
+
+  @Test
+  void getActiveProductById_shouldReturnProduct_whenProductIsActive() {
+    Producer farmer = new Producer();
+    farmer.setId(UUID.randomUUID());
+    Product product = buildProduct(farmer);
+    when(productRepository.findById(product.getId())).thenReturn(Optional.of(product));
+
+    ProductResponse response = productService.getActiveProductById(product.getId());
+
+    assertThat(response.getId()).isEqualTo(product.getId());
+    assertThat(response.getFarmerId()).isEqualTo(farmer.getId());
+  }
+
+  @Test
+  void getActiveProductById_shouldThrowNotFoundException_whenProductIsInactive() {
+    Producer farmer = new Producer();
+    farmer.setId(UUID.randomUUID());
+    Product product = buildProduct(farmer);
+    product.setActive(false);
+    when(productRepository.findById(product.getId())).thenReturn(Optional.of(product));
+
+    assertThatThrownBy(() -> productService.getActiveProductById(product.getId()))
+        .isInstanceOf(NotFoundException.class)
+        .hasMessage("Produto não encontrado");
+  }
+
+  @Test
+  void getActiveProductById_shouldThrowNotFoundException_whenProductDoesNotExist() {
+    UUID productId = UUID.randomUUID();
+    when(productRepository.findById(productId)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> productService.getActiveProductById(productId))
+        .isInstanceOf(NotFoundException.class)
+        .hasMessage("Produto não encontrado");
+  }
+
   // ─── getActiveProductsByProducerId ──────────────────────────────────────────
 
   @Test
@@ -252,6 +290,21 @@ class ProductServiceTest {
     farmer.setUser(user);
 
     when(userService.getAuthenticatedUser(any(Jwt.class))).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
     when(producerRepository.findById(farmerId)).thenReturn(Optional.of(farmer));
     return farmer;
   }
