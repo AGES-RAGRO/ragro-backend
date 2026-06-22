@@ -297,6 +297,7 @@ class StockMovementServiceTest {
     customer.setType(TypeUser.CUSTOMER);
     customer.setActive(true);
     when(userService.getAuthenticatedUser(any(Jwt.class))).thenReturn(customer);
+    stubRequireRoleDelegatingToAuthenticatedUser();
 
     assertThatThrownBy(
             () ->
@@ -320,8 +321,28 @@ class StockMovementServiceTest {
     farmer.setUser(user);
 
     when(userService.getAuthenticatedUser(any(Jwt.class))).thenReturn(user);
+    stubRequireRoleDelegatingToAuthenticatedUser();
     when(producerRepository.findById(farmerId)).thenReturn(Optional.of(farmer));
     return farmer;
+  }
+
+  // Após o E7, os services pedem papel via userService.requireRole(...). Nos testes mockados,
+  // delega ao getAuthenticatedUser já stubado e replica a regra (403 quando o tipo diverge).
+  private void stubRequireRoleDelegatingToAuthenticatedUser() {
+    org.mockito.Mockito.lenient()
+        .when(
+            userService.requireRole(
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              User authenticated = userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType() != inv.<TypeUser>getArgument(1)) {
+                throw new ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
   }
 
   private Product buildProduct(Producer farmer, BigDecimal stockQuantity) {
