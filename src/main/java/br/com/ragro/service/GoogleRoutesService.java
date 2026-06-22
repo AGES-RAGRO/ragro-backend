@@ -120,10 +120,12 @@ public class GoogleRoutesService {
             : route.legs().stream()
                 .map(leg -> new RouteLeg(metersToKm(leg.distanceMeters()), seconds(leg.duration())))
                 .toList();
+    // A Routes API só devolve optimizedIntermediateWaypointIndex como uma permutação válida de
+    // [0, N) quando há ≥2 intermediates; com 1 parada (ou resposta inesperada) ela retorna [-1],
+    // que estourava IndexOutOfBounds ao indexar a lista de pedidos. Cai no order natural nesse caso.
+    List<Integer> rawOrder = route.optimizedIntermediateWaypointIndex();
     List<Integer> optimizedOrder =
-        route.optimizedIntermediateWaypointIndex() != null
-            ? route.optimizedIntermediateWaypointIndex()
-            : defaultOrder(stops.size());
+        isValidWaypointOrder(rawOrder, stops.size()) ? rawOrder : defaultOrder(stops.size());
 
     return new ComputedRoute(
         metersToKm(route.distanceMeters()),
@@ -219,6 +221,21 @@ public class GoogleRoutesService {
 
   private static List<Integer> defaultOrder(int size) {
     return java.util.stream.IntStream.range(0, size).boxed().toList();
+  }
+
+  /** Valida que {@code order} é uma permutação de [0, size) — senão usa-se a ordem natural. */
+  private static boolean isValidWaypointOrder(List<Integer> order, int size) {
+    if (order == null || order.size() != size) {
+      return false;
+    }
+    boolean[] seen = new boolean[size];
+    for (Integer index : order) {
+      if (index == null || index < 0 || index >= size || seen[index]) {
+        return false;
+      }
+      seen[index] = true;
+    }
+    return true;
   }
 
   // ── Shapes mínimos da resposta (field mask garante só estes campos) ──
