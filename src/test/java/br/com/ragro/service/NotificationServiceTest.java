@@ -156,6 +156,40 @@ class NotificationServiceTest {
   }
 
   @Test
+  void createCustomerOrderInDeliveryNotification_shouldIncludeConfirmationCode() {
+    Order order = buildOrder(customerUser);
+    order.setConfirmationCode("1234");
+    ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
+    ArgumentCaptor<OrderPushNotificationEvent> eventCaptor =
+        ArgumentCaptor.forClass(OrderPushNotificationEvent.class);
+
+    notificationService.createCustomerOrderInDeliveryNotification(order);
+
+    verify(notificationRepository).save(captor.capture());
+    assertThat(captor.getValue().getMessage()).contains("1234").doesNotContain("null");
+
+    verify(applicationEventPublisher).publishEvent(eventCaptor.capture());
+    assertThat(eventCaptor.getValue().body())
+        .isEqualTo("Informe o código 1234 ao produtor para confirmar a entrega.");
+  }
+
+  @Test
+  void createCustomerOrderInDeliveryNotification_shouldFallBackWhenCodeIsNull() {
+    Order order = buildOrder(customerUser); // confirmationCode null por padrão
+    ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
+    ArgumentCaptor<OrderPushNotificationEvent> eventCaptor =
+        ArgumentCaptor.forClass(OrderPushNotificationEvent.class);
+
+    notificationService.createCustomerOrderInDeliveryNotification(order);
+
+    verify(notificationRepository).save(captor.capture());
+    assertThat(captor.getValue().getMessage()).doesNotContain("null");
+
+    verify(applicationEventPublisher).publishEvent(eventCaptor.capture());
+    assertThat(eventCaptor.getValue().body()).isEqualTo("Seu pedido saiu para entrega.");
+  }
+
+  @Test
   void saveToken_shouldTrimAndPersistTokenForAuthenticatedUser() {
     when(userService.getAuthenticatedUser(jwt)).thenReturn(customerUser);
     when(fcmTokenRepository.findByToken("device-token")).thenReturn(Optional.empty());
