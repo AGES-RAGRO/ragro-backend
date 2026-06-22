@@ -35,7 +35,7 @@ class CustomerRegistrationServiceTest {
   @Mock private CustomerRepository customerRepository;
   @Mock private AddressRepository addressRepository;
   @Mock private IdentityProviderService identityProviderService;
-  @Mock private GoogleMapsService googleMapsService;
+  @Mock private AddressGeocoder addressGeocoder;
 
   @InjectMocks private CustomerRegistrationService customerRegistrationService;
 
@@ -162,7 +162,7 @@ class CustomerRegistrationServiceTest {
 
     assertThatThrownBy(() -> customerRegistrationService.register(validRequest()))
         .isInstanceOf(ConflictException.class)
-        .hasMessage("E-mail already registered");
+        .hasMessage(CustomerRegistrationService.REGISTRATION_CONFLICT_MESSAGE);
 
     verify(identityProviderService, never()).registerCustomer(anyString(), anyString());
     verify(userRepository, never()).saveAndFlush(any());
@@ -175,7 +175,7 @@ class CustomerRegistrationServiceTest {
 
     assertThatThrownBy(() -> customerRegistrationService.register(validRequest()))
         .isInstanceOf(ConflictException.class)
-        .hasMessage("Fiscal number already registered");
+        .hasMessage(CustomerRegistrationService.REGISTRATION_CONFLICT_MESSAGE);
 
     verify(identityProviderService, never()).registerCustomer(anyString(), anyString());
     verify(userRepository, never()).saveAndFlush(any());
