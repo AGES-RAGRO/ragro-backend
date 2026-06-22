@@ -60,7 +60,6 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.multipart.MultipartFile;
 
-import com.google.maps.model.LatLng;
 
 @ExtendWith(MockitoExtension.class)
 class ProducerServiceTest {
@@ -74,7 +73,7 @@ class ProducerServiceTest {
   @Mock private UserService userService;
   @Mock private MinioStorageService minioStorageService;
   @Mock private ReviewRepository reviewRepository;
-  @Mock private GoogleMapsService googleMapsService;
+  @Mock private AddressGeocoder addressGeocoder;
 
   private ProducerService producerService;
 
@@ -93,7 +92,7 @@ class ProducerServiceTest {
             minioStorageService,
             producerMapper,
             reviewRepository,
-            googleMapsService);
+            addressGeocoder);
   }
 
   // ─── getProducerLocations ────────────────────────────────────────────────────
@@ -1322,10 +1321,15 @@ class ProducerServiceTest {
  
     Producer producer = buildProducerEntity(id, user);
  
-    LatLng latLng = new LatLng(-30.05, -51.2);
     when(producerRepository.findAllByUserActiveTrue()).thenReturn(List.of(producer));
-    when(googleMapsService.geocodeAddress(org.mockito.ArgumentMatchers.anyString()))
-        .thenReturn(latLng);
+    when(addressGeocoder.ensureGeocoded(any()))
+        .thenAnswer(
+            inv -> {
+              Address a = inv.getArgument(0);
+              a.setLatitude(BigDecimal.valueOf(-30.05));
+              a.setLongitude(BigDecimal.valueOf(-51.2));
+              return true;
+            });
     when(minioStorageService.composePublicUrl(any())).thenReturn(null);
  
     producerService.getProducerLocations();
@@ -1354,8 +1358,7 @@ class ProducerServiceTest {
     Producer producer = buildProducerEntity(id, user);
  
     when(producerRepository.findAllByUserActiveTrue()).thenReturn(List.of(producer));
-    when(googleMapsService.geocodeAddress(org.mockito.ArgumentMatchers.anyString()))
-        .thenReturn(null);
+    when(addressGeocoder.ensureGeocoded(any())).thenReturn(false);
     when(minioStorageService.composePublicUrl(any())).thenReturn(null);
  
     producerService.getProducerLocations();
@@ -1387,7 +1390,7 @@ class ProducerServiceTest {
  
     producerService.getProducerLocations();
  
-    verify(googleMapsService, never()).geocodeAddress(any());
+    // Já tem coordenadas: o AddressGeocoder retorna false (skip interno) e nada é persistido.
     verify(addressRepository, never()).save(any(Address.class));
   }
  
@@ -1410,7 +1413,8 @@ class ProducerServiceTest {
  
     producerService.getProducerLocations();
  
-    verify(googleMapsService, never()).geocodeAddress(any());
+    // Endereço incompleto: o AddressGeocoder retorna false (skip interno) e nada é persistido.
+    verify(addressRepository, never()).save(any(Address.class));
   }
  
   // ─── updateAvatarPhoto / updateCoverPhoto / updateProducerPhoto ────────

@@ -10,7 +10,6 @@ import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.TypeUser;
 import br.com.ragro.exception.BusinessException;
 import br.com.ragro.exception.NotFoundException;
-import br.com.ragro.exception.UnauthorizedException;
 import br.com.ragro.mapper.ProductMapper;
 import br.com.ragro.repository.ProducerRepository;
 import br.com.ragro.repository.ProductCategoryRepository;
@@ -103,6 +102,21 @@ public class ProductService {
         .toList();
   }
 
+  /**
+   * Detalhe de produto ativo sem exigir o produtor na rota ({@code GET /products/{id}}). O app
+   * abre o detalhe sem producerId em alguns fluxos (auditoria Fase 0, achado A5) e caía numa rota
+   * inexistente; a resposta é idêntica à de {@code GET /producers/{producerId}/products/{id}}.
+   */
+  @Transactional(readOnly = true)
+  public ProductResponse getActiveProductById(UUID productId) {
+    Product product =
+        productRepository
+            .findById(productId)
+            .filter(Product::isActive)
+            .orElseThrow(() -> new NotFoundException("Produto não encontrado"));
+    return ProductMapper.toResponse(product);
+  }
+
   @Transactional(readOnly = true)
   public ProductResponse getActiveProductByProducerIdAndProductId(UUID producerId, UUID productId) {
     if (!producerRepository.existsById(producerId)) {
@@ -130,10 +144,7 @@ public class ProductService {
   }
 
   private Producer getAuthenticatedFarmer(Jwt jwt) {
-    User user = userService.getAuthenticatedUser(jwt);
-    if (user.getType() != TypeUser.FARMER) {
-      throw new UnauthorizedException("Access restricted to farmers");
-    }
+    User user = userService.requireRole(jwt, TypeUser.FARMER, "Acesso restrito a produtores");
     return producerRepository
         .findById(user.getId())
         .orElseThrow(() -> new NotFoundException("Dados do produtor não encontrados"));

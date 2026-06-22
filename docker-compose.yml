@@ -7,7 +7,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./data/00-create-keycloak-db.sh:/docker-entrypoint-initdb.d/00-create-keycloak-db.sh
@@ -36,7 +36,7 @@ services:
       KC_HOSTNAME: localhost
       KC_HOSTNAME_STRICT: "false"
     ports:
-      - "8180:8180"
+      - "127.0.0.1:8180:8180"
     volumes:
       - ./keycloak/ragro-realm.json:/opt/keycloak/data/import/ragro-realm.json
       - ./keycloak/themes:/opt/keycloak/themes
@@ -55,8 +55,8 @@ services:
       MINIO_ROOT_PASSWORD: minioadmin
       MINIO_API_CORS_ALLOW_ORIGIN: "*"
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
     volumes:
       - minio_data:/data
     healthcheck:
@@ -71,8 +71,8 @@ services:
     image: axllent/mailpit
     container_name: ragro-mailpit
     ports:
-      - "1025:1025" # SMTP
-      - "8025:8025" # Web Interface
+      - "127.0.0.1:1025:1025" # SMTP
+      - "127.0.0.1:8025:8025" # Web Interface
     networks:
       - ragro-network
 
@@ -93,6 +93,10 @@ services:
       SPRING_JPA_HIBERNATE_DDL_AUTO: validate
       KEYCLOAK_SERVER_URL: http://keycloak:8180
       KEYCLOAK_PUBLIC_URL: http://localhost:8180
+      # O application.yml não tem mais default para a senha admin (fail-fast em prod) —
+      # o valor de dev é definido aqui, espelhando o serviço keycloak acima.
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
       KEYCLOAK_ISSUER_URI: http://localhost:8180/realms/ragro
       KEYCLOAK_JWK_SET_URI: http://keycloak:8180/realms/ragro/protocol/openid-connect/certs
       STORAGE_ENDPOINT: http://minio:9000
@@ -101,13 +105,14 @@ services:
       STORAGE_SECRET_KEY: minioadmin
       STORAGE_BUCKET: ragro-media
       MEDIA_PUBLIC_URL: ${MEDIA_PUBLIC_URL:-http://localhost:8080}
-      # Reranker via NVIDIA LLM API (Spring AI client OpenAI).
+      # Reranker via NVIDIA LLM API (Spring AI client OpenAI). A chave vem do .env (gitignored);
+      # base-url e modelo usam os defaults do application.yml.
       NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
       GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY}
       # Firebase Cloud Messaging service-account JSON (single line). Absent = push disabled.
       FIREBASE_SERVICE_ACCOUNT_JSON: ${FIREBASE_SERVICE_ACCOUNT_JSON:-}
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     networks:
       - ragro-network
 

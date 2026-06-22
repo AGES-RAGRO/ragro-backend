@@ -5,7 +5,7 @@
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>3.3.2</version>
+		<version>3.5.14</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>br.com.ragro</groupId>
@@ -75,7 +75,7 @@
 		<dependency>
 			<groupId>org.springdoc</groupId>
 			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-			<version>2.1.0</version>
+			<version>2.8.17</version>
 		</dependency>
 		<dependency>
 			<groupId>org.flywaydb</groupId>
@@ -88,7 +88,7 @@
 		<dependency>
 			<groupId>io.minio</groupId>
 			<artifactId>minio</artifactId>
-			<version>8.5.12</version>
+			<version>8.5.17</version>
 		</dependency>
 		<dependency>
 			<groupId>com.google.maps</groupId>
@@ -100,6 +100,22 @@
 			<groupId>org.springframework.ai</groupId>
 			<artifactId>spring-ai-starter-model-openai</artifactId>
 		</dependency>
+		<!-- Rastreamento em tempo real (STOMP sobre WebSocket; broker simples in-memory) -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-websocket</artifactId>
+		</dependency>
+		<!-- Rate limiting in-memory (token bucket) nos endpoints públicos e de custo externo -->
+		<dependency>
+			<groupId>com.bucket4j</groupId>
+			<artifactId>bucket4j-core</artifactId>
+			<version>8.10.1</version>
+		</dependency>
+		<!-- Storage dos buckets de rate limit (expiração por inatividade); versão gerida pelo Boot -->
+		<dependency>
+			<groupId>com.github.ben-manes.caffeine</groupId>
+			<artifactId>caffeine</artifactId>
+		</dependency>
 	</dependencies>
 
 	<dependencyManagement>
@@ -110,6 +126,16 @@
 				<version>${spring-ai.version}</version>
 				<type>pom</type>
 				<scope>import</scope>
+			</dependency>
+			<!--
+			  Alinha swagger-annotations com o swagger-core trazido pelo springdoc 2.8.17
+			  (2.2.47). Sem isto, o jsonschema-module-swagger-2 rebaixava annotations para
+			  2.2.30 (sem Schema.$dynamicRef()), e GET /v3/api-docs estourava NoSuchMethodError.
+			-->
+			<dependency>
+				<groupId>io.swagger.core.v3</groupId>
+				<artifactId>swagger-annotations-jakarta</artifactId>
+				<version>2.2.47</version>
 			</dependency>
 		</dependencies>
 	</dependencyManagement>
@@ -149,6 +175,7 @@
 				<artifactId>maven-surefire-plugin</artifactId>
 				<configuration>
 					<argLine>
+						@{argLine}
 						--add-opens java.base/java.lang=ALL-UNNAMED
 						--add-opens java.base/java.util=ALL-UNNAMED
 					</argLine>

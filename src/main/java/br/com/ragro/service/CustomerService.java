@@ -6,7 +6,6 @@ import br.com.ragro.domain.Address;
 import br.com.ragro.domain.Customer;
 import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.TypeUser;
-import br.com.ragro.exception.ForbiddenException;
 import br.com.ragro.exception.NotFoundException;
 import br.com.ragro.exception.UnauthorizedException;
 import br.com.ragro.mapper.AddressMapper;
@@ -40,22 +39,14 @@ public class CustomerService {
 
   @Transactional(readOnly = true)
   public CustomerResponse getMyCustomer(Jwt jwt) {
-    User user = userService.getAuthenticatedUser(jwt);
-
-    if (user.getType() != TypeUser.CUSTOMER) {
-      throw new ForbiddenException("Access restricted to customers");
-    }
+    User user = userService.requireRole(jwt, TypeUser.CUSTOMER, "Acesso restrito a consumidores");
 
     return CustomerMapper.toResponse(user);
   }
 
   @Transactional
   public CustomerResponse updateMyCustomer(Jwt jwt, CustomerUpdateRequest request) {
-    User user = userService.getAuthenticatedUser(jwt);
-
-    if (user.getType() != TypeUser.CUSTOMER) {
-      throw new ForbiddenException("Access restricted to customers");
-    }
+    User user = userService.requireRole(jwt, TypeUser.CUSTOMER, "Acesso restrito a consumidores");
 
     user.setName(request.getName().trim());
     user.setPhone(request.getPhone().trim());

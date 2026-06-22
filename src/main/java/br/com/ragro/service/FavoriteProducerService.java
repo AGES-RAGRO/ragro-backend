@@ -7,7 +7,6 @@ import br.com.ragro.domain.Producer;
 import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.TypeUser;
 import br.com.ragro.exception.ConflictException;
-import br.com.ragro.exception.ForbiddenException;
 import br.com.ragro.exception.NotFoundException;
 import br.com.ragro.repository.FavoriteProducerRepository;
 import br.com.ragro.repository.ProducerRepository;
@@ -70,10 +69,7 @@ public class FavoriteProducerService {
   }
 
   private User getAuthenticatedCustomer(Jwt jwt) {
-    User user = userService.getAuthenticatedUser(jwt);
-    if (user.getType() != TypeUser.CUSTOMER) {
-      throw new ForbiddenException("Apenas customers podem favoritar produtores");
-    }
+    User user = userService.requireRole(jwt, TypeUser.CUSTOMER, "Apenas customers podem favoritar produtores");
     return user;
   }
 

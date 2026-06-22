@@ -1,6 +1,8 @@
 package br.com.ragro.service;
 
 import br.com.ragro.domain.User;
+import br.com.ragro.domain.enums.TypeUser;
+import br.com.ragro.exception.ForbiddenException;
 import br.com.ragro.exception.UnauthorizedException;
 import br.com.ragro.repository.UserRepository;
 import br.com.ragro.service.api.IdentityProviderService;
@@ -47,6 +49,20 @@ public class UserService {
             });
   }
 
+  /**
+   * Autentica e exige o papel informado — substitui o bloco "getAuthenticatedUser + if(type!=X)
+   * throw" repetido ~25× pelos services (auditoria Fase 0). Sempre 403 com mensagem em português
+   * (antes dois sites lançavam 401 com mensagem em inglês para a MESMA regra).
+   */
+  @Transactional
+  public User requireRole(Jwt jwt, TypeUser type, String forbiddenMessage) {
+    User user = getAuthenticatedUser(jwt);
+    if (user.getType() != type) {
+      throw new ForbiddenException(forbiddenMessage);
+    }
+    return user;
+  }
+
   @Transactional
   public void triggerPasswordReset(Jwt jwt) {
     String sub = getRequiredClaim(jwt, "sub");
@@ -65,7 +81,7 @@ public class UserService {
             });
   }
 
-  public String getRequiredClaim(Jwt jwt, String claimName) {
+  private String getRequiredClaim(Jwt jwt, String claimName) {
     String value = jwt.getClaimAsString(claimName);
     if (value == null || value.isBlank()) {
       throw new UnauthorizedException("Token inválido: claim obrigatória ausente: " + claimName);

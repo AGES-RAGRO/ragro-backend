@@ -32,6 +32,12 @@ public class CustomerOrderResponse {
   private String cancellationReason;
   private String cancellationDetails;
 
+  /**
+   * Dados bancários/PIX do produtor para o pagamento, espelhando o que o CartResponse entrega no
+   * checkout. Sem isto o card "PAGAMENTO" sumia ao reabrir o pedido (auditoria Fase 0, achado A7).
+   */
+  private BankInfoResponse bankInfo;
+
   // 4-digit delivery confirmation code shown to the consumer when status is IN_DELIVERY.
   // Null for all other statuses.
   private String confirmationCode;

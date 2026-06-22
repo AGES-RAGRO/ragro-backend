@@ -1,6 +1,7 @@
 package br.com.ragro.mapper;
 
 import br.com.ragro.controller.response.CustomerOrderResponse;
+import br.com.ragro.controller.response.OrderCustomerResponse;
 import br.com.ragro.controller.response.OrderItemResponse;
 import br.com.ragro.controller.response.OrderResponse;
 import br.com.ragro.domain.Order;
@@ -34,6 +35,12 @@ public class OrderMapper {
         .id(order.getId())
         .customerId(order.getCustomer().getId())
         .customerName(order.getCustomer().getUser().getName())
+        .customer(
+            OrderCustomerResponse.builder()
+                .name(order.getCustomer().getUser().getName())
+                .phone(order.getCustomer().getUser().getPhone())
+                .memberSince(order.getCustomer().getUser().getCreatedAt())
+                .build())
         .farmerId(order.getFarmer().getId())
         .farmerName(order.getFarmer().getFarmName())
         .deliveryAddress(order.getDeliveryAddressSnapshot())
@@ -84,6 +91,7 @@ public class OrderMapper {
         .deliveryAddress(order.getDeliveryAddressSnapshot())
         .cancellationReason(order.getCancellationReason())
         .cancellationDetails(order.getCancellationDetails())
+        .bankInfo(PaymentMethodMapper.toBankInfo(order.getPaymentMethod()))
         // Only expose the confirmation code while the order is out for delivery.
         .confirmationCode(
             order.getStatus() == OrderStatus.IN_DELIVERY ? order.getConfirmationCode() : null)

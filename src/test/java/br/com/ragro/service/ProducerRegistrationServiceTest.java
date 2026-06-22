@@ -48,7 +48,7 @@ class ProducerRegistrationServiceTest {
   @Mock private FarmerAvailabilityRepository availabilityRepository;
   @Mock private PaymentMethodRepository paymentMethodRepository;
   @Mock private MinioStorageService minioStorageService;
-  @Mock private GoogleMapsService googleMapsService;
+  @Mock private AddressGeocoder addressGeocoder;
 
   private ProducerRegistrationService producerRegistrationService;
 
@@ -65,7 +65,7 @@ class ProducerRegistrationServiceTest {
             availabilityRepository,
             paymentMethodRepository,
             producerMapper,
-            googleMapsService);
+            addressGeocoder);
   }
 
   private PaymentMethodRequest buildPixMethod() {

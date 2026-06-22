@@ -73,7 +73,7 @@ class OrderControllerTest {
     User user = buildUser(sub, br.com.ragro.domain.enums.TypeUser.CUSTOMER);
     UUID orderId = UUID.randomUUID();
     when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(user));
-    when(orderService.getMyOrders(any())).thenReturn(List.of(customerOrderResponse(orderId)));
+    when(orderService.getMyOrders(any(), any(), any(), any())).thenReturn(List.of(customerOrderResponse(orderId)));
 
     mockMvc
         .perform(get("/orders/consumer").with(customerJwt(sub)))
@@ -87,7 +87,7 @@ class OrderControllerTest {
     String sub = "active-customer";
     User user = buildUser(sub, br.com.ragro.domain.enums.TypeUser.CUSTOMER);
     when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(user));
-    when(orderService.getMyOrders(any())).thenReturn(List.of());
+    when(orderService.getMyOrders(any(), any(), any(), any())).thenReturn(List.of());
 
     mockMvc
         .perform(get("/orders/consumer").with(customerJwt(sub)))
@@ -103,7 +103,7 @@ class OrderControllerTest {
     User user = buildUser(sub, br.com.ragro.domain.enums.TypeUser.FARMER);
     UUID orderId = UUID.randomUUID();
     when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(user));
-    when(orderService.getProducerOrders(any())).thenReturn(List.of(orderResponse(orderId)));
+    when(orderService.getProducerOrders(any(), any(), any(), any())).thenReturn(List.of(orderResponse(orderId)));
 
     mockMvc
         .perform(get("/orders/producer").with(farmerJwt(sub)))

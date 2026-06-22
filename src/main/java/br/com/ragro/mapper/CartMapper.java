@@ -1,6 +1,5 @@
 package br.com.ragro.mapper;
 
-import br.com.ragro.controller.response.BankInfoResponse;
 import br.com.ragro.controller.response.CartItemResponse;
 import br.com.ragro.controller.response.CartResponse;
 import br.com.ragro.domain.Cart;
@@ -36,7 +35,7 @@ public class CartMapper {
         .farmName(cart.getFarmer().getFarmName())
         .items(itemResponses)
         .totalAmount(total)
-        .bankInfo(toBankInfo(paymentMethod))
+        .bankInfo(PaymentMethodMapper.toBankInfo(paymentMethod))
         .build();
   }
 
@@ -60,19 +59,4 @@ public class CartMapper {
         .build();
   }
 
-  private static BankInfoResponse toBankInfo(PaymentMethod paymentMethod) {
-    if (paymentMethod == null) {
-      return null;
-    }
-    return BankInfoResponse.builder()
-        .bankName(paymentMethod.getBankName())
-        .bankCode(paymentMethod.getBankCode())
-        .agency(paymentMethod.getAgency())
-        .account(paymentMethod.getAccountNumber())
-        .accountType(paymentMethod.getAccountType())
-        .pixKey(paymentMethod.getPixKey())
-        .pixType(paymentMethod.getPixKeyType())
-        .holderName(paymentMethod.getHolderName())
-        .build();
-  }
 }

@@ -13,8 +13,6 @@ import br.com.ragro.repository.AddressRepository;
 import br.com.ragro.repository.CustomerRepository;
 import br.com.ragro.repository.UserRepository;
 import br.com.ragro.service.api.IdentityProviderService;
-import com.google.maps.model.LatLng;
-import java.math.BigDecimal;
 import java.util.Locale;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,23 +24,30 @@ public class CustomerRegistrationService {
 
   private static final Logger log = LoggerFactory.getLogger(CustomerRegistrationService.class);
 
+  /**
+   * Mensagem única para qualquer conflito de cadastro. Distinguir "e-mail já cadastrado" de "CPF
+   * já cadastrado" num endpoint público permite enumerar PII de usuários existentes.
+   */
+  public static final String REGISTRATION_CONFLICT_MESSAGE =
+      "Não foi possível concluir o cadastro com os dados informados";
+
   private final UserRepository userRepository;
   private final CustomerRepository customerRepository;
   private final AddressRepository addressRepository;
   private final IdentityProviderService identityProviderService;
-  private final GoogleMapsService googleMapsService;
+  private final AddressGeocoder addressGeocoder;
 
   public CustomerRegistrationService(
       UserRepository userRepository,
       CustomerRepository customerRepository,
       AddressRepository addressRepository,
       IdentityProviderService identityProviderService,
-      GoogleMapsService googleMapsService) {
+      AddressGeocoder addressGeocoder) {
     this.userRepository = userRepository;
     this.customerRepository = customerRepository;
     this.addressRepository = addressRepository;
     this.identityProviderService = identityProviderService;
-    this.googleMapsService = googleMapsService;
+    this.addressGeocoder = addressGeocoder;
   }
 
   @Transactional
@@ -72,22 +77,7 @@ public class CustomerRegistrationService {
       customerRepository.saveAndFlush(CustomerMapper.toEntity(savedUser, normalizedFiscalNumber));
 
       Address address = AddressMapper.toEntity(normalizedAddress, savedUser, true);
-
-      String fullAddress =
-          String.format(
-              "%s, %s - %s, %s - %s, %s",
-              address.getStreet(),
-              address.getNumber(),
-              address.getNeighborhood(),
-              address.getCity(),
-              address.getState(),
-              address.getZipCode());
-      LatLng latLng = googleMapsService.geocodeAddress(fullAddress);
-      if (latLng != null) {
-        address.setLatitude(BigDecimal.valueOf(latLng.lat));
-        address.setLongitude(BigDecimal.valueOf(latLng.lng));
-      }
-
+      addressGeocoder.geocodeAndApply(address);
       savedAddress = addressRepository.save(address);
     } catch (Exception original) {
       try {
@@ -116,12 +106,9 @@ public class CustomerRegistrationService {
   }
 
   private void validateUniqueness(String email, String fiscalNumber) {
-    if (userRepository.existsByEmail(email)) {
-      throw new ConflictException("E-mail already registered");
-    }
-
-    if (customerRepository.existsByFiscalNumber(fiscalNumber)) {
-      throw new ConflictException("Fiscal number already registered");
+    if (userRepository.existsByEmail(email)
+        || customerRepository.existsByFiscalNumber(fiscalNumber)) {
+      throw new ConflictException(REGISTRATION_CONFLICT_MESSAGE);
     }
   }
 
