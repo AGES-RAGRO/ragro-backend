@@ -6,11 +6,16 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.net.ConnectException;
+import java.net.UnknownHostException;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 
@@ -32,21 +37,23 @@ public class GoogleRoutesService {
   /** Limite documentado de intermediates do computeRoutes com otimização. */
   public static final int MAX_INTERMEDIATE_WAYPOINTS = 25;
 
+  /** Tentativas totais (1 inicial + 2 retries) para falhas de transporte transitórias. */
+  private static final int MAX_ATTEMPTS = 3;
+
+  /** Teto do backoff entre retries, em ms. */
+  private static final long BACKOFF_CAP_MILLIS = 1000;
+
   private final RestClient restClient;
   private final MeterRegistry meterRegistry;
+  private final long retryBackoffMillis;
 
   public GoogleRoutesService(
-      RestClient.Builder restClientBuilder,
-      @Value("${google.maps.api-key}") String apiKey,
-      @Value("${google.routes.base-url:https://routes.googleapis.com}") String baseUrl,
-      MeterRegistry meterRegistry) {
-    this.restClient =
-        restClientBuilder
-            .baseUrl(baseUrl)
-            .defaultHeader("X-Goog-Api-Key", apiKey)
-            .defaultHeader("Content-Type", "application/json")
-            .build();
+      RestClient googleRoutesRestClient,
+      MeterRegistry meterRegistry,
+      @Value("${google.routes.retry.backoff-ms:200}") long retryBackoffMillis) {
+    this.restClient = googleRoutesRestClient;
     this.meterRegistry = meterRegistry;
+    this.retryBackoffMillis = retryBackoffMillis;
   }
 
   /** Ponto geográfico simples (evita depender dos tipos do client legado). */
@@ -94,15 +101,24 @@ public class GoogleRoutesService {
     ComputeRoutesResponse response;
     try {
       response =
-          restClient
-              .post()
-              .uri("/directions/v2:computeRoutes")
-              .header("X-Goog-FieldMask", ROUTES_FIELD_MASK)
-              .body(body)
-              .retrieve()
-              .body(ComputeRoutesResponse.class);
+          withRetry(
+              () ->
+                  restClient
+                      .post()
+                      .uri("/directions/v2:computeRoutes")
+                      .header("X-Goog-FieldMask", ROUTES_FIELD_MASK)
+                      .body(body)
+                      .retrieve()
+                      .body(ComputeRoutesResponse.class));
     } catch (RestClientResponseException e) {
       throw translate(e, "Falha ao calcular a rota");
+    } catch (ResourceAccessException e) {
+      // Falha de transporte (DNS/conexão/timeout) persistente após os retries — transitória do
+      // ponto de vista do cliente (o incidente real, UnknownHostException/EAI_AGAIN, se resolveu
+      // sozinho 16s depois): 503 + Retry-After para ele tentar de novo em instantes.
+      log.error("Routes API computeRoutes failed after {} attempts", MAX_ATTEMPTS, e);
+      throw new GoogleApiException(
+          Kind.TRANSIENT, "Serviço de rotas temporariamente indisponível", e);
     } catch (Exception e) {
       log.error("Routes API computeRoutes failed", e);
       throw new GoogleApiException(Kind.UNAVAILABLE, "Falha ao calcular a rota", e);
@@ -174,6 +190,60 @@ public class GoogleRoutesService {
     } catch (Exception e) {
       log.warn("Route matrix failed; caller falls back to haversine baseline: {}", e.getMessage());
       return null;
+    }
+  }
+
+  /**
+   * Reexecuta {@code call} apenas em falhas de transporte genuinamente transitórias (resolução DNS,
+   * conexão recusada). O incidente real foi {@code UnknownHostException: routes.googleapis.com: Try
+   * again} (EAI_AGAIN — comum logo após o start do container em imagem Alpine/musl), que se resolveu
+   * sozinho no retry seguinte. {@code computeRoutes} é uma chamada de COMPUTE sem efeito colateral no
+   * Google (só é tarifada), então reexecutá-la é seguro. NÃO reexecuta erros HTTP (chegam como {@link
+   * RestClientResponseException}, fora do catch de {@link ResourceAccessException}) nem read-timeout
+   * (a request chegou ao Google e provavelmente foi tarifada — reexecutar dobraria o custo).
+   */
+  private <T> T withRetry(Supplier<T> call) {
+    int attempt = 0;
+    while (true) {
+      attempt++;
+      try {
+        return call.get();
+      } catch (ResourceAccessException e) {
+        if (attempt >= MAX_ATTEMPTS || !isRetriableTransport(e)) {
+          throw e;
+        }
+        meterRegistry.counter("ragro.google.routes.retries").increment();
+        log.warn(
+            "Routes API falha de transporte transitória (tentativa {}/{}): {} — reexecutando",
+            attempt,
+            MAX_ATTEMPTS,
+            e.getMessage());
+        sleepBackoff(attempt);
+      }
+    }
+  }
+
+  /** Só DNS/conexão (não chegou ao Google, não tarifado); read-timeout fica de fora. */
+  private static boolean isRetriableTransport(ResourceAccessException e) {
+    Throwable cause = e.getCause();
+    return cause instanceof UnknownHostException || cause instanceof ConnectException;
+  }
+
+  /** Backoff exponencial com full jitter (cap {@value #BACKOFF_CAP_MILLIS}ms); zero em testes. */
+  private void sleepBackoff(int failedAttempt) {
+    long ceiling = Math.min(BACKOFF_CAP_MILLIS, retryBackoffMillis * (1L << (failedAttempt - 1)));
+    if (ceiling <= 0) {
+      return;
+    }
+    long delay = ThreadLocalRandom.current().nextLong(ceiling + 1);
+    if (delay == 0) {
+      return;
+    }
+    try {
+      Thread.sleep(delay);
+    } catch (InterruptedException ie) {
+      Thread.currentThread().interrupt();
+      throw new GoogleApiException(Kind.TRANSIENT, "Cálculo de rota interrompido", ie);
     }
   }
 

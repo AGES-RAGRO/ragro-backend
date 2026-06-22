@@ -177,7 +177,8 @@ public class GlobalExceptionHandler {
   }
 
   /**
-   * Integrações Google (Geocoding/Routes): quota → 503 com Retry-After; entrada não
+   * Integrações Google (Geocoding/Routes): quota → 503 com Retry-After; falha de transporte
+   * transitória (DNS/conexão) após retries → 503 com Retry-After curto; entrada não
    * roteável/geocodável → 422; resto → 500. A mensagem nunca vaza o payload do Google (antes,
    * qualquer erro virava 400 com {@code e.getMessage()} cru para o cliente).
    */
@@ -186,7 +187,7 @@ public class GlobalExceptionHandler {
       GoogleApiException ex, HttpServletRequest request) {
     HttpStatus status =
         switch (ex.getKind()) {
-          case QUOTA -> HttpStatus.SERVICE_UNAVAILABLE;
+          case QUOTA, TRANSIENT -> HttpStatus.SERVICE_UNAVAILABLE;
           case INVALID_INPUT -> HttpStatus.UNPROCESSABLE_ENTITY;
           case UNAVAILABLE -> HttpStatus.INTERNAL_SERVER_ERROR;
         };
@@ -200,6 +201,8 @@ public class GlobalExceptionHandler {
     ResponseEntity.BodyBuilder builder = ResponseEntity.status(status);
     if (ex.getKind() == GoogleApiException.Kind.QUOTA) {
       builder.header("Retry-After", "30");
+    } else if (ex.getKind() == GoogleApiException.Kind.TRANSIENT) {
+      builder.header("Retry-After", "5");
     }
     return builder.body(response);
   }

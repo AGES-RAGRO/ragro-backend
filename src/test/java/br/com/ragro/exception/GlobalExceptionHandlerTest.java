@@ -31,4 +31,33 @@ class GlobalExceptionHandlerTest {
     // A mensagem crua do banco não vaza ao cliente.
     assertThat(response.getBody().getError()).doesNotContain("uq_delivery_routes_farmer_active");
   }
+
+  @Test
+  void googleApiTransient_shouldReturn503_withRetryAfter() {
+    // Falha de transporte transitória (DNS/conexão) ao Google, persistente após os retries.
+    MockHttpServletRequest request = new MockHttpServletRequest("POST", "/routes");
+    GoogleApiException ex =
+        new GoogleApiException(
+            GoogleApiException.Kind.TRANSIENT, "Serviço de rotas temporariamente indisponível");
+
+    ResponseEntity<ErrorResponse> response = handler.handleGoogleApi(ex, request);
+
+    assertThat(response.getStatusCode().value()).isEqualTo(503);
+    assertThat(response.getHeaders().getFirst("Retry-After")).isEqualTo("5");
+    assertThat(response.getBody().getError())
+        .isEqualTo("Serviço de rotas temporariamente indisponível");
+  }
+
+  @Test
+  void googleApiUnavailable_shouldReturn500_withoutRetryAfter() {
+    // Erro não-transitório (key/contrato/inesperado) continua 500, sem sugerir retry.
+    MockHttpServletRequest request = new MockHttpServletRequest("POST", "/routes");
+    GoogleApiException ex =
+        new GoogleApiException(GoogleApiException.Kind.UNAVAILABLE, "Falha ao calcular a rota");
+
+    ResponseEntity<ErrorResponse> response = handler.handleGoogleApi(ex, request);
+
+    assertThat(response.getStatusCode().value()).isEqualTo(500);
+    assertThat(response.getHeaders().getFirst("Retry-After")).isNull();
+  }
 }

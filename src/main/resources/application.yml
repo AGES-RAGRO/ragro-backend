@@ -127,6 +127,15 @@ server:
 google:
   maps:
     api-key: ${GOOGLE_MAPS_API_KEY:}
+  # Routes API: timeouts explícitos (o RestClient default do Boot não tem read-timeout — uma chamada
+  # travada bloquearia o worker e impediria o retry de transporte de disparar) + backoff base do
+  # retry para falhas de transporte transitórias (DNS/conexão). Read 10s porque computeRoutes
+  # (TRAFFIC_AWARE + otimização de ordem) leva legitimamente alguns segundos.
+  routes:
+    connect-timeout-ms: ${GOOGLE_ROUTES_CONNECT_TIMEOUT_MS:2000}
+    read-timeout-ms: ${GOOGLE_ROUTES_READ_TIMEOUT_MS:10000}
+    retry:
+      backoff-ms: ${GOOGLE_ROUTES_RETRY_BACKOFF_MS:200}
 
 firebase:
   service-account-json: ${FIREBASE_SERVICE_ACCOUNT_JSON:}

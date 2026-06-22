@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withException;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
@@ -13,12 +14,15 @@ import br.com.ragro.service.GoogleRoutesService.ComputedRoute;
 import br.com.ragro.service.GoogleRoutesService.GeoPoint;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.math.BigDecimal;
+import java.net.SocketTimeoutException;
+import java.net.UnknownHostException;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.test.web.client.ExpectedCount;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
@@ -35,10 +39,14 @@ class GoogleRoutesServiceTest {
 
   @BeforeEach
   void setUp() {
-    RestClient.Builder builder = RestClient.builder();
+    RestClient.Builder builder =
+        RestClient.builder()
+            .baseUrl("https://routes.test")
+            .defaultHeader("X-Goog-Api-Key", "test-key")
+            .defaultHeader("Content-Type", "application/json");
     server = MockRestServiceServer.bindTo(builder).build();
-    service =
-        new GoogleRoutesService(builder, "test-key", "https://routes.test", new SimpleMeterRegistry());
+    // backoff 0 → retries acontecem sem sleep real, mantendo o teste determinístico e rápido.
+    service = new GoogleRoutesService(builder.build(), new SimpleMeterRegistry(), 0L);
   }
 
   @Test
@@ -109,6 +117,66 @@ class GoogleRoutesServiceTest {
     assertThatThrownBy(() -> service.computeOptimizedRoundTrip(origin, tooMany))
         .isInstanceOf(GoogleApiException.class)
         .hasMessageContaining("no máximo");
+  }
+
+  @Test
+  void computeOptimizedRoundTrip_shouldRetryAndSucceed_onTransientDnsFailure() {
+    // 1ª tentativa: o incidente real (UnknownHostException / EAI_AGAIN). 2ª: sucesso.
+    server
+        .expect(ExpectedCount.once(), requestTo("https://routes.test/directions/v2:computeRoutes"))
+        .andRespond(withException(new UnknownHostException("routes.googleapis.com: Try again")));
+    server
+        .expect(ExpectedCount.once(), requestTo("https://routes.test/directions/v2:computeRoutes"))
+        .andRespond(
+            withSuccess(
+                """
+                {"routes":[{
+                  "distanceMeters": 12500,
+                  "duration": "1800s",
+                  "polyline": {"encodedPolyline": "abc123"},
+                  "optimizedIntermediateWaypointIndex": [1, 0],
+                  "legs": [
+                    {"distanceMeters": 5000, "duration": "600s"},
+                    {"distanceMeters": 4000, "duration": "500s"},
+                    {"distanceMeters": 3500, "duration": "700s"}
+                  ]
+                }]}
+                """,
+                MediaType.APPLICATION_JSON));
+
+    ComputedRoute route = service.computeOptimizedRoundTrip(origin, stops);
+
+    assertThat(route.totalDistanceKm()).isEqualByComparingTo("12.50");
+    server.verify(); // exatamente 2 tentativas: o retry disparou e resolveu.
+  }
+
+  @Test
+  void computeOptimizedRoundTrip_shouldThrowTransient_whenDnsFailsEveryAttempt() {
+    server
+        .expect(
+            ExpectedCount.times(3), requestTo("https://routes.test/directions/v2:computeRoutes"))
+        .andRespond(withException(new UnknownHostException("routes.googleapis.com: Try again")));
+
+    assertThatThrownBy(() -> service.computeOptimizedRoundTrip(origin, stops))
+        .isInstanceOf(GoogleApiException.class)
+        .extracting(e -> ((GoogleApiException) e).getKind())
+        .isEqualTo(GoogleApiException.Kind.TRANSIENT);
+    server.verify(); // exatamente 3 tentativas (1 inicial + 2 retries), depois desiste.
+  }
+
+  @Test
+  void computeOptimizedRoundTrip_shouldNotRetryReadTimeout_butStillMapsTransient() {
+    // Read-timeout: a request chegou ao Google (provavelmente tarifada) — não reexecuta, mas
+    // continua sendo transitória do ponto de vista do cliente (503).
+    server
+        .expect(ExpectedCount.once(), requestTo("https://routes.test/directions/v2:computeRoutes"))
+        .andRespond(withException(new SocketTimeoutException("Read timed out")));
+
+    assertThatThrownBy(() -> service.computeOptimizedRoundTrip(origin, stops))
+        .isInstanceOf(GoogleApiException.class)
+        .extracting(e -> ((GoogleApiException) e).getKind())
+        .isEqualTo(GoogleApiException.Kind.TRANSIENT);
+    server.verify(); // uma única tentativa — sem retry no read-timeout.
   }
 
   @Test
