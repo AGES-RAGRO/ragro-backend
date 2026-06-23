@@ -63,9 +63,8 @@ public class Address {
   private BigDecimal longitude;
 
   /**
-   * Resultado da última geocodificação ({@code null} = nunca tentado). FAILED/AMBIGUOUS não são
-   * re-tentados automaticamente — antes, um endereço não-geocodável era re-tentado (e cobrado) a
-   * cada abertura do mapa, para sempre. Zerado quando o endereço é editado.
+   * Last geocoding attempt ({@code null} = never attempted). FAILED/AMBIGUOUS are not auto-retried
+   * (avoids re-billing on every map open); reset when the address is edited.
    */
   @Enumerated(EnumType.STRING)
   @Column(name = "geocode_status", length = 12)

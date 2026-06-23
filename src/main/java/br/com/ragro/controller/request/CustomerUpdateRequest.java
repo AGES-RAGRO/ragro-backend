@@ -20,8 +20,7 @@ public class CustomerUpdateRequest {
       requiredMode = Schema.RequiredMode.REQUIRED)
   private String name;
 
-  // Mesma regra do registro (CustomerRegistrationRequest) e do update de produtor: 11 dígitos
-  // puros. Antes aceitava texto livre até 20 chars, persistindo formatos mistos no banco.
+  // 11 raw digits, same rule as registration and producer update.
   @NotBlank(message = "Phone is required")
   @Pattern(regexp = "^\\d{11}$", message = "Phone must contain exactly 11 digits")
   @Schema(

@@ -35,10 +35,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Núcleo do rastreamento em tempo real: valida/filtra pings do produtor, mantém a última posição
- * ({@link PositionStore}), persiste a trilha (retenção 7 dias) e calcula ETA dinâmico projetando a
- * posição na polyline persistida da rota — ZERO chamadas ao Google por ping. Coordenadas nunca são
- * logadas (dado pessoal de localização).
+ * Real-time tracking core: validates/filters producer pings, keeps the last position ({@link
+ * PositionStore}), persists the trail (7-day retention), and computes a dynamic ETA — zero Google calls
+ * per ping. Coordinates are never logged (personal location data).
  */
 @Service
 @RequiredArgsConstructor
@@ -46,7 +45,7 @@ public class TrackingService {
 
   private static final Logger log = LoggerFactory.getLogger(TrackingService.class);
 
-  /** Vias urbanas percorrem ~30% mais que a linha reta — corrige o ETA por distância direta. */
+  /** Urban roads run ~30% longer than a straight line — corrects the direct-distance ETA. */
   private static final double ROUTE_SINUOSITY_FACTOR = 1.3;
 
   private final TrackingProperties properties;
@@ -55,19 +54,19 @@ public class TrackingService {
   private final RoutePositionRepository routePositionRepository;
   private final PositionStore positionStore;
 
-  /** Geometria decodificada por rota ativa (polyline → vértices + distâncias acumuladas). */
+  /** Decoded geometry per active route (polyline → vertices + cumulative distances). */
   private final Cache<UUID, RouteGeometry> geometryCache =
       Caffeine.newBuilder().expireAfterAccess(Duration.ofHours(6)).maximumSize(1_000).build();
 
-  /** Último aceite por rota (rate limit de ingestão por intervalo mínimo). */
+  /** Last accept time per route (min-interval ingestion rate limit). */
   private final Cache<UUID, Long> lastAcceptedAt =
       Caffeine.newBuilder().expireAfterAccess(Duration.ofMinutes(10)).maximumSize(10_000).build();
 
   /**
-   * Processa um ping do produtor. Retorna o broadcast a publicar, ou {@link Optional#empty()}
-   * quando o ping foi descartado (ruído, rate limit, rota inativa).
+   * Processes a producer ping. Returns the broadcast to publish, or {@link Optional#empty()} when the ping
+   * was dropped (noise, rate limit, inactive route).
    *
-   * @param farmerUserId id do usuário autenticado no canal (validado como dono da rota aqui)
+   * @param farmerUserId authenticated channel user (validated here as the route owner)
    */
   @Transactional
   public Optional<TrackingBroadcast> ingestPosition(
@@ -79,7 +78,7 @@ public class TrackingService {
       return Optional.empty();
     }
 
-    // Rate limit por rota: pings mais frequentes que o intervalo mínimo são ignorados.
+    // Per-route rate limit: pings faster than the min interval are ignored.
     long now = System.currentTimeMillis();
     Long last = lastAcceptedAt.getIfPresent(routeId);
     if (last != null && now - last < properties.getMinIntervalMs()) {
@@ -91,7 +90,7 @@ public class TrackingService {
       return Optional.empty();
     }
     if (!route.getFarmer().getId().equals(farmerUserId)) {
-      // Emissor não é o produtor da rota — descarta silenciosamente e audita a tentativa.
+      // Sender is not the route's producer — drop silently and audit the attempt.
       log.warn("Tracking ping rejected: user is not the route owner (route {})", routeId);
       return Optional.empty();
     }
@@ -99,13 +98,13 @@ public class TrackingService {
     double lat = message.getLatitude().doubleValue();
     double lng = message.getLongitude().doubleValue();
 
-    // Filtro de ruído: precisão ruim não entra na trilha nem é retransmitida.
+    // Noise filter: poor accuracy is not stored in the trail nor rebroadcast.
     if (message.getAccuracyMeters() != null
         && message.getAccuracyMeters() > properties.getMaxAccuracyMeters()) {
       return Optional.empty();
     }
 
-    // Filtro de salto impossível: velocidade implícita vs. última posição aceita.
+    // Impossible-jump filter: implied speed vs. the last accepted position.
     LastPosition previous = positionStore.get(routeId);
     OffsetDateTime recordedAt = OffsetDateTime.now();
     if (previous != null) {
@@ -133,8 +132,8 @@ public class TrackingService {
     trailPoint.setRecordedAt(recordedAt);
     routePositionRepository.save(trailPoint);
 
-    // Atualiza o estado em memória (rate-limit + última posição) só APÓS persistir — se o save
-    // falhar, não fica posição "fantasma" no store nem o rate-limit consumido por algo não gravado.
+    // Update in-memory state (rate limit + last position) only after persisting, so a failed save leaves
+    // no ghost position and does not consume the rate limit.
     lastAcceptedAt.put(routeId, now);
     LastPosition position =
         new LastPosition(
@@ -144,10 +143,7 @@ public class TrackingService {
     return Optional.of(buildBroadcast(route, lat, lng, recordedAt));
   }
 
-  /**
-   * Snapshot de rastreamento de um pedido para o SEU cliente (estado inicial da tela + fallback
-   * de polling). Autorização: somente o cliente do pedido.
-   */
+  /** Tracking snapshot of an order for its customer (initial screen state + polling fallback). Customer-only. */
   @Transactional(readOnly = true)
   public OrderTrackingResponse trackingForOrder(UUID orderId, User user) {
     if (!properties.isEnabled()) {
@@ -175,7 +171,7 @@ public class TrackingService {
           etaSecondsToStop(
               route, stop, position.latitude().doubleValue(), position.longitude().doubleValue());
     } else if (stop.getEta() != null) {
-      // Sem ping ainda: usa o ETA estático calculado na criação da rota.
+      // No ping yet: use the static ETA computed at route creation.
       long staticEta = Duration.between(OffsetDateTime.now(), stop.getEta()).toSeconds();
       etaSeconds = (int) Math.max(0, staticEta);
     }
@@ -195,7 +191,7 @@ public class TrackingService {
         .build();
   }
 
-  /** Autorização do SUBSCRIBE: produtor da rota ou cliente de alguma entrega dela. */
+  /** SUBSCRIBE authorization: the route's producer or a customer of one of its deliveries. */
   @Transactional(readOnly = true)
   public boolean canSubscribe(UUID routeId, UUID userId, TypeUser type) {
     if (type == TypeUser.FARMER) {
@@ -210,7 +206,7 @@ public class TrackingService {
     return false;
   }
 
-  /** Rota terminou: para de compartilhar posição (privacidade fora de entrega ativa). */
+  /** Route ended: stop sharing position (privacy outside an active delivery). */
   public void clearRoute(UUID routeId) {
     positionStore.clear(routeId);
     geometryCache.invalidate(routeId);
@@ -258,11 +254,9 @@ public class TrackingService {
   }
 
   /**
-   * ETA dinâmico (sem custo de API): distância direta produtor→parada corrigida por um fator de
-   * sinuosidade urbano, dividida pela velocidade média da rota (distância/duração do Google na
-   * criação). NÃO projeta na polyline por vértice: a rota é round-trip e o vértice mais próximo do
-   * produtor podia cair na perna de VOLTA, zerando a distância restante até uma parada da ida (bug
-   * que dava ETA ~0). A distância direta é robusta e honesta o bastante para um ETA de entrega.
+   * Dynamic ETA (no API cost): direct producer→stop distance times the urban sinuosity factor, divided by
+   * the route's average speed. Does NOT project onto the polyline by vertex: on a round-trip route the
+   * nearest vertex could land on the return leg, zeroing the distance to an outbound stop (ETA ~0 bug).
    */
   private Integer etaSecondsToStop(DeliveryRoute route, RouteStop stop, double lat, double lng) {
     double directMeters =
@@ -273,9 +267,8 @@ public class TrackingService {
   }
 
   /**
-   * Polyline que o cliente vê: recortada ao trecho da posição atual do produtor (ou da origem da
-   * rota, se ainda não houve ping) até a parada DELE. Não expõe as paradas seguintes nem a volta à
-   * origem (privacidade entre clientes da mesma rota).
+   * Polyline the customer sees: clipped from the producer's current position (or route origin if no ping
+   * yet) to their stop. Hides later stops and the return leg (privacy among customers of the same route).
    */
   private String polylineForStop(DeliveryRoute route, RouteStop stop, LastPosition position) {
     String full = route.getOverviewPolyline();
@@ -302,7 +295,7 @@ public class TrackingService {
         return ms;
       }
     }
-    return 30 / 3.6; // fallback: 30 km/h urbano
+    return 30 / 3.6; // fallback: 30 km/h urban
   }
 
   private RouteGeometry geometryOf(DeliveryRoute route) {
@@ -323,7 +316,7 @@ public class TrackingService {
             .count();
   }
 
-  /** Polyline decodificada — usada para detectar desvio (distância do produtor ao traçado). */
+  /** Decoded polyline — used to detect deviation (producer's distance to the route). */
   static final class RouteGeometry {
     final List<Point> vertices;
 
@@ -335,7 +328,7 @@ public class TrackingService {
       return new RouteGeometry(PolylineUtil.decode(encodedPolyline));
     }
 
-    /** Menor distância do ponto a qualquer vértice da polyline (aproxima a distância ao traçado). */
+    /** Smallest distance from the point to any polyline vertex (approximates distance to the route). */
     double distanceToNearestVertexMeters(double lat, double lng) {
       double best = Double.MAX_VALUE;
       for (Point p : vertices) {

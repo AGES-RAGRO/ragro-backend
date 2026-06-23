@@ -15,8 +15,7 @@ public class UpdateRouteStopRequest {
   @NotNull(message = "O status é obrigatório")
   private RouteStopStatus status;
 
-  // Código do consumidor — obrigatório quando status=DELIVERED (a obrigatoriedade condicional é
-  // validada no serviço); aqui só garante o formato de 4 dígitos quando presente.
+  // Customer code; conditional requirement (status=DELIVERED) validated in service. Here only the 4-digit format.
   @Pattern(regexp = "\\d{4}", message = "O código de confirmação deve conter 4 dígitos")
   @Schema(
       description = "Código de confirmação do consumidor — obrigatório quando status=DELIVERED",

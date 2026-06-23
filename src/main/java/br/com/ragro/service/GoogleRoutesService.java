@@ -20,9 +20,8 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 
 /**
- * Cliente da <b>Routes API</b> nova do Google (computeRoutes/computeRouteMatrix via REST) — a
- * Directions API usada antes é legada no pricing e não expunha trânsito nem ETA por leg no fluxo
- * antigo. Field masks limitam a resposta ao que usamos (requisito da API e controle de custo).
+ * Client for Google's <b>Routes API</b> (computeRoutes/computeRouteMatrix via REST). Field masks
+ * limit the response to what we use (API requirement and cost control).
  */
 @Service
 @Slf4j
@@ -34,18 +33,17 @@ public class GoogleRoutesService {
           + "routes.optimizedIntermediateWaypointIndex";
   static final String MATRIX_FIELD_MASK = "originIndex,destinationIndex,distanceMeters,condition";
 
-  /** Limite documentado de intermediates do computeRoutes com otimização. */
+  /** Documented limit of intermediates for computeRoutes with optimization. */
   public static final int MAX_INTERMEDIATE_WAYPOINTS = 25;
 
   /**
-   * Tentativas totais (1 inicial + 4 retries) para falhas de transporte transitórias. Com o backoff
-   * abaixo a janela do retry cobre ~1–2s — suficiente para os blips esporádicos de resolução DNS do
-   * musl/Alpine (que, com {@code -Dsun.net.inetaddr.negative.ttl=0}, re-resolvem de verdade a cada
-   * tentativa em vez de bater no cache negativo).
+   * Total attempts (1 initial + 4 retries) for transient transport failures. The backoff window
+   * (~1–2s) covers sporadic musl/Alpine DNS blips, which re-resolve per attempt thanks to
+   * {@code -Dsun.net.inetaddr.negative.ttl=0}.
    */
   private static final int MAX_ATTEMPTS = 5;
 
-  /** Teto do backoff entre retries, em ms. */
+  /** Backoff cap between retries, in ms. */
   private static final long BACKOFF_CAP_MILLIS = 1000;
 
   private final RestClient restClient;
@@ -61,15 +59,15 @@ public class GoogleRoutesService {
     this.retryBackoffMillis = retryBackoffMillis;
   }
 
-  /** Ponto geográfico simples (evita depender dos tipos do client legado). */
+  /** Simple geographic point (avoids depending on the legacy client's types). */
   public record GeoPoint(BigDecimal latitude, BigDecimal longitude) {}
 
-  /** Leg da rota computada: distância/duração para CHEGAR ao próximo ponto. */
+  /** Leg of the computed route: distance/duration to REACH the next point. */
   public record RouteLeg(BigDecimal distanceKm, int durationSeconds) {}
 
   /**
-   * Rota otimizada round-trip: {@code optimizedOrder[i]} é o índice (na lista de entrada) da
-   * i-ésima parada a visitar; {@code legs} tem N+1 entradas (origem→p1, p1→p2, ..., pN→origem).
+   * Optimized round-trip route: {@code optimizedOrder[i]} is the input-list index of the i-th stop to
+   * visit; {@code legs} has N+1 entries (origin→p1, p1→p2, ..., pN→origin).
    */
   public record ComputedRoute(
       BigDecimal totalDistanceKm,
@@ -79,9 +77,8 @@ public class GoogleRoutesService {
       List<RouteLeg> legs) {}
 
   /**
-   * Calcula a rota ótima saindo de {@code origin}, passando por todas as {@code stops} e
-   * retornando à origem (round trip — decisão de produto: consistente com o baseline de CO2 que
-   * compara com idas-e-voltas individuais), com trânsito do momento.
+   * Computes the optimal route from {@code origin} through all {@code stops} and back (round trip —
+   * product decision: consistent with the CO2 baseline of individual round trips), with live traffic.
    */
   public ComputedRoute computeOptimizedRoundTrip(GeoPoint origin, List<GeoPoint> stops) {
     if (stops.isEmpty()) {
@@ -118,14 +115,13 @@ public class GoogleRoutesService {
     } catch (RestClientResponseException e) {
       throw translate(e, "Falha ao calcular a rota");
     } catch (ResourceAccessException e) {
-      // Falha de transporte (DNS/conexão/timeout) persistente após os retries — transitória do
-      // ponto de vista do cliente (o incidente real, UnknownHostException/EAI_AGAIN, se resolveu
-      // sozinho 16s depois): 503 + Retry-After para ele tentar de novo em instantes.
+      // Transport failure (DNS/connection/timeout) persisting after retries — transient from the
+      // client's view: respond 503 + Retry-After so it retries shortly.
       log.error("Routes API computeRoutes failed after {} attempts", MAX_ATTEMPTS, e);
       throw new GoogleApiException(
           Kind.TRANSIENT, "Serviço de rotas temporariamente indisponível", e);
     } catch (GoogleApiException e) {
-      // Já classificada (ex.: Kind.TRANSIENT do interrupt no backoff de withRetry) — preserva.
+      // Already classified (e.g. Kind.TRANSIENT from a withRetry backoff interrupt) — preserve.
       throw e;
     } catch (Exception e) {
       log.error("Routes API computeRoutes failed", e);
@@ -144,9 +140,9 @@ public class GoogleRoutesService {
             : route.legs().stream()
                 .map(leg -> new RouteLeg(metersToKm(leg.distanceMeters()), seconds(leg.duration())))
                 .toList();
-    // A Routes API só devolve optimizedIntermediateWaypointIndex como uma permutação válida de
-    // [0, N) quando há ≥2 intermediates; com 1 parada (ou resposta inesperada) ela retorna [-1],
-    // que estourava IndexOutOfBounds ao indexar a lista de pedidos. Cai no order natural nesse caso.
+    // Routes API only returns optimizedIntermediateWaypointIndex as a valid permutation of [0, N)
+    // with ≥2 intermediates; with 1 stop (or an unexpected response) it returns [-1]. Fall back to
+    // natural order in that case.
     List<Integer> rawOrder = route.optimizedIntermediateWaypointIndex();
     List<Integer> optimizedOrder =
         isValidWaypointOrder(rawOrder, stops.size()) ? rawOrder : defaultOrder(stops.size());
@@ -160,10 +156,9 @@ public class GoogleRoutesService {
   }
 
   /**
-   * Distância rodoviária da origem a CADA parada (1 chamada computeRouteMatrix) — base do CO2
-   * baseline (ida-e-volta individual), substituindo a linha reta (haversine) usada antes, que
-   * tornava a comparação maçãs-com-laranjas. Retorna {@code null} em falha (chamador usa
-   * fallback) — baseline não pode derrubar a criação da rota.
+   * Road distance from origin to EACH stop (1 computeRouteMatrix call) — basis of the CO2 baseline
+   * (individual round trips). Returns {@code null} on failure (caller uses haversine fallback); the
+   * baseline must not break route creation.
    */
   public List<BigDecimal> distancesFromOrigin(GeoPoint origin, List<GeoPoint> stops) {
     meterRegistry.counter("ragro.google.calls", "api", "route_matrix").increment();
@@ -202,13 +197,11 @@ public class GoogleRoutesService {
   }
 
   /**
-   * Reexecuta {@code call} apenas em falhas de transporte genuinamente transitórias (resolução DNS,
-   * conexão recusada). O incidente real foi {@code UnknownHostException: routes.googleapis.com: Try
-   * again} (EAI_AGAIN — comum logo após o start do container em imagem Alpine/musl), que se resolveu
-   * sozinho no retry seguinte. {@code computeRoutes} é uma chamada de COMPUTE sem efeito colateral no
-   * Google (só é tarifada), então reexecutá-la é seguro. NÃO reexecuta erros HTTP (chegam como {@link
-   * RestClientResponseException}, fora do catch de {@link ResourceAccessException}) nem read-timeout
-   * (a request chegou ao Google e provavelmente foi tarifada — reexecutar dobraria o custo).
+   * Retries {@code call} only on genuinely transient transport failures (DNS resolution, connection
+   * refused) — e.g. EAI_AGAIN right after container start on Alpine/musl. {@code computeRoutes} is a
+   * side-effect-free COMPUTE call (only billed), so retrying is safe. Does NOT retry HTTP errors
+   * (arrive as {@link RestClientResponseException}) nor read-timeouts (request reached Google and was
+   * likely billed — retrying would double the cost).
    */
   private <T> T withRetry(Supplier<T> call) {
     int attempt = 0;
@@ -231,13 +224,13 @@ public class GoogleRoutesService {
     }
   }
 
-  /** Só DNS/conexão (não chegou ao Google, não tarifado); read-timeout fica de fora. */
+  /** Only DNS/connection (never reached Google, not billed); read-timeout excluded. */
   private static boolean isRetriableTransport(ResourceAccessException e) {
     Throwable cause = e.getCause();
     return cause instanceof UnknownHostException || cause instanceof ConnectException;
   }
 
-  /** Backoff exponencial com full jitter (cap {@value #BACKOFF_CAP_MILLIS}ms); zero em testes. */
+  /** Exponential backoff with full jitter (cap {@value #BACKOFF_CAP_MILLIS}ms); zero in tests. */
   private void sleepBackoff(int failedAttempt) {
     long ceiling = Math.min(BACKOFF_CAP_MILLIS, retryBackoffMillis * (1L << (failedAttempt - 1)));
     if (ceiling <= 0) {
@@ -257,7 +250,7 @@ public class GoogleRoutesService {
 
   private GoogleApiException translate(RestClientResponseException e, String safeMessage) {
     HttpStatusCode status = e.getStatusCode();
-    // Detalhe técnico só no log; a mensagem do Google não vaza para o cliente.
+    // Technical detail logged only; Google's message never leaks to the client.
     log.error("Routes API error {}: {}", status.value(), e.getResponseBodyAsString());
     if (status.value() == 429) {
       return new GoogleApiException(Kind.QUOTA, "Serviço de rotas temporariamente indisponível");
@@ -285,7 +278,7 @@ public class GoogleRoutesService {
     return BigDecimal.valueOf(meters).divide(BigDecimal.valueOf(1000), 2, RoundingMode.HALF_UP);
   }
 
-  /** Durations vêm como "1234s". */
+  /** Durations come as "1234s". */
   private static int seconds(String duration) {
     if (duration == null || duration.isBlank()) {
       return 0;
@@ -301,7 +294,7 @@ public class GoogleRoutesService {
     return java.util.stream.IntStream.range(0, size).boxed().toList();
   }
 
-  /** Valida que {@code order} é uma permutação de [0, size) — senão usa-se a ordem natural. */
+  /** Validates {@code order} is a permutation of [0, size) — otherwise natural order is used. */
   private static boolean isValidWaypointOrder(List<Integer> order, int size) {
     if (order == null || order.size() != size) {
       return false;
@@ -316,7 +309,7 @@ public class GoogleRoutesService {
     return true;
   }
 
-  // ── Shapes mínimos da resposta (field mask garante só estes campos) ──
+  // ── Minimal response shapes (field mask guarantees only these fields) ──
 
   @JsonIgnoreProperties(ignoreUnknown = true)
   record ComputeRoutesResponse(List<Route> routes) {}

@@ -18,9 +18,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Rastreamento de pedido para o cliente: estado inicial da tela de acompanhamento e fallback de
- * polling quando o WebSocket cai (degradação graciosa). O stream ao vivo é o tópico STOMP {@code
- * /topic/routes/{routeId}} (routeId vem desta resposta).
+ * Order tracking for the customer: initial screen state and a polling fallback when the WebSocket
+ * drops. Live stream is the STOMP topic {@code /topic/routes/{routeId}} (routeId from this response).
  */
 @RestController
 @RequestMapping("/orders")

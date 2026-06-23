@@ -6,9 +6,8 @@ import lombok.Builder;
 import lombok.Getter;
 
 /**
- * Resumo do cliente embutido no {@link OrderResponse} (visão do produtor). O app renderiza
- * telefone e "cliente desde" no detalhe do pedido; antes estes dados não eram enviados e a UI
- * degradava para vazio. Não há foto de cliente no domínio — o app usa placeholder.
+ * Customer summary embedded in {@link OrderResponse} (producer's view): phone and "member since".
+ * No customer photo in the domain — the app uses a placeholder.
  */
 @Getter
 @Builder

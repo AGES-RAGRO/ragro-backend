@@ -18,7 +18,7 @@ public class RouteResponse {
   private BigDecimal originLongitude;
   private BigDecimal totalDistanceKm;
   private Integer totalDurationSeconds;
-  /** Baseline do CO2: soma das idas-e-voltas individuais até cada parada (Route Matrix). */
+  /** CO2 baseline: sum of the individual round trips to each stop (Route Matrix). */
   private BigDecimal baselineDistanceKm;
   private String overviewPolyline;
   private OffsetDateTime createdAt;

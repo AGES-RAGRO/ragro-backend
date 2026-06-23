@@ -175,7 +175,7 @@ class NotificationServiceTest {
 
   @Test
   void createCustomerOrderInDeliveryNotification_shouldFallBackWhenCodeIsNull() {
-    Order order = buildOrder(customerUser); // confirmationCode null por padrão
+    Order order = buildOrder(customerUser); // confirmationCode null by default
     ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
     ArgumentCaptor<OrderPushNotificationEvent> eventCaptor =
         ArgumentCaptor.forClass(OrderPushNotificationEvent.class);

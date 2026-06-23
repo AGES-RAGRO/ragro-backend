@@ -13,17 +13,17 @@ public class RouteStopResponse {
 
   private UUID id;
   private UUID orderId;
-  /** Posição na rota otimizada (0-based, ordem de visita). */
+  /** Position in the optimized route (0-based, visit order). */
   private int sequence;
   private RouteStopStatus status;
   private BigDecimal latitude;
   private BigDecimal longitude;
   private String addressText;
   private String customerName;
-  /** Distância/duração da leg que chega nesta parada. */
+  /** Distance/duration of the leg arriving at this stop. */
   private BigDecimal legDistanceKm;
   private Integer legDurationSeconds;
-  /** ETA absoluto estimado na criação da rota. */
+  /** Absolute ETA estimated at route creation. */
   private OffsetDateTime eta;
   private OffsetDateTime completedAt;
 }

@@ -71,7 +71,7 @@ class DeliveryRouteServiceTest {
     return Jwt.withTokenValue("token").header("alg", "none").claim("sub", "sub").build();
   }
 
-  /** requireRole devolve o produtor autenticado; outro tipo lança ForbiddenException. */
+  /** requireRole returns the authenticated producer; any other type throws ForbiddenException. */
   private void stubFarmerAuthenticated() {
     when(userService.getAuthenticatedUser(any())).thenReturn(farmerUser);
     org.mockito.Mockito.lenient()
@@ -150,7 +150,7 @@ class DeliveryRouteServiceTest {
         .thenReturn(Optional.empty());
     when(orderRepository.findByFarmerIdAndStatusInOrderByCreatedAtAsc(eq(farmerUser.getId()), any()))
         .thenReturn(List.of(first, second));
-    // Otimização inverte a ordem de visita: segunda parada do input é visitada primeiro.
+    // Optimization reverses visit order: input's second stop is visited first.
     when(googleRoutesService.computeOptimizedRoundTrip(any(), any()))
         .thenReturn(
             new ComputedRoute(
@@ -172,16 +172,16 @@ class DeliveryRouteServiceTest {
     assertThat(response.getStatus()).isEqualTo(DeliveryRouteStatus.ACTIVE);
     assertThat(response.getTotalDistanceKm()).isEqualByComparingTo("12.5");
     assertThat(response.getOverviewPolyline()).isEqualTo("poly123");
-    // Baseline = 2 × (5 + 6) via Route Matrix.
+    // Baseline = 2 x (5 + 6) via Route Matrix.
     assertThat(response.getBaselineDistanceKm()).isEqualByComparingTo("22.00");
     assertThat(response.getStops()).hasSize(2);
-    // Ordem otimizada: o pedido "second" é a parada 0.
+    // Optimized order: "second" is stop 0.
     assertThat(response.getStops().get(0).getOrderId()).isEqualTo(second.getId());
     assertThat(response.getStops().get(0).getLegDurationSeconds()).isEqualTo(600);
     assertThat(response.getStops().get(1).getOrderId()).isEqualTo(first.getId());
     assertThat(response.getStops().get(1).getEta())
         .isAfter(response.getStops().get(0).getEta());
-    // Só o CONFIRMED transita; o que já estava IN_DELIVERY não re-transita.
+    // Only CONFIRMED transitions; an already-IN_DELIVERY order is not re-transitioned.
     verify(orderService).updateOrderStatus(first.getId(), OrderStatus.IN_DELIVERY, jwt());
     verify(orderService, never())
         .updateOrderStatus(eq(second.getId()), eq(OrderStatus.IN_DELIVERY), any());
@@ -189,8 +189,8 @@ class DeliveryRouteServiceTest {
 
   @Test
   void createRoute_shouldThrowBusinessException_whenOptimizedOrderIndexOutOfRange() {
-    // Fix #6: a corrupt optimizedOrder index (5 with a single order) must surface a BusinessException
-    // via the guard, NOT an IndexOutOfBoundsException (500) when indexing orders.get(inputIndex).
+    // A corrupt optimizedOrder index (5 with a single order) must surface a BusinessException,
+    // not an IndexOutOfBoundsException (500) when indexing orders.get(inputIndex).
     Order single = order(OrderStatus.IN_DELIVERY, -30.1, -51.1);
 
     when(userService.getAuthenticatedUser(any())).thenReturn(farmerUser);
@@ -213,7 +213,7 @@ class DeliveryRouteServiceTest {
         .thenReturn(Optional.empty());
     when(orderRepository.findByFarmerIdAndStatusInOrderByCreatedAtAsc(any(), any()))
         .thenReturn(List.of(single));
-    // Single order (index 0 valid), but the optimizer hands back index 5 → out of range.
+    // Single order (index 0 valid), but the optimizer hands back index 5 -> out of range.
     when(googleRoutesService.computeOptimizedRoundTrip(any(), any()))
         .thenReturn(
             new ComputedRoute(
@@ -272,8 +272,8 @@ class DeliveryRouteServiceTest {
     assertThat(previous.getStatus()).isEqualTo(DeliveryRouteStatus.CANCELLED);
     assertThat(previous.getCompletedAt()).isNotNull();
     verify(trackingService).clearRoute(previous.getId());
-    // A anterior tem que ir ao banco ANTES do INSERT da nova: o Hibernate flusha INSERTs antes
-    // de UPDATEs, e sem este flush a nova ACTIVE viola uq_delivery_routes_farmer_active.
+    // Previous route must hit the DB before the new INSERT: Hibernate flushes INSERTs before
+    // UPDATEs, so without this flush the new ACTIVE violates uq_delivery_routes_farmer_active.
     org.mockito.InOrder inOrder = org.mockito.Mockito.inOrder(deliveryRouteRepository);
     inOrder.verify(deliveryRouteRepository).saveAndFlush(previous);
     inOrder
@@ -283,8 +283,8 @@ class DeliveryRouteServiceTest {
 
   @Test
   void createRoute_shouldCompletePreviousRoute_whenAllItsOrdersAlreadyTerminal() {
-    // Cenário da rota fantasma: parada PENDING cujo pedido o cliente já confirmou (DELIVERED).
-    // Ao recriar a rota, a anterior reconcilia e fecha como COMPLETED, não CANCELLED.
+    // Ghost-route case: PENDING stop whose order the customer already confirmed (DELIVERED).
+    // Recreating the route reconciles the previous one, closing it as COMPLETED, not CANCELLED.
     Order alreadyDelivered = order(OrderStatus.DELIVERED, -30.3, -51.3);
     DeliveryRoute previous = activeRouteWithStops(stop(alreadyDelivered, RouteStopStatus.PENDING));
 
@@ -414,8 +414,8 @@ class DeliveryRouteServiceTest {
 
   @Test
   void syncStop_shouldDeliverStopAndCompleteRoute_whenCustomerConfirmedOnlyDelivery() {
-    // Cliente confirmou a entrega pelo pedido (parada ficou PENDING) — o sync conclui a parada
-    // e, como é a única, fecha a rota (antes ela ficava ACTIVE para sempre = rota fantasma).
+    // Customer confirmed delivery via the order (stop stayed PENDING): sync completes the stop
+    // and, being the only one, closes the route (it used to stay ACTIVE forever = ghost route).
     Order delivered = order(OrderStatus.DELIVERED, -30.1, -51.1);
     RouteStop pending = stop(delivered, RouteStopStatus.PENDING);
     DeliveryRoute route = activeRouteWithStops(pending);
@@ -479,8 +479,8 @@ class DeliveryRouteServiceTest {
 
   @Test
   void syncStop_shouldBeNoOp_whenStopAlreadyTerminal() {
-    // Caminho do produtor (updateStop) já concluiu a parada e disparou o evento — re-entrância
-    // não pode reprocessar: parada já DELIVERED -> nada a salvar.
+    // Producer path (updateStop) already completed the stop and fired the event; re-entry must
+    // not reprocess: stop already DELIVERED -> nothing to save.
     Order delivered = order(OrderStatus.DELIVERED, -30.1, -51.1);
     RouteStop already = stop(delivered, RouteStopStatus.DELIVERED);
     RouteStop otherPending =
@@ -512,8 +512,8 @@ class DeliveryRouteServiceTest {
 
   @Test
   void getActiveRoute_shouldSelfHealAndComplete_whenStopOrderTerminalButStopPending() {
-    // Rede de segurança: parada presa PENDING com pedido já DELIVERED (listener perdido/corrida) —
-    // ao resumir, reconcilia e fecha a rota; deixa de existir rota ativa (some o "fantasma").
+    // Safety net: stop stuck PENDING with order already DELIVERED (lost listener/race). On resume,
+    // reconcile and close the route; no active route remains (the "ghost" is gone).
     Order delivered = order(OrderStatus.DELIVERED, -30.1, -51.1);
     RouteStop stale = stop(delivered, RouteStopStatus.PENDING);
     DeliveryRoute route = activeRouteWithStops(stale);
@@ -559,9 +559,9 @@ class DeliveryRouteServiceTest {
     RouteResponse response = deliveryRouteService.getActiveRoute(jwt());
 
     assertThat(response.getStatus()).isEqualTo(DeliveryRouteStatus.ACTIVE);
-    assertThat(stale.getStatus()).isEqualTo(RouteStopStatus.DELIVERED); // reconciliada
-    assertThat(stillPending.getStatus()).isEqualTo(RouteStopStatus.PENDING); // continua entregável
-    verify(deliveryRouteRepository).saveAndFlush(route); // reconciliação persistida
+    assertThat(stale.getStatus()).isEqualTo(RouteStopStatus.DELIVERED); // reconciled
+    assertThat(stillPending.getStatus()).isEqualTo(RouteStopStatus.PENDING); // still deliverable
+    verify(deliveryRouteRepository).saveAndFlush(route); // reconciliation persisted
     verify(trackingService, never()).clearRoute(any());
   }
 
@@ -616,8 +616,8 @@ class DeliveryRouteServiceTest {
         deliveryRouteService.updateStop(
             route.getId(), pending.getId(), RouteStopStatus.DELIVERED, "1234", jwt());
 
-    // Concluir a parada delega ao caminho endurecido (código + lockout), NÃO mais ao
-    // updateOrderStatus(...DELIVERED...) que furava a confirmação de entrega.
+    // Completing the stop delegates to the hardened path (code + lockout), not to
+    // updateOrderStatus(...DELIVERED...) which bypassed delivery confirmation.
     verify(orderService).confirmDeliveryWithCode(order.getId(), "1234", jwt());
     verify(orderService, never()).updateOrderStatus(any(), eq(OrderStatus.DELIVERED), any());
     assertThat(pending.getStatus()).isEqualTo(RouteStopStatus.DELIVERED);
@@ -627,8 +627,8 @@ class DeliveryRouteServiceTest {
 
   @Test
   void updateStop_shouldRejectDelivered_whenCodeMissing() {
-    // Segurança: concluir a entrega SEM o código do consumidor é barrado antes de tocar a parada
-    // ou chamar o caminho de confirmação — o produtor não fecha a entrega sozinho.
+    // Completing delivery without the customer code is blocked before touching the stop or
+    // calling the confirmation path: the producer can't close the delivery alone.
     Order order = order(OrderStatus.IN_DELIVERY, -30.1, -51.1);
     RouteStop pending = stop(order, RouteStopStatus.PENDING);
     DeliveryRoute route = activeRouteWithStops(pending);
@@ -680,7 +680,7 @@ class DeliveryRouteServiceTest {
     when(deliveryRouteRepository.findWithStopsById(route.getId())).thenReturn(Optional.of(route));
     when(deliveryRouteRepository.saveAndFlush(any(DeliveryRoute.class)))
         .thenAnswer(inv -> inv.getArgument(0));
-    // confirmDeliveryWithCode bem-sucedido (código correto + sem lockout).
+    // confirmDeliveryWithCode succeeds (correct code, no lockout).
     when(orderService.confirmDeliveryWithCode(order.getId(), "1234", jwt())).thenReturn(null);
 
     RouteResponse response =
@@ -690,14 +690,14 @@ class DeliveryRouteServiceTest {
     verify(orderService).confirmDeliveryWithCode(order.getId(), "1234", jwt());
     assertThat(pending.getStatus()).isEqualTo(RouteStopStatus.DELIVERED);
     assertThat(pending.getCompletedAt()).isNotNull();
-    // Ainda há outra parada PENDING — a rota segue ativa.
+    // Another stop is still PENDING, so the route stays active.
     assertThat(response.getStatus()).isEqualTo(DeliveryRouteStatus.ACTIVE);
   }
 
   @Test
   void updateStop_shouldPropagateAndNotDeliver_whenCodeWrong() {
-    // Código errado: confirmDeliveryWithCode lança (validação + contador no caminho endurecido);
-    // a exceção propaga e a parada NÃO vira DELIVERED.
+    // Wrong code: confirmDeliveryWithCode throws (validation + counter in the hardened path);
+    // the exception propagates and the stop does NOT become DELIVERED.
     Order order = order(OrderStatus.IN_DELIVERY, -30.1, -51.1);
     RouteStop pending = stop(order, RouteStopStatus.PENDING);
     DeliveryRoute route = activeRouteWithStops(pending);
@@ -752,7 +752,7 @@ class DeliveryRouteServiceTest {
 
     verify(orderService, never()).updateOrderStatus(any(), any(), any());
     verify(orderService, never()).confirmDeliveryWithCode(any(), any(), any());
-    // Ainda há parada PENDING — rota segue ativa.
+    // A stop is still PENDING, so the route stays active.
     assertThat(response.getStatus()).isEqualTo(DeliveryRouteStatus.ACTIVE);
   }
 
@@ -883,8 +883,8 @@ class DeliveryRouteServiceTest {
 
   @Test
   void createRoute_shouldUseApproximateCoordinates_whenSnapshotEmptyAndGeocodeAmbiguous() {
-    // Regressão: endereço que geocoda como AMBIGUOUS (partial_match/APPROXIMATE — ex.: praça
-    // sem número exato) ainda traz lat/lng utilizável; a rota DEVE ser montada, não bloqueada.
+    // Regression: an address geocoded as AMBIGUOUS (partial_match/APPROXIMATE) still yields
+    // usable lat/lng; the route MUST be built, not blocked.
     Order noCoords = order(OrderStatus.IN_DELIVERY, -30.1, -51.1);
     noCoords.getDeliveryAddressSnapshot().setLatitude(null);
     noCoords.getDeliveryAddressSnapshot().setLongitude(null);
@@ -955,7 +955,7 @@ class DeliveryRouteServiceTest {
 
     RouteResponse response = deliveryRouteService.createRoute(request(), jwt());
 
-    // ~11.1 km de haversine (0.1° de latitude) × 2 — só valida que caiu no fallback > 0.
+    // ~11.1 km haversine (0.1 deg latitude) x 2 — just checks the fallback fired with value > 0.
     assertThat(response.getBaselineDistanceKm()).isGreaterThan(BigDecimal.valueOf(20));
     assertThat(response.getBaselineDistanceKm()).isLessThan(BigDecimal.valueOf(25));
   }

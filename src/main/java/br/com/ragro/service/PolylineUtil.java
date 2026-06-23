@@ -3,14 +3,14 @@ package br.com.ragro.service;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Decodificação da "encoded polyline" do Google e geometria básica (haversine). */
+/** Decoding of Google's "encoded polyline" and basic geometry (haversine). */
 public final class PolylineUtil {
 
   private PolylineUtil() {}
 
   public record Point(double lat, double lng) {}
 
-  /** Algoritmo padrão do Google (precisão 1e-5). */
+  /** Standard Google algorithm (1e-5 precision). */
   public static List<Point> decode(String encoded) {
     List<Point> points = new ArrayList<>();
     if (encoded == null || encoded.isEmpty()) {
@@ -50,7 +50,7 @@ public final class PolylineUtil {
     return points;
   }
 
-  /** Codifica pontos no formato "encoded polyline" do Google (precisão 1e-5). */
+  /** Encodes points as a Google encoded polyline (1e-5 precision). */
   public static String encode(List<Point> points) {
     StringBuilder sb = new StringBuilder();
     long lastLat = 0;
@@ -76,11 +76,10 @@ public final class PolylineUtil {
   }
 
   /**
-   * Recorta a polyline ao sub-trecho {@code [from → to]} ao longo do traçado, devolvendo só esse
-   * pedaço re-encodado. {@code to} é localizado primeiro (vértice mais próximo); {@code from} é
-   * buscado APENAS no intervalo anterior a {@code to} — assim, numa rota round-trip, nunca devolve
-   * a perna de volta nem paradas posteriores a {@code to} (privacidade: o cliente vê só o caminho
-   * até a SUA entrega). Retorna a polyline original quando não há o que recortar.
+   * Clips the polyline to the {@code [from → to]} sub-segment, re-encoded. {@code to} is located first
+   * (nearest vertex); {@code from} is searched only before {@code to} — so a round-trip route never
+   * returns the return leg or later stops (privacy: customer sees only the path to their delivery).
+   * Returns the original polyline when there is nothing to clip.
    */
   public static String clip(
       String encoded, double fromLat, double fromLng, double toLat, double toLng) {
@@ -88,7 +87,7 @@ public final class PolylineUtil {
     try {
       points = decode(encoded);
     } catch (IllegalArgumentException e) {
-      // Polyline malformada não pode derrubar o recorte (500); devolve a original.
+      // Malformed polyline must not 500 the clip; return the original.
       return encoded;
     }
     if (points.size() < 2) {
@@ -117,7 +116,7 @@ public final class PolylineUtil {
     return best;
   }
 
-  /** Distância em metros entre dois pontos (haversine). */
+  /** Distance in meters between two points (haversine). */
   public static double distanceMeters(double lat1, double lng1, double lat2, double lng2) {
     double rLat1 = Math.toRadians(lat1);
     double rLat2 = Math.toRadians(lat2);

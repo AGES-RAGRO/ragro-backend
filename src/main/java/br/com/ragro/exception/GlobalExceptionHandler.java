@@ -177,10 +177,8 @@ public class GlobalExceptionHandler {
   }
 
   /**
-   * Integrações Google (Geocoding/Routes): quota → 503 com Retry-After; falha de transporte
-   * transitória (DNS/conexão) após retries → 503 com Retry-After curto; entrada não
-   * roteável/geocodável → 422; resto → 500. A mensagem nunca vaza o payload do Google (antes,
-   * qualquer erro virava 400 com {@code e.getMessage()} cru para o cliente).
+   * Google integrations (Geocoding/Routes): QUOTA/TRANSIENT → 503 + Retry-After; INVALID_INPUT → 422;
+   * else 500. The message never leaks the Google payload.
    */
   @ExceptionHandler(GoogleApiException.class)
   public ResponseEntity<ErrorResponse> handleGoogleApi(
@@ -208,10 +206,8 @@ public class GlobalExceptionHandler {
   }
 
   /**
-   * Conflito de concorrência otimista (ex.: duas confirmações de pedido debitando o estoque do
-   * mesmo produto ao mesmo tempo). A transação perdedora recebe 409 e o cliente reexecuta a ação
-   * sobre o estado atualizado — antes do {@code @Version}, o último commit sobrescrevia o primeiro
-   * silenciosamente.
+   * Optimistic concurrency conflict (e.g. concurrent confirmations debiting the same product's stock).
+   * The losing transaction gets a 409 and the client retries against the updated state.
    */
   @ExceptionHandler(org.springframework.orm.ObjectOptimisticLockingFailureException.class)
   public ResponseEntity<ErrorResponse> handleOptimisticLock(
@@ -228,15 +224,13 @@ public class GlobalExceptionHandler {
   }
 
   /**
-   * Conflito de integridade no banco (ex.: dois POST /routes simultâneos do mesmo produtor — o
-   * segundo INSERT viola {@code uq_delivery_routes_farmer_active} depois do commit do primeiro).
-   * Os dados ficam consistentes (a transação perdedora rola back inteira); o cliente recebe 409 e
-   * reexecuta sobre o estado novo. Sem este handler caía no catch-all como 500 genérico.
+   * Database integrity conflict (e.g. concurrent POST /routes from the same producer violating
+   * {@code uq_delivery_routes_farmer_active}). Losing transaction rolls back; client gets a 409.
    */
   @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
   public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(
       org.springframework.dao.DataIntegrityViolationException ex, HttpServletRequest request) {
-    // Loga só o tipo da causa, nunca a mensagem crua do banco (pode conter e-mail/valores/SQL → PII).
+    // Log only the cause type, never the raw DB message (may contain PII: email/values/SQL).
     log.warn(
         "Data integrity conflict at {} {} ({})",
         request.getMethod(),
@@ -255,11 +249,10 @@ public class GlobalExceptionHandler {
   }
 
   /**
-   * Catch-all: garante que TODA exceção responda no envelope {@link ErrorResponse} padrão (sem este
-   * handler, erros não mapeados caíam no /error default com formato diferente). Exceções do próprio
-   * Spring MVC (JSON malformado, método não suportado, 404 de rota...) implementam {@link
-   * org.springframework.web.ErrorResponse} e mantêm seu status original; o resto vira 500 genérico,
-   * logado com stack trace e sem vazar detalhes internos ao cliente.
+   * Catch-all: every exception responds in the standard {@link ErrorResponse} envelope. Spring MVC
+   * exceptions (malformed JSON, unsupported method, 404...) implementing
+   * {@link org.springframework.web.ErrorResponse} keep their status; the rest become a generic 500,
+   * logged with a stack trace and no internal details leaked to the client.
    */
   @ExceptionHandler(Exception.class)
   public ResponseEntity<ErrorResponse> handleUnexpected(Exception ex, HttpServletRequest request) {

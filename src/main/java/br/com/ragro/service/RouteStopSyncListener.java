@@ -10,15 +10,14 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 /**
- * Mantém a parada da rota em sincronia quando o pedido vira terminal por fora do fluxo de parada —
- * o caso real é o cliente confirmando a entrega ({@code POST /orders/customer/{id}/confirm-delivery}),
- * que mexe só no pedido e deixava a parada PENDING (rota nunca fechava → "rota fantasma").
+ * Syncs the route stop when the order becomes terminal outside the stop flow — mainly the customer
+ * confirming delivery ({@code POST /orders/customer/{id}/confirm-delivery}), which left the stop PENDING
+ * (ghost route).
  *
- * <p>Bean SEPARADO do {@link DeliveryRouteService} de propósito: o método de sync é
- * {@code @Transactional(REQUIRES_NEW)} e precisa passar pelo proxy do Spring — chamá-lo de dentro
- * do próprio serviço (self-invocation) anularia a propagação. {@code AFTER_COMMIT} garante que o
- * pedido já foi confirmado/cancelado antes de tocar na rota; o {@code try/catch} torna o sync
- * best-effort: uma falha aqui não pode desfazer a confirmação nem propagar erro ao usuário.
+ * <p>Separate bean from {@link DeliveryRouteService} on purpose: the sync method is
+ * {@code @Transactional(REQUIRES_NEW)} and must go through the Spring proxy (self-invocation would void
+ * propagation). {@code AFTER_COMMIT} ensures the order was committed first; the {@code try/catch} makes
+ * the sync best-effort so a failure here neither undoes the confirmation nor surfaces to the user.
  */
 @Component
 @RequiredArgsConstructor

@@ -14,7 +14,7 @@ class GlobalExceptionHandlerTest {
 
   @Test
   void dataIntegrityViolation_shouldReturn409Conflict_notRaw500() {
-    // Dois POST /routes simultâneos: o INSERT perdedor viola uq_delivery_routes_farmer_active.
+    // Two concurrent POST /routes: the losing INSERT violates uq_delivery_routes_farmer_active.
     MockHttpServletRequest request = new MockHttpServletRequest("POST", "/routes");
     DataIntegrityViolationException ex =
         new DataIntegrityViolationException(
@@ -28,13 +28,13 @@ class GlobalExceptionHandlerTest {
     assertThat(response.getStatusCode().value()).isEqualTo(409);
     assertThat(response.getBody().getError()).contains("Tente novamente");
     assertThat(response.getBody().getPath()).isEqualTo("/routes");
-    // A mensagem crua do banco não vaza ao cliente.
+    // Raw DB message does not leak to the client.
     assertThat(response.getBody().getError()).doesNotContain("uq_delivery_routes_farmer_active");
   }
 
   @Test
   void googleApiTransient_shouldReturn503_withRetryAfter() {
-    // Falha de transporte transitória (DNS/conexão) ao Google, persistente após os retries.
+    // Transient transport failure (DNS/connection) to Google, persisting after retries.
     MockHttpServletRequest request = new MockHttpServletRequest("POST", "/routes");
     GoogleApiException ex =
         new GoogleApiException(
@@ -50,7 +50,7 @@ class GlobalExceptionHandlerTest {
 
   @Test
   void googleApiUnavailable_shouldReturn500_withoutRetryAfter() {
-    // Erro não-transitório (key/contrato/inesperado) continua 500, sem sugerir retry.
+    // Non-transient error (key/contract/unexpected) stays 500, no retry suggested.
     MockHttpServletRequest request = new MockHttpServletRequest("POST", "/routes");
     GoogleApiException ex =
         new GoogleApiException(GoogleApiException.Kind.UNAVAILABLE, "Falha ao calcular a rota");

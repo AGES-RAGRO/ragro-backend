@@ -9,15 +9,13 @@ import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
 
 /**
- * Canal de rastreamento em tempo real (Fase 3): STOMP sobre WebSocket com broker SIMPLES em
- * memória — decisão da etapa: sem broker externo (1 task ECS); na etapa de mensageria, trocar
- * {@code enableSimpleBroker} por {@code enableStompBrokerRelay} pluga um broker externo sem mexer
- * nos controllers. Flag {@code ragro.tracking.enabled} desliga o canal inteiro (rollback).
+ * Real-time tracking channel (Phase 3): STOMP over WebSocket with an in-memory SIMPLE broker (1 ECS
+ * task; swap {@code enableSimpleBroker} for {@code enableStompBrokerRelay} to use an external broker).
+ * The {@code ragro.tracking.enabled} flag disables the whole channel (rollback).
  *
- * <p>Handshake: o upgrade HTTP de {@code /ws} passa pela security chain normal (Bearer token
- * obrigatório — o app envia o header no connect); o Principal do handshake é associado à sessão
- * STOMP e a autorização fina (assinar tópico da rota, enviar posição) acontece no {@link
- * TrackingChannelInterceptor}.
+ * <p>The {@code /ws} upgrade goes through the security chain (Bearer token required); the handshake
+ * Principal binds to the STOMP session and fine-grained authz happens in
+ * {@link TrackingChannelInterceptor}.
  */
 @Configuration
 @EnableWebSocketMessageBroker
@@ -38,7 +36,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
   public void registerStompEndpoints(StompEndpointRegistry registry) {
     registry
         .addEndpoint("/ws")
-        // Apps nativos não enviam Origin; navegadores ficam restritos ao padrão do CORS.
+        // Native apps don't send Origin; browsers stay restricted to the CORS pattern.
         .setAllowedOriginPatterns(allowedOriginPatterns.split(","));
   }
 

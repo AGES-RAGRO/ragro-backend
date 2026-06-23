@@ -8,10 +8,9 @@ import lombok.Builder;
 import lombok.Getter;
 
 /**
- * Payload publicado em {@code /topic/routes/{routeId}} a cada ping aceito. Vai para TODOS os
- * assinantes autorizados da rota (produtor + clientes das entregas), então carrega apenas dados
- * seguros: posição do produtor e ETA por pedido — sem endereços/nomes de outros clientes (cada
- * app filtra a entrada do próprio orderId).
+ * Payload published to {@code /topic/routes/{routeId}} on every accepted ping, to all authorized
+ * subscribers. Safe data only — producer position and per-order ETA, no other customers' addresses/names
+ * (each app filters by its own orderId).
  */
 @Getter
 @Builder
@@ -21,7 +20,7 @@ public class TrackingBroadcast {
   private BigDecimal longitude;
   private OffsetDateTime recordedAt;
 
-  /** Produtor está fora da rota planejada (>200m da polyline) — UI pode sinalizar. */
+  /** Producer is off the planned route (>200m from the polyline) — UI can flag it. */
   private boolean deviated;
 
   private List<StopEta> etas;
@@ -30,10 +29,10 @@ public class TrackingBroadcast {
   @Builder
   public static class StopEta {
     private UUID orderId;
-    /** Posição de visita da parada (0-based); ETA em segundos a partir de agora. */
+    /** Visit position of the stop (0-based); ETA in seconds from now. */
     private int sequence;
     private Integer etaSeconds;
-    /** Quantas paradas pendentes existem antes desta. */
+    /** How many pending stops exist before this one. */
     private int stopsBefore;
     private String status;
   }

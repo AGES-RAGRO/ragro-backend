@@ -24,10 +24,9 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 /**
- * Dono do cache de recomendações por cliente. O rerank LLM roda AQUI, assíncrono — a request
- * responde imediatamente com a ordenação heurística e o ranking da LLM aquece o cache para as
- * próximas. Com isso a LLM é chamada no máximo 1× por cliente por janela de TTL (ou após novo
- * pedido), em vez de 1× por abertura de tela.
+ * Owns the per-customer recommendation cache. The LLM rerank runs here asynchronously and warms the
+ * cache, so the LLM is called at most 1× per customer per TTL window (or after a new order), not per
+ * screen open.
  */
 @Service
 @RequiredArgsConstructor
@@ -39,10 +38,10 @@ public class RecommendationWarmupService {
   private final CacheManager cacheManager;
   private final MeterRegistry meterRegistry;
 
-  /** Evita warm-ups duplicados do mesmo cliente enquanto um já está em andamento. */
+  /** Prevents duplicate warm-ups for the same customer while one is already in progress. */
   private final Set<UUID> inFlight = ConcurrentHashMap.newKeySet();
 
-  /** Ranking cacheado do cliente, ou {@code null} em cache frio/expirado. */
+  /** The customer's cached ranking, or {@code null} on a cold/expired cache. */
   @SuppressWarnings("unchecked")
   public List<RankedRecommendation> getCached(UUID customerId) {
     Cache cache = cacheManager.getCache(CacheConfig.RECOMMENDATIONS_CACHE);
@@ -53,9 +52,8 @@ public class RecommendationWarmupService {
   }
 
   /**
-   * Reordena os candidatos com a LLM fora da thread da request e grava o resultado no cache. Em
-   * falha/saída inválida, cacheia o ranking heurístico (determinístico) — o cliente nunca fica sem
-   * recomendações e a LLM não é re-tentada a cada abertura de tela.
+   * Reranks candidates with the LLM off the request thread and caches the result. On failure/invalid output,
+   * caches the heuristic ranking so the customer is never left without recommendations.
    */
   @Async("recommendationExecutor")
   public void warmAsync(
@@ -100,10 +98,7 @@ public class RecommendationWarmupService {
     }
   }
 
-  /**
-   * O perfil do cliente (histórico, categorias preferidas) só muda quando um pedido dele muda de
-   * estado — gancho natural de invalidação, em vez de esperar o TTL.
-   */
+  /** Order state changes alter the customer's profile, so evict on them instead of waiting for the TTL. */
   @EventListener
   public void evictOnOrderChange(OrderStatusChangedEvent event) {
     Cache cache = cacheManager.getCache(CacheConfig.RECOMMENDATIONS_CACHE);

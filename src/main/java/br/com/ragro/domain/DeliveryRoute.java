@@ -27,9 +27,8 @@ import lombok.ToString;
 import org.hibernate.annotations.CreationTimestamp;
 
 /**
- * Rota de entrega persistida do produtor (1 ativa por vez). Substitui o fluxo efêmero antigo em
- * que cada confirmação de entrega recalculava (e pagava) a rota inteira no Google e matar o app
- * perdia a sequência. Base do rastreamento em tempo real (Fase 3).
+ * Persisted producer delivery route (1 active at a time); replaces the ephemeral flow that
+ * recomputed the route on Google per delivery and lost the sequence on app kill.
  */
 @Entity
 @Table(name = "delivery_routes")
@@ -64,7 +63,7 @@ public class DeliveryRoute {
   @Column(name = "total_duration_seconds")
   private Integer totalDurationSeconds;
 
-  /** Soma das idas-e-voltas individuais até cada parada (Route Matrix) — baseline do CO2. */
+  /** Sum of individual round-trips to each stop (Route Matrix) — CO2 baseline. */
   @Column(name = "baseline_distance_km", precision = 10, scale = 2)
   private BigDecimal baselineDistanceKm;
 

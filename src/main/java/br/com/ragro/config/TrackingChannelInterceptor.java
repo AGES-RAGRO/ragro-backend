@@ -19,15 +19,15 @@ import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.stereotype.Component;
 
 /**
- * Autorização fina do canal STOMP de rastreamento:
+ * Fine-grained authorization for the tracking STOMP channel:
  *
  * <ul>
- *   <li><b>CONNECT</b>: resolve o usuário do Principal do handshake (sub do JWT → User), exige
- *       conta ativa e guarda id/tipo nos atributos da sessão (evita query por mensagem).
- *   <li><b>SUBSCRIBE</b> {@code /topic/routes/{routeId}}: só o produtor da rota ou o cliente de
- *       uma entrega dela — ninguém mais recebe a posição (privacidade).
- *   <li><b>SEND</b> {@code /app/routes/{routeId}/position}: só produtores (a checagem de que é o
- *       dono DESTA rota acontece no TrackingService, que também aplica o rate limit).
+ *   <li><b>CONNECT</b>: resolves user from handshake Principal (JWT sub), requires active account,
+ *       caches id/type in session attributes (avoids a query per message).
+ *   <li><b>SUBSCRIBE</b> {@code /topic/routes/{routeId}}: only the route's producer or a delivery's
+ *       customer (privacy).
+ *   <li><b>SEND</b> {@code /app/routes/{routeId}/position}: producers only (route ownership + rate
+ *       limit checked in TrackingService).
  * </ul>
  */
 @Component
@@ -73,7 +73,7 @@ public class TrackingChannelInterceptor implements ChannelInterceptor {
       log.warn("STOMP CONNECT rejected: no authenticated principal in handshake");
       return null;
     }
-    // Principal.getName() = sub do JWT (Keycloak); resolve o usuário do domínio uma única vez.
+    // Principal.getName() = JWT sub (Keycloak); resolve the domain user once.
     User user = userRepository.findByAuthSub(principal.getName()).orElse(null);
     if (user == null || !user.isActive()) {
       log.warn("STOMP CONNECT rejected: unknown or inactive user");
@@ -118,7 +118,7 @@ public class TrackingChannelInterceptor implements ChannelInterceptor {
     return message;
   }
 
-  /** Extrai o UUID de "/[prefixo]/{routeId}[/...]"; null para destino malformado. */
+  /** Extracts the UUID from "/[prefix]/{routeId}[/...]"; null for a malformed destination. */
   private UUID extractRouteId(String destination, String prefix) {
     if (!destination.startsWith(prefix)) {
       return null;

@@ -10,10 +10,10 @@ import org.springframework.data.repository.query.Param;
 
 public interface RouteStopRepository extends JpaRepository<RouteStop, UUID> {
 
-  /** Autorização do canal de tracking: o usuário é o cliente de um pedido desta rota? */
+  /** Tracking channel authorization: is the user the customer of an order on this route? */
   boolean existsByRouteIdAndOrderCustomerId(UUID routeId, UUID customerId);
 
-  /** Parada do pedido na rota ATIVA do produtor (alimenta o tracking do cliente). */
+  /** The order's stop on the producer's ACTIVE route (feeds the customer's tracking). */
   @Query(
       """
       SELECT s FROM RouteStop s

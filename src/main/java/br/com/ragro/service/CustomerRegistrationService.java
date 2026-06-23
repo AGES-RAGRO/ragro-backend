@@ -25,8 +25,8 @@ public class CustomerRegistrationService {
   private static final Logger log = LoggerFactory.getLogger(CustomerRegistrationService.class);
 
   /**
-   * Mensagem única para qualquer conflito de cadastro. Distinguir "e-mail já cadastrado" de "CPF
-   * já cadastrado" num endpoint público permite enumerar PII de usuários existentes.
+   * Single message for any registration conflict: distinguishing email vs CPF on a public endpoint
+   * would let attackers enumerate existing users' PII.
    */
   public static final String REGISTRATION_CONFLICT_MESSAGE =
       "Não foi possível concluir o cadastro com os dados informados";

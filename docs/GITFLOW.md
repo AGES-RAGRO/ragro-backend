@@ -1,11 +1,13 @@
 # Basic Gitflow
 
-This project uses a simple flow with four main branch types:
+This project uses a simple flow with these branch types:
 
 - `main`
 - `develop`
 - `feat/*`
 - `fix/*`
+- `chore/*`
+- `hotfix/*`
 
 The goal is to keep the main line stable, organize the team's work, and ease quick fixes.
 
@@ -15,6 +17,10 @@ The goal is to keep the main line stable, organize the team's work, and ease qui
 - `develop`: main development and integration branch.
 - `feat/*`: new features.
 - `fix/*`: bug fixes.
+- `chore/*`: maintenance, tooling, and infrastructure work (no feature/fix scope).
+- `hotfix/*`: urgent fixes that must reach production fast.
+
+> Note: some legacy branches use `feature/*` as an alias for `feat/*`. Prefer `feat/*` for new work; `feature/*` is accepted only for historical compatibility.
 
 Expected flow:
 
@@ -38,8 +44,8 @@ main
 ### `develop`
 
 - Base branch for daily development.
-- All features and fixes branch off it, unless an urgent hotfix is agreed otherwise.
-- Receives merges from `feat/*` and `fix/*` after review and validation.
+- All features and fixes branch off it; a `hotfix/*` may branch from `main` instead (see below).
+- Receives merges from `feat/*`, `fix/*`, `chore/*`, and `hotfix/*` after review and validation.
 - Must stay functional enough for team integration.
 
 ### `feat/*`
@@ -89,6 +95,53 @@ Rules:
 - Generally branch from `develop`.
 - Contain only the fix.
 - Open a PR to `develop` when done.
+
+### `chore/*`
+
+For maintenance, tooling, and infrastructure work (no feature or bug-fix scope).
+
+Naming pattern:
+
+```bash
+chore/nome-curto-da-tarefa
+```
+
+Examples:
+
+```bash
+chore/terraform-infra
+chore/aws-deploy-env-aware
+chore/cleanup
+```
+
+Rules:
+
+- Branch from `develop`.
+- Contain only the maintenance scope.
+- Open a PR to `develop` when done.
+
+### `hotfix/*`
+
+For urgent fixes that must reach production quickly.
+
+Naming pattern:
+
+```bash
+hotfix/nome-curto-do-hotfix
+```
+
+Examples:
+
+```bash
+hotfix/auth
+hotfix/sprint_3
+```
+
+Rules:
+
+- Branch from `main` (the production line).
+- Contain only the urgent fix.
+- Open a PR to `main`, then merge the same change back into `develop` so both lines stay in sync.
 
 ## Day-to-Day Flow
 
@@ -167,6 +220,17 @@ Before opening the PR:
 - validate the task scope
 - sync with `develop` if needed
 
+When you open the PR, fill in the structured [PR template](../.github/pull_request_template.md)
+(Description, Related task, Type of change, How to validate, Notes, Checklist).
+
+CI runs automatically on every PR to `main` and `develop`
+(see [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)) and must pass before merge:
+
+- `mvn test`
+- Checkstyle (`mvn checkstyle:check`)
+- SpotBugs (`mvn spotbugs:check`)
+- a Docker Compose build (`docker compose -f docker-compose.test.yml up --build`)
+
 ### 7. Merge into `develop`
 
 After approval:
@@ -227,13 +291,16 @@ Then:
 
 - `main`: production
 - `develop`: team integration
-- `feat/*`: new features
+- `feat/*`: new features (legacy alias: `feature/*`)
 - `fix/*`: fixes
+- `chore/*`: maintenance / tooling / infra
+- `hotfix/*`: urgent production fixes
 
 Main rule:
 
 ```text
-Always branch feat/* and fix/* from develop
-Always open PRs from feat/* and fix/* to develop
+Branch feat/*, fix/*, and chore/* from develop; branch hotfix/* from main
+Open PRs from feat/*, fix/*, and chore/* to develop
+Open hotfix/* PRs to main, then merge back into develop
 Promote develop to main only when stable
 ```

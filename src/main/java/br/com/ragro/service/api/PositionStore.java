@@ -5,9 +5,8 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 /**
- * Última posição conhecida por rota ativa — serve novos assinantes/polling sem esperar o próximo
- * ping. Implementação atual em memória (1 task ECS); com múltiplas instâncias, trocar por Redis
- * implementando esta interface.
+ * Last known position per active route — serves new subscribers/polling without waiting for the next
+ * ping. In-memory impl assumes 1 ECS task; for multiple instances, implement this with Redis.
  */
 public interface PositionStore {
 
@@ -18,6 +17,6 @@ public interface PositionStore {
 
   LastPosition get(UUID routeId);
 
-  /** Rota terminou: posição não é mais compartilhada (privacidade fora de entrega ativa). */
+  /** Route finished: position no longer shared (privacy outside an active delivery). */
   void clear(UUID routeId);
 }

@@ -68,10 +68,8 @@ public class RecommendationService {
   private final RecommendationWarmupService warmupService;
 
   /**
-   * Com cache ligado, a LLM nunca roda na thread da request: cache hit responde em ms; miss
-   * responde com a ordenação heurística e dispara o rerank assíncrono ({@link
-   * RecommendationWarmupService}). Desligado, volta ao comportamento anterior (rerank síncrono a
-   * cada chamada) — rollback instantâneo por configuração.
+   * On: LLM never runs on the request thread — hit responds in ms; miss serves the heuristic ordering and
+   * fires the async rerank ({@link RecommendationWarmupService}). Off: synchronous rerank per call (rollback).
    */
   @Value("${ragro.recommendations.cache.enabled:true}")
   private boolean cacheEnabled;
@@ -180,9 +178,8 @@ public class RecommendationService {
     List<RecommendationProductResponse> recommendations;
 
     if (cacheEnabled) {
-      // Produtos já comprados saem do ranking cacheável (estável até o próximo pedido, que
-      // invalida o cache); os excludeProductIds DA REQUEST são por-chamada e filtram só a
-      // resposta — nunca entram no cache.
+      // Purchased products leave the cacheable ranking (stable until the next order evicts the cache);
+      // request excludeProductIds are per-call and filter only the response, never the cache.
       purchasedSet.forEach(scoreMap::remove);
       warmupService.warmAsync(
           customerId,
@@ -194,8 +191,8 @@ public class RecommendationService {
       if (request.getExcludeProductIds() != null) {
         request.getExcludeProductIds().forEach(serveMap::remove);
       }
-      // Filtro de categoria é por-chamada (como excludeProductIds): filtra só a resposta servida,
-      // nunca o snapshot cacheável (o warmAsync acima recebeu o scoreMap sem este filtro).
+      // Category filter is per-call (like excludeProductIds): filters only the served response, never the
+      // cacheable snapshot (warmAsync above got the unfiltered scoreMap).
       if (request.getCategory() != null) {
         serveMap
             .keySet()
@@ -203,7 +200,7 @@ public class RecommendationService {
       }
       recommendations = buildHeuristicRecommendations(serveMap, productCache, reasonMap, limit);
     } else {
-      // Comportamento anterior (rollback): rerank LLM síncrono na thread da request.
+      // Rollback path: synchronous LLM rerank on the request thread.
       Set<UUID> excludeSet = resolveExcludeSet(request, purchasedSet);
       excludeSet.forEach(scoreMap::remove);
       if (request.getCategory() != null) {
@@ -221,8 +218,8 @@ public class RecommendationService {
   }
 
   /**
-   * Serve a resposta a partir do ranking cacheado: filtra excludes e categoria, re-hidrata do banco
-   * (só produtos ativos) e limita. O filtro de categoria é por-chamada — entra aqui, não no cache.
+   * Serves from the cached ranking: filters excludes and category, re-hydrates active products from the DB,
+   * and limits. Category filter is per-call — applied here, not in the cache.
    */
   private List<RecommendationProductResponse> buildFromCache(
       List<RankedRecommendation> cached,
@@ -232,8 +229,8 @@ public class RecommendationService {
     List<RankedRecommendation> selected =
         cached.stream().filter(r -> !excludeSet.contains(r.productId())).toList();
 
-    // findAllByIdAndFarmerUserActiveTrue filtra produto ativo E produtor ativo (igual aos demais
-    // caminhos de serve) — findAllById sozinho reintroduzia produtos de produtor inativo no cache hit.
+    // findAllByIdAndFarmerUserActiveTrue filters active product AND active producer (like the other serve
+    // paths); plain findAllById would reintroduce inactive-producer products on a cache hit.
     Map<UUID, Product> products =
         productRepository
             .findAllByIdAndFarmerUserActiveTrue(
@@ -255,10 +252,7 @@ public class RecommendationService {
         .collect(Collectors.toList());
   }
 
-  /**
-   * Casa o produto com a categoria pedida (case-insensitive): compara o label do enum da request
-   * com os nomes das categorias (entidade) do produto. {@code null} = sem filtro.
-   */
+  /** Matches a product against the requested category (case-insensitive). {@code null} = no filter. */
   private boolean matchesCategory(
       Product product, br.com.ragro.domain.enums.ProductCategory category) {
     if (category == null) {
@@ -273,7 +267,7 @@ public class RecommendationService {
         .anyMatch(requested::equals);
   }
 
-  /** Ranking heurístico completo (sem limit) na forma cacheável — fallback do warm-up. */
+  /** Full heuristic ranking (no limit) in cacheable form — warm-up fallback. */
   private List<RankedRecommendation> heuristicRankedSnapshot(
       Map<UUID, int[]> scoreMap, Map<UUID, RecommendationReason> reasonMap) {
     return scoreMap.entrySet().stream()
@@ -324,10 +318,7 @@ public class RecommendationService {
     }
   }
 
-  /**
-   * Applies heuristic ordering and records the fallback metric, making it observable when the AI did
-   * NOT rerank (LLM provider down, invalid output, flag off, etc.).
-   */
+  /** Applies heuristic ordering and records the fallback metric (AI did not rerank). */
   private List<RecommendationProductResponse> heuristicFallback(
       Map<UUID, int[]> scoreMap,
       Map<UUID, Product> productCache,

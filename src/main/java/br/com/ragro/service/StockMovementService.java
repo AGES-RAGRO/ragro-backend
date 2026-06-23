@@ -152,8 +152,7 @@ public class StockMovementService {
     stockMovementRepository.saveAndFlush(movement);
   }
 
-  // Mapeamento delegado ao StockMovementMapper oficial — a cópia privada que existia aqui
-  // omitia currentStockQuantity e divergia silenciosamente (auditoria Fase 0).
+  // Delegates to the official StockMovementMapper to avoid drift.
   private StockMovementResponse toResponse(StockMovement movement) {
     return StockMovementMapper.toResponse(movement);
   }

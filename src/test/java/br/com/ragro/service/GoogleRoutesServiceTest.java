@@ -45,7 +45,7 @@ class GoogleRoutesServiceTest {
             .defaultHeader("X-Goog-Api-Key", "test-key")
             .defaultHeader("Content-Type", "application/json");
     server = MockRestServiceServer.bindTo(builder).build();
-    // backoff 0 → retries acontecem sem sleep real, mantendo o teste determinístico e rápido.
+    // backoff 0 -> retries run without real sleep, keeping the test deterministic and fast.
     service = new GoogleRoutesService(builder.build(), new SimpleMeterRegistry(), 0L);
   }
 
@@ -121,7 +121,7 @@ class GoogleRoutesServiceTest {
 
   @Test
   void computeOptimizedRoundTrip_shouldRetryAndSucceed_onTransientDnsFailure() {
-    // 1ª tentativa: o incidente real (UnknownHostException / EAI_AGAIN). 2ª: sucesso.
+    // 1st attempt: the real incident (UnknownHostException / EAI_AGAIN). 2nd: success.
     server
         .expect(ExpectedCount.once(), requestTo("https://routes.test/directions/v2:computeRoutes"))
         .andRespond(withException(new UnknownHostException("routes.googleapis.com: Try again")));
@@ -147,7 +147,7 @@ class GoogleRoutesServiceTest {
     ComputedRoute route = service.computeOptimizedRoundTrip(origin, stops);
 
     assertThat(route.totalDistanceKm()).isEqualByComparingTo("12.50");
-    server.verify(); // exatamente 2 tentativas: o retry disparou e resolveu.
+    server.verify(); // exactly 2 attempts: the retry fired and succeeded.
   }
 
   @Test
@@ -161,13 +161,13 @@ class GoogleRoutesServiceTest {
         .isInstanceOf(GoogleApiException.class)
         .extracting(e -> ((GoogleApiException) e).getKind())
         .isEqualTo(GoogleApiException.Kind.TRANSIENT);
-    server.verify(); // exatamente 5 tentativas (1 inicial + 4 retries), depois desiste.
+    server.verify(); // exactly 5 attempts (1 initial + 4 retries), then gives up.
   }
 
   @Test
   void computeOptimizedRoundTrip_shouldNotRetryReadTimeout_butStillMapsTransient() {
-    // Read-timeout: a request chegou ao Google (provavelmente tarifada) — não reexecuta, mas
-    // continua sendo transitória do ponto de vista do cliente (503).
+    // Read-timeout: request reached Google (likely billed) — no retry, but still client-side
+    // transient (503).
     server
         .expect(ExpectedCount.once(), requestTo("https://routes.test/directions/v2:computeRoutes"))
         .andRespond(withException(new SocketTimeoutException("Read timed out")));
@@ -176,7 +176,7 @@ class GoogleRoutesServiceTest {
         .isInstanceOf(GoogleApiException.class)
         .extracting(e -> ((GoogleApiException) e).getKind())
         .isEqualTo(GoogleApiException.Kind.TRANSIENT);
-    server.verify(); // uma única tentativa — sem retry no read-timeout.
+    server.verify(); // single attempt — no retry on read-timeout.
   }
 
   @Test

@@ -23,9 +23,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Rotas de entrega persistidas. O antigo {@code POST /routes/optimize} (efêmero, waypoints livres
- * do cliente — vetor de abuso de quota) foi substituído: a rota nasce dos PEDIDOS do produtor e o
- * progresso é por parada, sem recalcular no Google a cada entrega.
+ * Persisted delivery routes derived from the producer's ORDERS, tracked per stop without
+ * recalculating on Google per delivery (replaces the old ephemeral {@code POST /routes/optimize}).
  */
 @RestController
 @RequestMapping("/routes")

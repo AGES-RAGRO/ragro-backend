@@ -10,11 +10,14 @@ The product backlog and the database/code use different terms for the same conce
 
 | Backlog (User-facing) | Database / Code | Where used |
 |------------------------|-----------------|------------|
-| Customer | Customer | `users.type = 'customer'`, `customers` table, `TypeUser.CUSTOMER`, `ROLE_CUSTOMER` |
-| Producer | Farmer | `users.type = 'farmer'`, `farmers` table, `TypeUser.FARMER`, `ROLE_FARMER` |
-| Admin | Admin | `users.type = 'admin'`, `TypeUser.ADMIN`, `ROLE_ADMIN` |
-| ProducerProfile | Farmer | `farmers` table — 1:1 with `users` |
+| Customer | Customer | `users.type = 'CUSTOMER'`, `customers` table, `TypeUser.CUSTOMER`, `ROLE_CUSTOMER` |
+| Producer | Farmer | `users.type = 'FARMER'`, `farmers` table (mapped by the `Producer` entity), `TypeUser.FARMER`, `ROLE_FARMER` |
+| Admin | Admin | `users.type = 'ADMIN'`, `TypeUser.ADMIN`, `ROLE_ADMIN` |
+| Producer (`farmers`) | Farmer | `Producer` entity → `farmers` table — 1:1 with `users` |
+| ProducerProfile | ProducerProfile | `ProducerProfile` entity → `producer_profiles` table |
 | CustomerProfile | Customer | `customers` table — 1:1 with `users` |
+
+> `users.type` is an `@Enumerated(EnumType.STRING)` `TypeUser` on a `varchar(20)` column, so the JPA layer persists the enum **name** in uppercase (`FARMER` / `CUSTOMER` / `ADMIN`). The lowercase literals (`'farmer'`, …) only survive in legacy DB-trigger comparisons from `V1__initial_schema.sql`.
 
 **Rule**: In user-facing text (API docs, error messages, mobile app) and in code (entities, database, variables), use the terms above consistently. For producers, the user-facing term is "producer" while the code/database term is "farmer".
 
@@ -62,13 +65,13 @@ The product backlog and the database/code use different terms for the same conce
 
 - Contain all business logic
 - Use `@Transactional` for operations that modify data
-- Throw custom exceptions (`BusinessException`, `NotFoundException`, `UnauthorizedException`)
+- Throw custom exceptions from the `exception` package (`BusinessException`, `NotFoundException`, `ConflictException`, `ForbiddenException`, … — see [Error Handling](#6-error-handling))
 - Never depend on HTTP-specific classes
 - Use mappers for entity ↔ DTO conversion
 
 ### Repository
 
-- Extend `JpaRepository<Entity, UUID>`
+- Extend `JpaRepository<Entity, ID>` — the ID is typically `UUID`, but lookup/reference entities use other types (e.g. `ProductCategoryRepository extends JpaRepository<ProductCategory, Integer>`)
 - Use Spring Data query method naming for simple queries
 - Use `@Query` for complex queries
 - Return `Optional<T>` for single-entity lookups
@@ -94,7 +97,7 @@ The product backlog and the database/code use different terms for the same conce
 
 - `@Table(name = "table_name")` — always explicit
 - `@Column(name = "column_name")` — always explicit for non-trivial mappings
-- `@GeneratedValue(strategy = GenerationType.UUID)` for primary keys
+- `@GeneratedValue(strategy = GenerationType.UUID)` for primary keys (typical case; lookup/reference entities such as `ProductCategory` use `GenerationType.IDENTITY` with an `Integer` id)
 - `@Enumerated(EnumType.STRING)` for all enums
 - Timestamp fields use `OffsetDateTime` mapped to `timestamptz`
 
@@ -121,11 +124,21 @@ The product backlog and the database/code use different terms for the same conce
 
 ## 6. Error Handling
 
-- Throw `BusinessException` for business rule violations → `400`
-- Throw `NotFoundException` for missing resources → `404`
-- Throw `UnauthorizedException` for auth failures → `401`
-- All exceptions are caught by `GlobalExceptionHandler`
+- All custom exceptions live in the `exception` package and are caught by `GlobalExceptionHandler`
 - Error responses follow the `ErrorResponse` format (timestamp, status, error, path)
+
+| Exception | HTTP status | When to throw |
+|-----------|-------------|---------------|
+| `BusinessException` | `400` | Business rule violations |
+| `NotFoundException` | `404` | Missing resources |
+| `UnauthorizedException` | `401` | Auth failures |
+| `ForbiddenException` | `403` | Authenticated but not allowed |
+| `ConflictException` | `409` | State/uniqueness conflicts |
+| `InternalServerException` | `500` | Unrecoverable server errors |
+| `LlmInvalidOutputException` | `400` | Invalid LLM output (subclass of `BusinessException`) |
+| `GoogleApiException` | `503` / `422` / `500` | Google integration failures, by `Kind` (QUOTA/TRANSIENT → `503` + `Retry-After`; INVALID_INPUT → `422`; else `500`) |
+
+The handler also maps Spring's `AccessDeniedException` → `403`, optimistic-lock / data-integrity violations → `409`, and `MaxUploadSizeExceededException` → `400`.
 
 ---
 
@@ -158,7 +171,7 @@ test: short description
 2. Read docs/database.md             → confirm table structure and relationships
 3. Read docs/architecture/           → confirm package structure and patterns
 4. Read docs/conventions.md          → follow naming and layer rules
-5. Create/update entity              → align with schema.sql
+5. Create/update entity              → align with docs/database.md and the latest Flyway migration
 6. Create/update repository          → Spring Data JPA interface
 7. Create/update mapper              → entity ↔ DTO conversion
 8. Create/update service             → business logic

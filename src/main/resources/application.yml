@@ -1,6 +1,5 @@
-# Credenciais NÃO têm default aqui de propósito: secret faltando no deploy derruba o boot
-# (fail-fast) em vez de subir silenciosamente com credencial conhecida. Para rodar local sem
-# docker-compose, use o profile "local" (SPRING_PROFILES_ACTIVE=local), que define os valores de dev.
+# Credentials have no default on purpose: a missing secret fails boot (fail-fast) instead of
+# silently using a known credential. For local runs without docker-compose, use the "local" profile.
 spring:
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/gearheads}
@@ -14,8 +13,8 @@ spring:
     properties:
       hibernate:
         format_sql: false
-        # Carrega coleções LAZY em lotes de 16 (IN (...)) em vez de 1 query por entidade —
-        # atenua o N+1 das listagens (ex.: items dos pedidos) sem fetch join na paginação.
+        # Batch-load LAZY collections in groups of 16 (IN (...)) to ease N+1 on listings
+        # (e.g. order items) without a fetch join on paginated queries.
         default_batch_fetch_size: 16
 
   flyway:
@@ -39,26 +38,25 @@ spring:
 
   ai:
     openai:
-      # A NVIDIA LLM API é compatível com o client OpenAI do Spring AI.
+      # NVIDIA LLM API is compatible with the Spring AI OpenAI client.
       base-url: ${NVIDIA_BASE_URL:https://integrate.api.nvidia.com}
       api-key: ${NVIDIA_API_KEY:}
-      # A NVIDIA LLM API não oferece embeddings — desliga p/ o autoconfig não criar o bean.
+      # NVIDIA LLM API has no embeddings — disable so autoconfig skips the bean.
       embedding:
         enabled: false
       chat:
         options:
-          # Modelo INSTRUCT (sem reasoning). Modelos de reasoning (ex.: stepfun-ai/step-3.7-flash)
-          # estouram tempo/tokens reordenando os ~50 candidatos (>180s, finish_reason=length) e
-          # cairiam sempre no fallback heurístico. Alternativa +qualidade/+lenta: meta/llama-3.3-70b-instruct.
+          # INSTRUCT model (no reasoning). Reasoning models (e.g. stepfun-ai/step-3.7-flash) blow
+          # time/tokens reranking ~50 candidates (>180s, finish_reason=length) and always fall back
+          # to the heuristic. Higher-quality/slower alternative: meta/llama-3.3-70b-instruct.
           model: ${NVIDIA_MODEL:meta/llama-3.1-8b-instruct}
           temperature: 0.2
-          # A NVIDIA LLM API exige max-tokens; cobre ~50 itens reordenados em JSON.
+          # NVIDIA LLM API requires max-tokens; covers ~50 reranked items in JSON.
           max-tokens: ${NVIDIA_MAX_TOKENS:4096}
 
-# Timeouts do cliente HTTP da NVIDIA LLM API. O Spring AI 1.0.3 não expõe timeout via
-# propriedade para o client OpenAI e seu RestClient default não tem read-timeout, então
-# NvidiaChatConfig aplica estes valores ao RestClient do OpenAiApi. O read-timeout cobre a
-# inferência da LLM hospedada na NVIDIA.
+# NVIDIA LLM API HTTP client timeouts. Spring AI 1.0.3 exposes no timeout property for the OpenAI
+# client and its default RestClient has no read-timeout, so NvidiaChatConfig applies these to the
+# OpenAiApi RestClient. read-timeout covers the hosted LLM inference.
 nvidia:
   connect-timeout-ms: ${NVIDIA_CONNECT_TIMEOUT_MS:2000}
   read-timeout-ms: ${NVIDIA_READ_TIMEOUT_MS:60000}
@@ -98,22 +96,21 @@ cors:
 ragro:
   recommendations:
     rerank:
-      # Liga/desliga o reranker por IA. Desligado, usa só a ordenação heurística.
+      # Toggle the AI reranker. Off = heuristic ordering only.
       enabled: ${RECOMMENDATION_RERANK_ENABLED:true}
     cache:
-      # Cache do ranking por cliente (Caffeine). Ligado: hit responde em ms e a LLM roda
-      # assíncrona no máximo 1×/cliente/TTL (ou após novo pedido — evicção por evento).
-      # Desligado: comportamento antigo (rerank síncrono a cada chamada).
+      # Per-customer ranking cache (Caffeine). On: hits return in ms, LLM runs async at most
+      # 1x/customer/TTL (or after a new order — event eviction). Off: rerank runs synchronously per call.
       enabled: ${RECOMMENDATION_CACHE_ENABLED:true}
       ttl-hours: ${RECOMMENDATION_CACHE_TTL_HOURS:6}
   tracking:
-    # Rastreamento em tempo real (WebSocket/STOMP). Desligado, o canal /ws não sobe e
-    # GET /orders/{id}/tracking responde available=false (o app cai no fluxo sem mapa).
+    # Real-time tracking (WebSocket/STOMP). Off: /ws channel doesn't start and
+    # GET /orders/{id}/tracking returns available=false (app falls back to the no-map flow).
     enabled: ${TRACKING_ENABLED:true}
     retention-days: ${TRACKING_RETENTION_DAYS:7}
   rate-limit:
-    # Token bucket in-memory (RateLimitFilter): register/forgot por IP; recommendations/routes
-    # por usuário (custo de LLM/Google). Limites em requisições por minuto.
+    # In-memory token bucket (RateLimitFilter): register/forgot per IP; recommendations/routes
+    # per user (LLM/Google cost). Limits are requests per minute.
     enabled: ${RATE_LIMIT_ENABLED:true}
     register-per-minute: ${RATE_LIMIT_REGISTER_PER_MINUTE:5}
     forgot-per-minute: ${RATE_LIMIT_FORGOT_PER_MINUTE:5}
@@ -127,10 +124,10 @@ server:
 google:
   maps:
     api-key: ${GOOGLE_MAPS_API_KEY:}
-  # Routes API: timeouts explícitos (o RestClient default do Boot não tem read-timeout — uma chamada
-  # travada bloquearia o worker e impediria o retry de transporte de disparar) + backoff base do
-  # retry para falhas de transporte transitórias (DNS/conexão). Read 10s porque computeRoutes
-  # (TRAFFIC_AWARE + otimização de ordem) leva legitimamente alguns segundos.
+  # Routes API: explicit timeouts (Boot's default RestClient has no read-timeout — a stuck call
+  # would block the worker and prevent transport retry) + retry backoff for transient transport
+  # failures (DNS/connection). Read 10s because computeRoutes (TRAFFIC_AWARE + order optimization)
+  # legitimately takes a few seconds.
   routes:
     connect-timeout-ms: ${GOOGLE_ROUTES_CONNECT_TIMEOUT_MS:2000}
     read-timeout-ms: ${GOOGLE_ROUTES_READ_TIMEOUT_MS:10000}

@@ -1,6 +1,6 @@
 # RAGRO — Database Documentation
 
-> PostgreSQL 16 · 26 tables · 2 triggers
+> PostgreSQL 16 · 27 tables · 2 triggers
 
 > **Note — Schema Reference**: This document serves as the **design reference** for the database schema. The actual runtime schema is defined by Flyway migrations in `src/main/resources/db/migration` (starting at `V1__initial_schema.sql`).
 
@@ -74,6 +74,8 @@ erDiagram
         char zip_code
         decimal latitude
         decimal longitude
+        varchar geocode_status
+        timestamptz geocoded_at
         boolean is_primary
         timestamptz created_at
     }
@@ -100,6 +102,7 @@ erDiagram
         decimal stock_quantity
         text image_s3
         boolean active
+        bigint version
         timestamptz created_at
         timestamptz updated_at
     }
@@ -153,6 +156,9 @@ erDiagram
         text notes
         text cancellation_reason
         text cancellation_details
+        varchar confirmation_code
+        integer confirmation_attempts
+        timestamptz confirmation_locked_until
         boolean seen_by_farmer
         timestamptz created_at
         timestamptz updated_at
@@ -191,30 +197,37 @@ erDiagram
         uuid id PK
         uuid farmer_id FK
         varchar status
-        date planned_date
-        timestamptz started_at
-        timestamptz completed_at
+        decimal origin_latitude
+        decimal origin_longitude
+        decimal total_distance_km
+        integer total_duration_seconds
+        decimal baseline_distance_km
+        text overview_polyline
         timestamptz created_at
-        timestamptz updated_at
+        timestamptz completed_at
     }
-    delivery_route_stops {
+    route_stops {
         uuid id PK
         uuid route_id FK
         uuid order_id FK
-        smallint stop_order
+        integer sequence
         varchar status
-        timestamptz delivered_at
-        text notes
+        decimal latitude
+        decimal longitude
+        text address_text
+        decimal leg_distance_km
+        integer leg_duration_seconds
+        timestamptz eta
+        timestamptz completed_at
     }
-    visual_route_information {
+    route_positions {
         uuid id PK
-        uuid delivery_route_id FK
-        text encoded_polyline
-        integer total_distance_meters
-        text total_duration
-        varchar travel_mode
-        decimal origin_latitude
-        decimal origin_longitude
+        uuid route_id FK
+        decimal latitude
+        decimal longitude
+        decimal accuracy_meters
+        decimal speed_kmh
+        timestamptz recorded_at
     }
     vehicle_preferences {
         uuid user_id PK_FK
@@ -258,6 +271,12 @@ erDiagram
         timestamptz created_at
         timestamptz read_at
     }
+    fcm_tokens {
+        uuid id PK
+        uuid user_id FK
+        text token
+        timestamptz updated_at
+    }
     payment_methods {
         uuid id PK
         uuid farmer_id FK
@@ -281,6 +300,7 @@ erDiagram
     users ||--|| vehicle_preferences : "has"
     users ||--o{ co2_savings : "has"
     users ||--o{ notifications : "has"
+    users ||--o{ fcm_tokens : "has"
     farmers ||--o{ farmer_availability : "has"
     farmers ||--o{ products : "sells"
     farmers ||--o{ delivery_routes : "creates"
@@ -301,11 +321,11 @@ erDiagram
     orders ||--o{ order_items : "contains"
     orders ||--o{ order_status_history : "tracks"
     orders ||--|| review : "has"
-    orders ||--o| delivery_route_stops : "has"
+    orders ||--o| route_stops : "has"
     payment_methods ||--o{ orders : "used in"
     addresses ||--o{ orders : "delivered to"
-    delivery_routes ||--o{ delivery_route_stops : "has"
-    delivery_routes ||--|| visual_route_information : "has"
+    delivery_routes ||--o{ route_stops : "has"
+    delivery_routes ||--o{ route_positions : "has"
     vehicle_preferences ||--o{ co2_emissions : "used in"
 
 ---
@@ -314,11 +334,11 @@ erDiagram
 
 | Domain | Tables |
 |--------|--------|
-| 👤 Users and Profiles | `users` `farmers` `producer_profiles` `customers` `addresses` `farmer_availability` `notifications` |
+| 👤 Users and Profiles | `users` `farmers` `producer_profiles` `customers` `addresses` `farmer_availability` `notifications` `fcm_tokens` |
 | 📦 Products and Inventory | `products` `product_categories` `product_category_assignments` `product_photos` `stock_movements` |
 | 🛒 Cart and Orders | `carts` `cart_items` `orders` `order_items` `order_status_history` |
 | ⭐ Reviews and Favorites | `review` `favorites` |
-| 🚚 Logistics | `delivery_routes` `delivery_route_stops` `visual_route_information` |
+| 🚚 Logistics | `delivery_routes` `route_stops` `route_positions` |
 | 🌱 Sustainability (CO2) | `vehicle_preferences` `co2_savings` `co2_emissions` |
 | 💳 Payment | `payment_methods` |
 
@@ -378,7 +398,7 @@ Detailed profiles/narratives for farmers. The `id` is the same as `users.id` —
 | `id` | uuid | ✅ | FK → `users.id` — same identifier |
 | `story` | text | ❌ | Full story/narrative displayed on the detailed profile |
 | `photo_url` | text | ❌ | Optional banner/profile image URL |
-| `member_since` | date | ❌ | Date when the farmer joined the platform |
+| `member_since` | date | ✅ | Date when the farmer joined the platform |
 | `created_at` | timestamptz | ✅ | Record creation timestamp |
 | `updated_at` | timestamptz | ✅ | Last update timestamp |
 
@@ -410,12 +430,14 @@ User addresses. A user can have multiple; `is_primary` identifies the main one.
 | `city` | varchar(100) | ✅ | City |
 | `state` | char(2) | ✅ | State (UF) — two characters |
 | `zip_code` | char(8) | ✅ | ZIP code — exactly 8 digits, no hyphen |
-| `latitude` | decimal(10,7) | ❌ | Latitude geocoded at registration via maps API |
-| `longitude` | decimal(10,7) | ❌ | Longitude geocoded at registration via maps API |
+| `latitude` | decimal(10,7) | ❌ | Latitude geocoded via maps API |
+| `longitude` | decimal(10,7) | ❌ | Longitude geocoded via maps API |
+| `geocode_status` | varchar(12) | ❌ | Geocoding outcome: `OK` \| `AMBIGUOUS` \| `FAILED` — `null` = never attempted |
+| `geocoded_at` | timestamptz | ❌ | When geocoding was last attempted |
 | `is_primary` | boolean | ✅ | `true` = user's primary address |
 | `created_at` | timestamptz | ✅ | Record creation timestamp |
 
-> **Note:** `latitude` and `longitude` are filled only once when the address is created, using the Google Maps API or device GPS. From then on, all proximity queries use the database directly — avoiding additional API costs per query.
+> **Note:** `latitude` and `longitude` are filled by geocoding the address via the Google Maps API. `geocode_status` and `geocoded_at` track the last attempt: a `null` status means it was never tried (re-attempted on next use), so failed/ambiguous addresses self-heal instead of being geocoded once at registration. Once resolved, proximity queries use the stored coordinates directly — avoiding additional API costs per query.
 
 ---
 
@@ -454,6 +476,20 @@ Stores system and order-related notifications targeted at users.
 
 ---
 
+#### `fcm_tokens`
+Firebase Cloud Messaging device tokens used to deliver push notifications. A user may have multiple devices/tokens.
+
+| Column | Type | Required | Description |
+|--------|------|----------|-------------|
+| `id` | uuid | ✅ | Primary key |
+| `user_id` | uuid | ✅ | FK → `users.id` — token owner |
+| `token` | text | ✅ | FCM registration token — UNIQUE across the system |
+| `updated_at` | timestamptz | ✅ | Last time the token was registered/refreshed |
+
+**Index:** `(user_id)` — lookups of all tokens for a user when sending a push.
+
+---
+
 ### Products and Inventory
 
 #### `products`
@@ -469,6 +505,7 @@ Stores system and order-related notifications targeted at users.
 | `stock_quantity` | decimal(12,3) | ✅ | Current available stock — decremented when order is confirmed |
 | `image_s3` | text | ❌ | Main image URL stored in S3 |
 | `active` | boolean | ✅ | `false` = product hidden from marketplace (soft delete) |
+| `version` | bigint | ✅ | JPA optimistic-lock version — guards concurrent stock writes (`registerSale`/`registerCancelledSale`); conflicts raise `409` |
 | `created_at` | timestamptz | ✅ | Record creation timestamp |
 | `updated_at` | timestamptz | ✅ | Last update timestamp |
 
@@ -516,8 +553,8 @@ Log of all stock movements. Insert-only log of stock history.
 |--------|------|----------|-------------|
 | `id` | uuid | ✅ | Primary key |
 | `product_id` | uuid | ✅ | FK → `products.id` |
-| `type` | varchar(10) | ✅ | Direction: `entry` (incoming) \| `exit` (outgoing) |
-| `reason` | varchar(20) | ✅ | Reason: `sale` \| `loss` \| `disposal` \| `manual_entry` \| `canceled_sale` |
+| `type` | varchar(10) | ✅ | Direction: `ENTRY` (incoming) \| `EXIT` (outgoing) |
+| `reason` | varchar(20) | ✅ | Reason: `SALE` \| `LOSS` \| `DISPOSAL` \| `MANUAL_ENTRY` \| `CANCELED_SALE` |
 | `quantity` | decimal(12,3) | ✅ | Quantity moved |
 | `notes` | text | ❌ | Optional note from the farmer |
 | `created_at` | timestamptz | ✅ | Movement creation timestamp |
@@ -577,6 +614,9 @@ Order generated from the cart. Immutable after creation — status changes are t
 | `notes` | text | ❌ | Customer notes |
 | `cancellation_reason` | text | ❌ | Short reason or code for the cancellation (e.g. `CUSTOMER_GIVE_UP`) |
 | `cancellation_details` | text | ❌ | Longer justification/details optionally provided upon cancellation |
+| `confirmation_code` | varchar(4) | ❌ | 4-digit delivery confirmation code generated when the order enters delivery; `CHECK` enforces exactly 4 digits |
+| `confirmation_attempts` | integer | ✅ | Failed confirmation-code attempts — defaults to `0` (brute-force protection) |
+| `confirmation_locked_until` | timestamptz | ❌ | Lockout timestamp after too many failed confirmation attempts |
 | `seen_by_farmer` | boolean | ✅ | `true` if the farmer has viewed the order, `false` otherwise |
 | `created_at` | timestamptz | ✅ | Record creation timestamp |
 | `updated_at` | timestamptz | ✅ | Last update timestamp |
@@ -648,54 +688,68 @@ Junction table between customers and their favorite farmers. Composite primary k
 ### Logistics
 
 #### `delivery_routes`
-Represents a delivery trip by the farmer. Can include multiple orders.
+Persisted delivery route by the farmer, computed via the Google Routes API. Can include multiple orders. A partial unique index enforces at most one `ACTIVE` route per farmer (creating a new one replaces the previous).
 
 | Column | Type | Required | Description |
 |--------|------|----------|-------------|
 | `id` | uuid | ✅ | Primary key |
 | `farmer_id` | uuid | ✅ | FK → `farmers.id` |
-| `status` | varchar(20) | ✅ | `planned` \| `in_progress` \| `completed` \| `cancelled` |
-| `planned_date` | date | ✅ | Planned date for the delivery trip |
-| `started_at` | timestamptz | ❌ | When the farmer started the route |
-| `completed_at` | timestamptz | ❌ | When the route was completed |
+| `status` | varchar(20) | ✅ | `ACTIVE` \| `COMPLETED` \| `CANCELLED` (defaults to `ACTIVE`) |
+| `origin_latitude` | decimal(10,7) | ✅ | Origin latitude (farmer's location) |
+| `origin_longitude` | decimal(10,7) | ✅ | Origin longitude (farmer's location) |
+| `total_distance_km` | decimal(10,2) | ❌ | Total optimized road distance returned by the Routes API |
+| `total_duration_seconds` | integer | ❌ | Total estimated duration in seconds |
+| `baseline_distance_km` | decimal(10,2) | ❌ | CO2 baseline: sum of individual round-trips to each stop (Route Matrix) |
+| `overview_polyline` | text | ❌ | Encoded polyline used to render the route on the map |
 | `created_at` | timestamptz | ✅ | Record creation timestamp |
-| `updated_at` | timestamptz | ✅ | Last update timestamp |
+| `completed_at` | timestamptz | ❌ | When the route was completed |
+
+**Indexes:**
+- `(farmer_id)` — list routes per farmer
+- `(farmer_id) WHERE status = 'ACTIVE'` (partial UNIQUE) — at most one active route per farmer
 
 ---
 
-#### `delivery_route_stops`
-Each stop in the route. An order can only belong to one route at a time — enforced by `UNIQUE` on `order_id`.
+#### `route_stops`
+Each ordered stop in the route, 1:1 with the order delivered at it. An order can only belong to one stop within a route — enforced by `UNIQUE (route_id, order_id)`.
 
 | Column | Type | Required | Description |
 |--------|------|----------|-------------|
 | `id` | uuid | ✅ | Primary key |
-| `route_id` | uuid | ✅ | FK → `delivery_routes.id` |
-| `order_id` | uuid | ✅ | FK → `orders.id` — UNIQUE, an order can be in at most one route |
-| `stop_order` | smallint | ✅ | Visit sequence in the route — defined by the maps API |
-| `status` | varchar(20) | ✅ | `pending` \| `arrived` \| `delivered` \| `failed` |
-| `delivered_at` | timestamptz | ❌ | Actual delivery timestamp at this stop |
-| `notes` | text | ❌ | Delivery notes |
+| `route_id` | uuid | ✅ | FK → `delivery_routes.id` (ON DELETE CASCADE) |
+| `order_id` | uuid | ✅ | FK → `orders.id` |
+| `sequence` | integer | ✅ | Visit position in the optimized route (0-based) |
+| `status` | varchar(20) | ✅ | `PENDING` \| `ARRIVED` \| `DELIVERED` \| `FAILED` (defaults to `PENDING`) |
+| `latitude` | decimal(10,7) | ✅ | Stop latitude |
+| `longitude` | decimal(10,7) | ✅ | Stop longitude |
+| `address_text` | text | ❌ | Human-readable address of the stop |
+| `leg_distance_km` | decimal(10,2) | ❌ | Distance of the leg arriving at this stop (from previous stop or origin) |
+| `leg_duration_seconds` | integer | ❌ | Duration of the leg arriving at this stop |
+| `eta` | timestamptz | ❌ | Absolute ETA estimated at route creation |
+| `completed_at` | timestamptz | ❌ | When this stop was completed |
 
 **Unique indexes:**
-- `(route_id, stop_order)` — no duplicate stop numbers within the same route  
-- `(order_id)` — the same order cannot appear in multiple routes
+- `(route_id, sequence)` — no duplicate stop positions within the same route
+- `(route_id, order_id)` — the same order cannot appear twice in a route
 
 ---
 
-#### `visual_route_information`
-Stores data returned by the Google Maps Directions API for a route. Avoids recalculating every time the farmer opens the app.
+#### `route_positions`
+Real-time GPS trail of the producer during an active route. Personal location data with 7-day retention, purged by a daily job.
 
 | Column | Type | Required | Description |
 |--------|------|----------|-------------|
 | `id` | uuid | ✅ | Primary key |
-| `delivery_route_id` | uuid | ✅ | FK → `delivery_routes.id` |
-| `encoded_polyline` | text | ❌ | Encoded polyline used to render the route on the map |
-| `total_distance_meters` | integer | ❌ | Total route distance in meters |
-| `total_duration` | text | ❌ | Estimated total duration — e.g., `1h 23min` |
-| `optimized_stop_order` | smallint[] | ❌ | Array with optimized stop sequence returned by the API |
-| `travel_mode` | varchar(20) | ❌ | Transport mode: `driving` \| `walking` \| `bicycling` |
-| `origin_latitude` | decimal(10,7) | ❌ | Origin latitude (farmer’s location) |
-| `origin_longitude` | decimal(10,7) | ❌ | Origin longitude (farmer’s location) |
+| `route_id` | uuid | ✅ | FK → `delivery_routes.id` (ON DELETE CASCADE) |
+| `latitude` | decimal(10,7) | ✅ | Recorded latitude |
+| `longitude` | decimal(10,7) | ✅ | Recorded longitude |
+| `accuracy_meters` | decimal(8,2) | ❌ | GPS accuracy in meters |
+| `speed_kmh` | decimal(6,2) | ❌ | Speed in km/h at the time of the reading |
+| `recorded_at` | timestamptz | ✅ | When the position was recorded |
+
+**Indexes:**
+- `(route_id, recorded_at DESC)` — latest positions for a route's live trail
+- `(recorded_at)` — used by the 7-day retention purge
 
 ---
 
@@ -793,6 +847,7 @@ AFTER UPDATE OF active ON products
 FOR EACH ROW
 WHEN (OLD.active = true AND NEW.active = false)
 -- deactivates cart_items and carts left with no active items
+```
 
 ---
 
@@ -808,6 +863,7 @@ Triggered after an UPDATE on users when type = 'farmer' and active changes to fa
 ```sql
 AFTER UPDATE OF active ON users
 FOR EACH ROW
-WHEN (OLD.type = 'farmer' AND OLD.active = true AND NEW.active = false)
--- deactivates all carts and items related to the farmer
+WHEN (OLD.type = 'farmer')
+-- the active true→false check lives inside fn_deactivate_carts_on_farmer(),
+-- which deactivates all carts and items related to the farmer
 ```

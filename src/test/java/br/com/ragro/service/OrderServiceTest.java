@@ -374,7 +374,7 @@ class OrderServiceTest {
 
     OrderResponse response = orderService.cancelOrder(order.getId(), jwt(), null);
     assertThat(response.getStatus()).isEqualTo(OrderStatus.CANCELLED);
-    // D26: cancelling a PENDING order must NOT touch stock — PENDING never debited it.
+    // Cancelling a PENDING order must NOT touch stock — PENDING never debited it.
     verify(stockMovementService, never()).registerCancelledSale(any(), any(), anyString());
   }
 
@@ -600,7 +600,7 @@ class OrderServiceTest {
     assertThat(response.getStatus()).isEqualTo(OrderStatus.CANCELLED);
     assertThat(order.getCancellationReason()).isEqualTo("CHANGED_MY_MIND");
     assertThat(order.getCancellationDetails()).isEqualTo("Comprei em outro lugar");
-    // OrderResponse must expose the reason/details (consumed by the mobile cancellation card).
+    // OrderResponse must expose the cancellation reason/details (used by the mobile card).
     assertThat(response.getCancellationReason()).isEqualTo("CHANGED_MY_MIND");
     assertThat(response.getCancellationDetails()).isEqualTo("Comprei em outro lugar");
     verify(stockMovementService, never()).registerCancelledSale(any(), any(), anyString());
@@ -1096,8 +1096,7 @@ class OrderServiceTest {
     order.setId(orderId);
     order.setFarmer(farmer);
     order.setCustomer(customer);
-    // Máquina de estados: IN_DELIVERY só é alcançável a partir de CONFIRMED (antes o método
-    // aceitava qualquer transição — comportamento corrigido pela auditoria Fase 0, achado A3).
+    // State machine: IN_DELIVERY is only reachable from CONFIRMED.
     order.setStatus(OrderStatus.CONFIRMED);
     order.setDeliveryAddressSnapshot(AddressSnapshot.builder().city("Test City").build());
     order.setPaymentMethod(paymentMethod);
@@ -1127,8 +1126,8 @@ class OrderServiceTest {
     assertThat(response.getStatus()).isEqualTo(OrderStatus.IN_DELIVERY);
     assertThat(order.getStatusHistory())
         .anyMatch(h -> h.getStatus() == OrderStatus.IN_DELIVERY);
-    // Fix #10: the transition into IN_DELIVERY generates a 4-digit confirmation code (via the
-    // static SecureRandom). Format is the deterministic seam we can assert here.
+    // The transition into IN_DELIVERY generates a 4-digit confirmation code; format is the
+    // deterministic seam we can assert.
     assertThat(order.getConfirmationCode()).matches("^\\d{4}$");
     verify(eventPublisher)
         .publishEvent(
@@ -1219,8 +1218,7 @@ class OrderServiceTest {
             });
     when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
 
-    // PENDING → IN_DELIVERY pula CONFIRMED (e o débito de estoque) — rejeitado pela máquina de
-    // estados. (DELIVERED não cabe mais aqui: é barrado antes pela exigência do código.)
+    // PENDING -> IN_DELIVERY skips CONFIRMED (and the stock debit); rejected by the state machine.
     assertThatThrownBy(
             () -> orderService.updateOrderStatus(orderId, OrderStatus.IN_DELIVERY, jwt()))
         .isInstanceOf(BusinessException.class)
@@ -1293,9 +1291,8 @@ class OrderServiceTest {
 
   @Test
   void updateOrderStatus_shouldRejectDelivered_andRequireConfirmationCode() {
-    // Segurança: concluir a entrega pela via genérica de status é barrado — o produtor precisa do
-    // código do consumidor (confirmDeliveryWithCode). O pedido permanece IN_DELIVERY e a máquina de
-    // estados nem é tocada (curto-circuito no switch, antes de carregar o pedido).
+    // Completing delivery via the generic status route is blocked: the producer needs the customer
+    // code (confirmDeliveryWithCode). Short-circuits before loading the order, so it stays IN_DELIVERY.
     stubFarmerAuthenticated();
 
     assertThatThrownBy(
@@ -1346,8 +1343,7 @@ class OrderServiceTest {
     when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
     when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
-    // PATCH /status com CONFIRMED delega para confirmOrder: mesmo efeito de estoque do
-    // endpoint dedicado (antes, este caminho confirmava SEM debitar — achado A3).
+    // PATCH /status with CONFIRMED delegates to confirmOrder: same stock effect as the dedicated endpoint.
     OrderResponse response = orderService.updateOrderStatus(orderId, OrderStatus.CONFIRMED, jwt());
 
     assertThat(response.getStatus()).isEqualTo(OrderStatus.CONFIRMED);
@@ -1393,8 +1389,7 @@ class OrderServiceTest {
     when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
     when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
-    // PATCH /status com CANCELLED delega para a recusa: devolve estoque debitado e grava o
-    // motivo (antes, este caminho cancelava sem devolver estoque nem auditar — achado A3).
+    // PATCH /status with CANCELLED delegates to refusal: credits debited stock and records the reason.
     OrderResponse response = orderService.updateOrderStatus(orderId, OrderStatus.CANCELLED, jwt());
 
     assertThat(response.getStatus()).isEqualTo(OrderStatus.CANCELLED);
@@ -1496,7 +1491,7 @@ class OrderServiceTest {
     assertThat(response.getProducerPicture()).isEqualTo("https://cdn.example.com/avatar.jpg");
     assertThat(response.getStatus()).isEqualTo(OrderStatus.PENDING);
     assertThat(response.isReviewed()).isTrue();
-    // The customer detail must expose the cancellation reason/details.
+    // Customer detail must expose the cancellation reason/details.
     assertThat(response.getCancellationReason()).isEqualTo("CUSTOMER_CANCELLED");
     assertThat(response.getCancellationDetails()).isEqualTo("mudei de ideia");
   }
@@ -1916,7 +1911,7 @@ class OrderServiceTest {
         .hasMessageContaining("dispon");
   }
 
-  // ---------- confirmDeliveryWithCode (produtor confirma com o código do consumidor) ----------
+  // ---------- confirmDeliveryWithCode (producer confirms with the customer code) ----------
 
   @Test
   void confirmDeliveryWithCode_shouldTransitionToDelivered_whenCodeMatches() {
@@ -1951,7 +1946,7 @@ class OrderServiceTest {
   @Test
   void confirmDeliveryWithCode_shouldLock_whenMaxAttemptsReached() {
     Order order = buildFarmerOwnedInDeliveryOrder("1234");
-    order.setConfirmationAttempts(4); // a próxima tentativa errada atinge o limite (5)
+    order.setConfirmationAttempts(4); // next wrong attempt hits the limit (5)
     stubFarmerAuthenticated();
     when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
     when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -2043,8 +2038,7 @@ class OrderServiceTest {
 
   @Test
   void getProducerOrders_shouldCapPageSizeAt100_whenClientRequestsMore() {
-    // Fix #11: buildPageable uses Math.min(size, MAX_PAGE_SIZE=100), so an oversized client `size`
-    // can't request a giant page.
+    // buildPageable caps size at MAX_PAGE_SIZE=100, so an oversized client `size` can't request a giant page.
     User farmerUser = new User();
     farmerUser.setId(UUID.randomUUID());
     farmerUser.setType(TypeUser.FARMER);

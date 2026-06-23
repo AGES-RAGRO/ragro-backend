@@ -7,10 +7,8 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 /**
- * Traduz transições de status de pedido em notificações ao cliente. Listener SÍNCRONO e na mesma
- * transação da transição (mesmo comportamento de quando o {@code OrderService} chamava o {@code
- * NotificationService} direto): a notificação é persistida junto com o pedido ou nada é salvo.
- * Na etapa futura de mensageria, este listener vira um consumer externo sem tocar no OrderService.
+ * Translates order status transitions into notifications. SYNCHRONOUS listener in the same
+ * transaction as the transition: the notification is persisted with the order or nothing is saved.
  */
 @Component
 @RequiredArgsConstructor
@@ -22,9 +20,7 @@ public class OrderNotificationListener {
   public void onOrderStatusChanged(OrderStatusChangedEvent event) {
     switch (event.newStatus()) {
       case PENDING ->
-          // Criação do pedido (publicada com initiatedBy=CUSTOMER): notifica o produtor do novo
-          // pedido. Antes do modelo de eventos, o OrderService chamava isto direto no
-          // createOrderFromCart.
+          // Order creation (initiatedBy=CUSTOMER): notify the producer of the new order.
           notificationService.createProducerNewOrderNotification(event.order());
       case CONFIRMED ->
           notificationService.createCustomerOrderAcceptedNotification(event.order());
@@ -33,9 +29,8 @@ public class OrderNotificationListener {
       case DELIVERED ->
           notificationService.createCustomerOrderDeliveredNotification(event.order());
       case CANCELLED -> {
-        // Recusa/cancelamento pelo produtor notifica o cliente; cliente cancelando o próprio
-        // pedido não notifica a si mesmo, mas notifica o produtor (substitui a chamada direta que
-        // o OrderService.cancelOrderAsCustomer fazia antes do modelo de eventos).
+        // Producer rejection/cancellation notifies the customer; a customer cancelling their own
+        // order notifies the producer, not themselves.
         if (event.initiatedBy() == TypeUser.FARMER) {
           notificationService.createCustomerOrderRefusedNotification(event.order());
         } else {

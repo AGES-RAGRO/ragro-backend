@@ -1,16 +1,9 @@
 name: Terraform Apply
 
-# Aplica as mudanças de infra automaticamente quando um commit com alterações em
-# infra/** entra na main.
-#
-# GATE HUMANO = a APROVAÇÃO DO PR. O workflow "Terraform Plan" mostra o plan no PR
-# com um banner de aviso; quem aprova e mergeia está autorizando este apply. Para
-# que esse gate seja real, a branch `main` deve exigir review de PR (branch
-# protection) — sem isso, um push direto na main aplicaria sem revisão.
-#
-# Cada ambiente usa as credenciais (secrets) e os valores (variables) do GitHub
-# Environment de mesmo nome. Esses environments NÃO têm required reviewers de
-# propósito: gateá-los travaria também o deploy do app (aws.yml). O gate aqui é o PR.
+# Auto-applies infra changes when a commit touching infra/** lands on main.
+# Human gate = PR approval (requires branch protection on main; a direct push would apply unreviewed).
+# Each env uses secrets/variables from the same-named GitHub Environment; these have no required
+# reviewers on purpose (gating them would also block app deploy in aws.yml) — the PR is the gate.
 on:
   push:
     branches: [main]

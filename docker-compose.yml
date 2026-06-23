@@ -93,8 +93,7 @@ services:
       SPRING_JPA_HIBERNATE_DDL_AUTO: validate
       KEYCLOAK_SERVER_URL: http://keycloak:8180
       KEYCLOAK_PUBLIC_URL: http://localhost:8180
-      # O application.yml não tem mais default para a senha admin (fail-fast em prod) —
-      # o valor de dev é definido aqui, espelhando o serviço keycloak acima.
+      # Dev admin password (application.yml has no default; fail-fast in prod). Mirrors keycloak above.
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
       KEYCLOAK_ISSUER_URI: http://localhost:8180/realms/ragro
@@ -105,8 +104,7 @@ services:
       STORAGE_SECRET_KEY: minioadmin
       STORAGE_BUCKET: ragro-media
       MEDIA_PUBLIC_URL: ${MEDIA_PUBLIC_URL:-http://localhost:8080}
-      # Reranker via NVIDIA LLM API (Spring AI client OpenAI). A chave vem do .env (gitignored);
-      # base-url e modelo usam os defaults do application.yml.
+      # Reranker key (NVIDIA LLM API via Spring AI OpenAI client); from gitignored .env.
       NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
       GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY}
       # Firebase Cloud Messaging service-account JSON (single line). Absent = push disabled.

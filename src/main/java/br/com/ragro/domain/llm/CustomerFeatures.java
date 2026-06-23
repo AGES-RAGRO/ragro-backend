@@ -7,11 +7,7 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 
-/**
- * Perfil desidentificado do cliente enviado à LLM no rerank. Mantém apenas o que o
- * RecommendationService realmente popula; {@code recentPurchases}/{@code averageOrderValue}
- * existiam no prompt mas nunca eram preenchidos (código morto removido na auditoria Fase 0).
- */
+/** De-identified customer profile sent to the LLM during rerank. */
 @Getter
 @Setter
 @EqualsAndHashCode

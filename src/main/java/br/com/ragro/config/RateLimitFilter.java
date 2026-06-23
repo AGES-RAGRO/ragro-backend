@@ -23,16 +23,14 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * Rate limiting in-memory (token bucket via Bucket4j) para endpoints públicos de auth e endpoints
- * que geram custo externo (LLM da NVIDIA, Google Maps).
+ * In-memory rate limiting (Bucket4j token bucket) for public auth endpoints and endpoints with
+ * external cost (NVIDIA LLM, Google Maps).
  *
- * <p>Registrado como filtro servlet APÓS a security chain (ver {@link RateLimitConfig}), então o
- * SecurityContext já está populado e a chave por usuário (sub do JWT) funciona; requests rejeitadas
- * pela security (401/403) nem chegam aqui e não consomem orçamento.
+ * <p>Runs after the security chain (see {@link RateLimitConfig}): SecurityContext is populated for the
+ * per-user key (JWT sub), and security-rejected requests (401/403) never reach here.
  *
- * <p>Os buckets vivem em memória por instância — suficiente para o deploy atual (1 task ECS). Com
- * múltiplas instâncias o limite passa a valer por instância (degradação aceitável) até este storage
- * ser trocado por um backend distribuído.
+ * <p>Buckets are per-instance — fine for 1 ECS task; becomes per-instance limiting with multiple
+ * instances (acceptable) until swapped for a distributed backend.
  */
 public class RateLimitFilter extends OncePerRequestFilter {
 
@@ -123,9 +121,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
   private String clientIp(HttpServletRequest request) {
     String forwarded = request.getHeader("X-Forwarded-For");
     if (forwarded != null && !forwarded.isBlank()) {
-      // ÚLTIMO endereço da lista: é o único appendado pelo nosso proxy (ALB) e não forjável —
-      // tudo à esquerda vem do cliente e usar o primeiro valor permitiria bypass por spoofing.
-      // Premissa: exatamente 1 proxy confiável na frente (ALB); sem proxy, o header nem chega.
+      // Use the LAST hop: the only one appended by our proxy (ALB) and not client-forgeable.
+      // Assumes exactly 1 trusted proxy (ALB) in front.
       String[] hops = forwarded.split(",");
       return hops[hops.length - 1].trim();
     }
