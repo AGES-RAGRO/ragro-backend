@@ -1,5 +1,6 @@
 package br.com.ragro.controller;
 
+import br.com.ragro.controller.request.AddStopsRequest;
 import br.com.ragro.controller.request.CreateRouteRequest;
 import br.com.ragro.controller.request.UpdateRouteStopRequest;
 import br.com.ragro.controller.response.RouteResponse;
@@ -64,11 +65,14 @@ public class RouteController {
       description =
           "Pulls newly CONFIRMED orders into the ACTIVE route, keeping DELIVERED/FAILED stops as"
               + " history and re-optimizing only the pending portion (single Google call). New orders"
-              + " move to IN_DELIVERY. Idempotent: with no new order it self-heals and returns the route"
-              + " unchanged. 404 if the route already completed.")
+              + " move to IN_DELIVERY. When the producer's current GPS is sent, the remaining route is"
+              + " re-anchored/re-optimized from where they are now. Idempotent: with no new order it"
+              + " self-heals and returns the route unchanged (no re-anchor). 404 if already completed.")
   public ResponseEntity<RouteResponse> addStops(
-      @PathVariable UUID routeId, @AuthenticationPrincipal Jwt jwt) {
-    return ResponseEntity.ok(deliveryRouteService.addStops(routeId, jwt));
+      @PathVariable UUID routeId,
+      @Valid @RequestBody(required = false) AddStopsRequest request,
+      @AuthenticationPrincipal Jwt jwt) {
+    return ResponseEntity.ok(deliveryRouteService.addStops(routeId, request, jwt));
   }
 
   @PatchMapping("/{routeId}/stops/{stopId}")

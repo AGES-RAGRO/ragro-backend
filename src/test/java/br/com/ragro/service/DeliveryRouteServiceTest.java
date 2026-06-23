@@ -8,6 +8,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import br.com.ragro.controller.request.AddStopsRequest;
 import br.com.ragro.controller.request.CreateRouteRequest;
 import br.com.ragro.controller.response.RouteResponse;
 import br.com.ragro.domain.AddressSnapshot;
@@ -421,7 +422,11 @@ class DeliveryRouteServiceTest {
     when(deliveryRouteRepository.saveAndFlush(any(DeliveryRoute.class)))
         .thenAnswer(inv -> inv.getArgument(0));
 
-    RouteResponse response = deliveryRouteService.addStops(route.getId(), jwt());
+    // Producer moved: send current GPS so the route re-anchors/re-optimizes from there.
+    AddStopsRequest req = new AddStopsRequest();
+    req.setOriginLatitude(BigDecimal.valueOf(-30.5));
+    req.setOriginLongitude(BigDecimal.valueOf(-51.5));
+    RouteResponse response = deliveryRouteService.addStops(route.getId(), req, jwt());
 
     assertThat(response.getStops()).hasSize(2);
     assertThat(response.getStops())
@@ -432,6 +437,9 @@ class DeliveryRouteServiceTest {
     assertThat(response.getOverviewPolyline()).isEqualTo("poly2");
     // Baseline grows by the new order's round-trip delta only (10 + 2*4 = 18), no double count.
     assertThat(response.getBaselineDistanceKm()).isEqualByComparingTo("18.00");
+    // Re-anchored: route origin updated to the producer's current GPS.
+    assertThat(response.getOriginLatitude()).isEqualByComparingTo("-30.5");
+    assertThat(response.getOriginLongitude()).isEqualByComparingTo("-51.5");
     // Only the NEW order moves to IN_DELIVERY; the existing in-delivery order is untouched.
     verify(orderService).updateOrderStatus(newOrder.getId(), OrderStatus.IN_DELIVERY, jwt());
     verify(orderService, never())
@@ -451,7 +459,7 @@ class DeliveryRouteServiceTest {
             eq(farmerUser.getId()), any()))
         .thenReturn(List.of());
 
-    RouteResponse response = deliveryRouteService.addStops(route.getId(), jwt());
+    RouteResponse response = deliveryRouteService.addStops(route.getId(), null, jwt());
 
     assertThat(response.getStops()).hasSize(1);
     // No re-optimization (no Google call) and no order transitions when nothing is new.
@@ -469,7 +477,7 @@ class DeliveryRouteServiceTest {
     when(deliveryRouteRepository.findWithStopsById(route.getId()))
         .thenReturn(Optional.of(route));
 
-    assertThatThrownBy(() -> deliveryRouteService.addStops(route.getId(), jwt()))
+    assertThatThrownBy(() -> deliveryRouteService.addStops(route.getId(), null, jwt()))
         .isInstanceOf(BusinessException.class)
         .hasMessageContaining("não está mais ativa");
   }

@@ -1,5 +1,6 @@
 package br.com.ragro.service;
 
+import br.com.ragro.controller.request.AddStopsRequest;
 import br.com.ragro.controller.request.CreateRouteRequest;
 import br.com.ragro.controller.response.RouteResponse;
 import br.com.ragro.domain.AddressSnapshot;
@@ -154,7 +155,7 @@ public class DeliveryRouteService {
    * CO2 baseline grows by the new orders' round-trip delta only — no double counting of existing stops.
    */
   @Transactional
-  public RouteResponse addStops(UUID routeId, Jwt jwt) {
+  public RouteResponse addStops(UUID routeId, AddStopsRequest request, Jwt jwt) {
     User user = requireFarmer(jwt);
 
     DeliveryRoute route =
@@ -218,7 +219,18 @@ public class DeliveryRouteService {
       newPoints.add(point);
     }
 
-    GeoPoint origin = new GeoPoint(route.getOriginLatitude(), route.getOriginLongitude());
+    // Re-anchor: re-optimize the remaining route from the producer's CURRENT GPS when sent (they move
+    // during a delivery), and persist it as the new route origin. Falls back to the existing origin
+    // when no GPS is provided. Only happens here (when there ARE new stops), so a plain pull with no
+    // new order never re-anchors/re-sequences — no churn from GPS jitter.
+    GeoPoint origin;
+    if (request != null && request.hasOrigin()) {
+      origin = new GeoPoint(request.getOriginLatitude(), request.getOriginLongitude());
+      route.setOriginLatitude(origin.latitude());
+      route.setOriginLongitude(origin.longitude());
+    } else {
+      origin = new GeoPoint(route.getOriginLatitude(), route.getOriginLongitude());
+    }
     ComputedRoute computed =
         googleRoutesService.computeOptimizedRoundTrip(
             origin, inputs.stream().map(StopInput::point).toList());
