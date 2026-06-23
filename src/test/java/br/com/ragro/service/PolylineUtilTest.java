@@ -9,24 +9,23 @@ import org.junit.jupiter.api.Test;
 
 class PolylineUtilTest {
 
-  // A single char whose continuation bit (>= 0x20) is set, so the decoder expects another byte but
-  // the string ends → truncated/invalid encoding. ('~' = 126; 126 - 63 = 0x3F, continuation set.)
+  // Single char with the continuation bit (>= 0x20) set, so the decoder expects another byte but
+  // the string ends -> truncated/invalid encoding. ('~' = 126; 126 - 63 = 0x3F, continuation set.)
   private static final String TRUNCATED = "~";
 
   @Test
   void decode_shouldThrowIllegalArgument_whenEncodedIsTruncated() {
-    // Fix #14: the do-while loops bounds-check `index >= length` and throw instead of running off
-    // the end of the string (StringIndexOutOfBounds / silent corruption).
+    // The do-while loops bounds-check `index >= length` and throw instead of running off the
+    // end of the string (StringIndexOutOfBounds / silent corruption).
     assertThatThrownBy(() -> PolylineUtil.decode(TRUNCATED))
         .isInstanceOf(IllegalArgumentException.class);
   }
 
   @Test
   void decode_shouldThrowIllegalArgument_whenLngHalfIsTruncated() {
-    // A valid first coordinate (lat) followed by a truncated lng half: ensures BOTH do-while loops
-    // are guarded, not just the first.
+    // Valid lat followed by a truncated lng half: ensures BOTH do-while loops are guarded.
     String latOk = PolylineUtil.encode(List.of(new Point(-30.0, -51.0)));
-    // Keep the complete lat+lng pair, then append a dangling continuation char (new value, no end).
+    // Complete lat+lng pair plus a dangling continuation char (new value, no end).
     String dangling = latOk + "~";
     assertThatThrownBy(() -> PolylineUtil.decode(dangling))
         .isInstanceOf(IllegalArgumentException.class);
@@ -34,7 +33,7 @@ class PolylineUtilTest {
 
   @Test
   void clip_shouldReturnInputUnchanged_whenEncodedIsTruncated() {
-    // Fix #14: clip wraps decode in try/catch and returns the original input on malformed polyline
+    // clip wraps decode in try/catch and returns the original input on a malformed polyline
     // instead of bubbling a 500.
     assertThat(PolylineUtil.clip(TRUNCATED, -30.0, -51.0, -30.1, -51.1)).isEqualTo(TRUNCATED);
   }
@@ -58,25 +57,25 @@ class PolylineUtilTest {
 
   @Test
   void clip_shouldReturnOnlySegmentFromProducerToStop_notFullRoundTrip() {
-    // Rota round-trip: origem(0) -> p1(1) -> p2(2, parada do cliente) -> volta(3,4 = origem).
+    // Round-trip route: origin(0) -> p1(1) -> p2(2, this customer's stop) -> return(3,4 = origin).
     List<Point> route =
         List.of(
-            new Point(-30.000, -51.000), // 0 origem
-            new Point(-30.010, -51.010), // 1 parada de OUTRO cliente
-            new Point(-30.020, -51.020), // 2 parada DESTE cliente
-            new Point(-30.010, -51.005), // 3 perna de volta
-            new Point(-30.000, -51.000)); // 4 origem (fim)
+            new Point(-30.000, -51.000), // 0 origin
+            new Point(-30.010, -51.010), // 1 ANOTHER customer's stop
+            new Point(-30.020, -51.020), // 2 THIS customer's stop
+            new Point(-30.010, -51.005), // 3 return leg
+            new Point(-30.000, -51.000)); // 4 origin (end)
     String full = PolylineUtil.encode(route);
 
-    // Produtor perto da parada 1 (a caminho); parada do cliente é a 2.
+    // Producer near stop 1 (en route); the customer's stop is 2.
     String clipped =
         PolylineUtil.clip(full, -30.0105, -51.0105, -30.020, -51.020);
     List<Point> clippedPts = PolylineUtil.decode(clipped);
 
-    // Só o trecho [1 → 2]: não inclui a perna de volta (vértices 3,4).
+    // Only segment [1 -> 2]: excludes the return leg (vertices 3,4).
     assertThat(clippedPts).hasSize(2);
     assertThat(clippedPts.get(clippedPts.size() - 1).lat()).isCloseTo(-30.020, within());
-    // Nenhum ponto da volta (lng -51.005 do vértice 3) aparece no recorte.
+    // No return point (lng -51.005 of vertex 3) appears in the clip.
     assertThat(clippedPts).noneMatch(p -> Math.abs(p.lng() - (-51.005)) < 1e-4);
   }
 

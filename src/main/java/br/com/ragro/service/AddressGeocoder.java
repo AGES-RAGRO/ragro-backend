@@ -7,9 +7,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 /**
- * Ponto único de geocodificação de {@link Address} (antes o bloco "monta endereço → geocode → set
- * lat/lng" estava triplicado nos cadastros e no self-heal do mapa). Persiste o resultado E o
- * status: FAILED/AMBIGUOUS não são re-tentados automaticamente.
+ * Single geocoding entry point for {@link Address}. Persists both result and status: FAILED/AMBIGUOUS
+ * are not retried automatically.
  */
 @Component
 @RequiredArgsConstructor
@@ -18,8 +17,8 @@ public class AddressGeocoder {
   private final GoogleMapsService googleMapsService;
 
   /**
-   * Geocodifica e aplica coordenadas+status no endereço (não salva — o chamador persiste na sua
-   * transação). Retorna o resultado para quem precisa reagir (ex.: avisar usuário no cadastro).
+   * Applies coordinates + status to the address (caller persists within its own transaction).
+   * Returns the result so callers can react (e.g. warn the user during registration).
    */
   public GeocodeOutcome geocodeAndApply(Address address) {
     String fullAddress = buildFullAddress(address);
@@ -29,8 +28,8 @@ public class AddressGeocoder {
     GeocodeOutcome outcome = googleMapsService.geocode(fullAddress);
     address.setGeocodeStatus(outcome.status());
     address.setGeocodedAt(OffsetDateTime.now());
-    // Aplica também coordenadas AMBIGUOUS (aproximadas): melhor um lat/lng impreciso que
-    // produtor/cliente sumindo do mapa. O status AMBIGUOUS fica registrado como aviso.
+    // Apply AMBIGUOUS (approximate) coordinates too: imprecise lat/lng beats vanishing from the map;
+    // the AMBIGUOUS status stays recorded as a warning.
     if (outcome.hasCoordinates()) {
       address.setLatitude(outcome.latitude());
       address.setLongitude(outcome.longitude());
@@ -39,9 +38,8 @@ public class AddressGeocoder {
   }
 
   /**
-   * Self-heal de leitura: só tenta quando nunca houve tentativa ({@code geocodeStatus == null}) e
-   * não há coordenadas — endereços FAILED/AMBIGUOUS ficam quietos até serem editados (o retry
-   * infinito a cada GET /producers/locations era pago e inútil).
+   * Read-time self-heal: only attempts when there was no prior attempt ({@code geocodeStatus == null})
+   * and no coordinates. FAILED/AMBIGUOUS stay quiet until edited (avoids paid infinite retry per GET).
    */
   public boolean ensureGeocoded(Address address) {
     if (address.getLatitude() != null && address.getLongitude() != null) {
@@ -53,7 +51,7 @@ public class AddressGeocoder {
     return geocodeAndApply(address).hasCoordinates();
   }
 
-  /** Edição de endereço: zera o bookkeeping para a próxima geocodificação re-tentar. */
+  /** Address edit: clears bookkeeping so the next geocoding retries. */
   public void resetGeocode(Address address) {
     address.setLatitude(null);
     address.setLongitude(null);

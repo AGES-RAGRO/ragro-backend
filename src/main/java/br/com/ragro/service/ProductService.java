@@ -103,9 +103,8 @@ public class ProductService {
   }
 
   /**
-   * Detalhe de produto ativo sem exigir o produtor na rota ({@code GET /products/{id}}). O app
-   * abre o detalhe sem producerId em alguns fluxos (auditoria Fase 0, achado A5) e caía numa rota
-   * inexistente; a resposta é idêntica à de {@code GET /producers/{producerId}/products/{id}}.
+   * Active product detail without the producer in the route ({@code GET /products/{id}}); some app flows
+   * open detail without producerId. Response is identical to {@code GET /producers/{producerId}/products/{id}}.
    */
   @Transactional(readOnly = true)
   public ProductResponse getActiveProductById(UUID productId) {

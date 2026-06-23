@@ -36,10 +36,9 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Rota de entrega persistida (plano Etapa 1, Fase 2). Substitui o {@code POST /routes/optimize}
- * efêmero: a rota é calculada UMA vez no Google (round trip otimizado, com trânsito), persistida
- * com paradas ordenadas/ETA por leg, e as confirmações de entrega passam a ser PATCH por parada —
- * sem novas chamadas ao Google (antes, cada confirmação recalculava e pagava a rota inteira).
+ * Persisted delivery route: computed ONCE at Google (optimized round trip, with traffic), persisted
+ * with ordered stops and per-leg ETA. Delivery confirmations are a PATCH per stop with no further
+ * Google calls.
  */
 @Service
 @RequiredArgsConstructor
@@ -58,10 +57,9 @@ public class DeliveryRouteService {
   private final TrackingService trackingService;
 
   /**
-   * Cria a rota ativa do produtor a partir dos pedidos CONFIRMED/IN_DELIVERY. Uma rota ativa
-   * anterior é fechada antes ({@link #retirePreviousRoute}) — reabrir a tela e recriar é o fluxo
-   * natural quando novos pedidos são confirmados. Pedidos CONFIRMED transitam para IN_DELIVERY
-   * pela máquina de estados (com notificação ao cliente via evento).
+   * Creates the producer's active route from CONFIRMED/IN_DELIVERY orders. Any previous active route
+   * is closed first ({@link #retirePreviousRoute}). CONFIRMED orders transition to IN_DELIVERY via
+   * the state machine (with a customer notification via event).
    */
   @Transactional
   public RouteResponse createRoute(CreateRouteRequest request, Jwt jwt) {
@@ -105,8 +103,7 @@ public class DeliveryRouteService {
     List<Integer> visitOrder = computed.optimizedOrder();
     for (int visit = 0; visit < visitOrder.size(); visit++) {
       int inputIndex = visitOrder.get(visit);
-      // Defesa: a ordem otimizada já é validada em GoogleRoutesService, mas um índice fora de
-      // faixa aqui estouraria IndexOutOfBounds (500). Falha cedo e clara.
+      // Defensive: an out-of-range index would throw IndexOutOfBounds (500). Fail early and clearly.
       if (inputIndex < 0 || inputIndex >= orders.size()) {
         throw new BusinessException(
             "Rota calculada com parada inválida (índice fora do intervalo)");
@@ -135,8 +132,8 @@ public class DeliveryRouteService {
 
     DeliveryRoute saved = deliveryRouteRepository.saveAndFlush(route);
 
-    // Saiu para entrega: pedidos confirmados transitam para IN_DELIVERY (efeitos + notificação
-    // pela máquina de estados do OrderService — antes o app pulava direto p/ DELIVERED).
+    // Out for delivery: CONFIRMED orders transition to IN_DELIVERY (side effects + notification
+    // via OrderService's state machine).
     for (Order order : orders) {
       if (order.getStatus() == OrderStatus.CONFIRMED) {
         orderService.updateOrderStatus(order.getId(), OrderStatus.IN_DELIVERY, jwt);
@@ -147,14 +144,13 @@ public class DeliveryRouteService {
   }
 
   /**
-   * Rota ativa do produtor — permite retomar a sequência depois de fechar/matar o app.
+   * Producer's active route — lets them resume the sequence after closing/killing the app.
    *
-   * <p>Faz <b>self-heal</b> ao resumir: reconcilia paradas cujo PEDIDO já terminou por fora do
-   * fluxo de parada (cliente confirmou a entrega, cancelamento) e fecha a rota se todas terminaram.
-   * É a rede de segurança do {@link #syncStopForTerminalOrder}: cobre qualquer parada que tenha
-   * ficado dessincronizada por corrida (produtor + listener simultâneos, sem lock/@Version nas
-   * entidades de rota) ou por falha best-effort do listener — sem isto a rota voltava como
-   * "fantasma" aqui (ACTIVE com paradas presas em PENDING cujos pedidos já estavam DELIVERED).
+   * <p>Self-heals on resume: reconciles stops whose ORDER already finished outside the stop flow
+   * (customer-confirmed delivery, cancellation) and closes the route if all are terminal. Safety net
+   * for {@link #syncStopForTerminalOrder}: covers stops left desynced by a race (producer + listener,
+   * no lock/@Version on route entities) or by the listener's best-effort failure, preventing a
+   * "ghost" route (ACTIVE with PENDING stops whose orders are already DELIVERED).
    */
   @Transactional
   public RouteResponse getActiveRoute(Jwt jwt) {
@@ -176,27 +172,26 @@ public class DeliveryRouteService {
   }
 
   /**
-   * Fecha a rota ativa anterior antes de criar a nova. Reconcilia as paradas primeiro para que uma
-   * rota cujos pedidos já terminaram feche como COMPLETED (histórico honesto); só o que sobrou
-   * genuinamente aberto vira CANCELLED. O {@code saveAndFlush} aqui é obrigatório, não cosmético:
-   * no flush o Hibernate executa INSERTs antes de UPDATEs, então sem o flush imediato a nova rota
-   * ACTIVE entraria no banco antes do UPDATE desta, violando {@code
-   * uq_delivery_routes_farmer_active}.
+   * Closes the previous active route before creating the new one. Reconciles stops first so a route
+   * whose orders already finished closes as COMPLETED (honest history); only genuinely-open routes
+   * become CANCELLED. The {@code saveAndFlush} is required: Hibernate runs INSERTs before UPDATEs, so
+   * without it the new ACTIVE route would insert before this UPDATE, violating
+   * {@code uq_delivery_routes_farmer_active}.
    */
   private void retirePreviousRoute(DeliveryRoute previous) {
     reconcileStopsWithOrders(previous);
     if (!completeIfAllStopsTerminal(previous)) {
       previous.setStatus(DeliveryRouteStatus.CANCELLED);
       previous.setCompletedAt(OffsetDateTime.now());
-      // Fora de entrega ativa a posição não é compartilhada (privacidade).
+      // Position not shared outside an active delivery (privacy).
       trackingService.clearRoute(previous.getId());
     }
     deliveryRouteRepository.saveAndFlush(previous);
   }
 
   /**
-   * Alinha cada parada não-terminal ao status do PEDIDO quando ele terminou por fora do fluxo de
-   * parada (cliente confirmou a entrega, cancelamento). Retorna se algo mudou.
+   * Aligns each non-terminal stop to its ORDER's status when the order finished outside the stop flow
+   * (customer-confirmed delivery, cancellation). Returns whether anything changed.
    */
   private boolean reconcileStopsWithOrders(DeliveryRoute route) {
     boolean changed = false;
@@ -218,23 +213,23 @@ public class DeliveryRouteService {
     return changed;
   }
 
-  /** Fecha a rota se todas as paradas estão terminais (DELIVERED/FAILED) e encerra o tracking. */
+  /** Closes the route if all stops are terminal (DELIVERED/FAILED) and stops tracking. */
   private boolean completeIfAllStopsTerminal(DeliveryRoute route) {
     boolean allDone =
         route.getStops().stream().allMatch(s -> TERMINAL_STOP_STATUSES.contains(s.getStatus()));
     if (allDone) {
       route.setStatus(DeliveryRouteStatus.COMPLETED);
       route.setCompletedAt(OffsetDateTime.now());
-      // Fora de entrega ativa a posição não é compartilhada (privacidade).
+      // Position not shared outside an active delivery (privacy).
       trackingService.clearRoute(route.getId());
     }
     return allDone;
   }
 
   /**
-   * Atualiza o status de uma parada (ARRIVED → chegada; DELIVERED conclui o pedido pela máquina
-   * de estados; FAILED registra tentativa frustrada sem mexer no pedido). Quando todas as paradas
-   * terminam, a rota fecha como COMPLETED. Nenhuma chamada ao Google acontece aqui.
+   * Updates a stop's status (ARRIVED = arrival; DELIVERED completes the order via the state machine;
+   * FAILED records a failed attempt without touching the order). When all stops are terminal the
+   * route closes as COMPLETED. No Google calls here.
    */
   @Transactional(noRollbackFor = BusinessException.class)
   public RouteResponse updateStop(
@@ -260,10 +255,10 @@ public class DeliveryRouteService {
 
     validateStopTransition(stop.getStatus(), newStatus);
 
-    // Concluir a entrega exige o código do consumidor — delega ao confirmDeliveryWithCode (mesma
-    // validação + lockout 5/15min do detalhe do pedido). Valida ANTES de marcar a parada: código
-    // errado lança e a parada NÃO vira terminal; o contador de tentativas ainda persiste, porque o
-    // noRollbackFor desta @Transactional impede o rollback do incremento gravado lá dentro.
+    // Completing delivery requires the customer's code — delegates to confirmDeliveryWithCode (same
+    // validation + 5/15min lockout). Validated BEFORE marking the stop: a wrong code throws and the
+    // stop stays non-terminal, while the attempt counter still persists (this @Transactional's
+    // noRollbackFor keeps the increment written inside).
     if (newStatus == RouteStopStatus.DELIVERED) {
       if (code == null || code.isBlank()) {
         throw new BusinessException("Código de confirmação obrigatório para concluir a entrega");
@@ -281,7 +276,7 @@ public class DeliveryRouteService {
     if (allDone) {
       route.setStatus(DeliveryRouteStatus.COMPLETED);
       route.setCompletedAt(OffsetDateTime.now());
-      // Fora de entrega ativa a posição não é compartilhada (privacidade).
+      // Position not shared outside an active delivery (privacy).
       trackingService.clearRoute(route.getId());
     }
 
@@ -290,17 +285,15 @@ public class DeliveryRouteService {
   }
 
   /**
-   * Sincroniza a parada quando o PEDIDO chega a um estado terminal por FORA do fluxo de parada — o
-   * caso real é o cliente confirmando a entrega em {@code POST /orders/customer/{id}/confirm-delivery}
-   * (mexe só no pedido). Sem isto a parada ficava PENDING para sempre: a rota nunca fechava (virava
-   * "rota fantasma" no {@code GET /routes/active}) e o produtor nem conseguia marcar a parada depois
-   * (o pedido já terminal recusava a transição). DELIVERED → parada DELIVERED; CANCELLED → FAILED;
-   * se todas terminam, a rota fecha.
+   * Syncs the stop when the ORDER reaches a terminal state OUTSIDE the stop flow — the real case is
+   * the customer confirming delivery via {@code POST /orders/customer/{id}/confirm-delivery} (touches
+   * only the order). Without this the stop stays PENDING forever: the route never closes (becomes a
+   * "ghost route") and the producer can't mark it later (terminal order rejects the transition).
+   * DELIVERED → stop DELIVERED; CANCELLED → FAILED; if all terminal, the route closes.
    *
-   * <p>Roda em transação própria (REQUIRES_NEW), disparada por um listener AFTER_COMMIT — é
-   * best-effort: o pedido já foi confirmado/cancelado e nada aqui pode desfazer isso. O guard de
-   * "parada já terminal" torna o caminho do produtor (que já sincroniza tudo em {@link #updateStop})
-   * um no-op, evitando reprocessamento.
+   * <p>Runs in its own transaction (REQUIRES_NEW) via an AFTER_COMMIT listener — best-effort: the
+   * order is already confirmed/cancelled and nothing here can undo it. The "stop already terminal"
+   * guard makes the producer path (which syncs in {@link #updateStop}) a no-op, avoiding reprocessing.
    */
   @Transactional(propagation = Propagation.REQUIRES_NEW)
   public void syncStopForTerminalOrder(UUID orderId, OrderStatus orderStatus) {
@@ -309,7 +302,7 @@ public class DeliveryRouteService {
             .findByOrderIdAndRouteStatus(orderId, DeliveryRouteStatus.ACTIVE)
             .orElse(null);
     if (located == null) {
-      return; // pedido não está numa rota ativa — nada a sincronizar
+      return; // order not on an active route — nothing to sync
     }
 
     DeliveryRoute route =
@@ -324,7 +317,7 @@ public class DeliveryRouteService {
             .findFirst()
             .orElse(null);
     if (stop == null || TERMINAL_STOP_STATUSES.contains(stop.getStatus())) {
-      return; // já sincronizada pelo fluxo do produtor — evita reprocessar
+      return; // already synced by the producer flow — avoid reprocessing
     }
 
     stop.setStatus(
@@ -354,16 +347,15 @@ public class DeliveryRouteService {
   }
 
   /**
-   * Coordenadas da parada: usa o snapshot congelado na compra; sem lat/lng (endereço cadastrado
-   * com a key ausente, p.ex.), geocodifica o texto UMA vez aqui — falha vira erro acionável em
-   * vez do geocode embutido (e cobrado) dentro de cada chamada de rota, como era antes.
+   * Stop coordinates: uses the snapshot frozen at purchase; if lat/lng are missing, geocodes the text
+   * ONCE here so a failure becomes an actionable error instead of a paid geocode per route call.
    */
   private GeoPoint resolveCoordinates(Order order, AddressSnapshot snapshot, String addressText) {
     if (snapshot != null && snapshot.getLatitude() != null && snapshot.getLongitude() != null) {
       return new GeoPoint(snapshot.getLatitude(), snapshot.getLongitude());
     }
-    // Aceita coordenada aproximada (AMBIGUOUS): suficiente para rotear. Só falha quando o Google
-    // não devolve NENHUMA coordenada (endereço inexistente) — aí a rota não tem como ser montada.
+    // Accepts approximate (AMBIGUOUS) coordinates: enough to route. Fails only when Google returns NO
+    // coordinate at all (nonexistent address) — then the route can't be built.
     GeocodeOutcome outcome = googleMapsService.geocode(addressText);
     if (!outcome.hasCoordinates()) {
       throw new BusinessException(
@@ -374,7 +366,7 @@ public class DeliveryRouteService {
     return new GeoPoint(outcome.latitude(), outcome.longitude());
   }
 
-  /** Baseline CO2: ida-e-volta individual a cada parada (Route Matrix; fallback haversine). */
+  /** Baseline CO2: individual round trip to each stop (Route Matrix; haversine fallback). */
   private BigDecimal computeBaseline(GeoPoint origin, List<GeoPoint> points) {
     List<BigDecimal> distances = googleRoutesService.distancesFromOrigin(origin, points);
     BigDecimal oneWaySum;

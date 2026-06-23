@@ -9,16 +9,13 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestClient;
 
 /**
- * {@link RestClient} dedicado da Google Routes API, com timeouts explícitos.
+ * Dedicated {@link RestClient} for the Google Routes API with explicit timeouts.
  *
- * <p>O {@code RestClient.Builder} autoconfigurado do Boot não tem read-timeout: uma chamada que
- * trava no meio da leitura bloquearia o worker (e a conexão do pool) indefinidamente — e, pior,
- * impediria o retry de transporte de {@link br.com.ragro.service.GoogleRoutesService} de disparar.
- * Por isso timeouts são pré-requisito do retry, não opcional.
+ * <p>Boot's autoconfigured builder has no read-timeout; without one a stalled read blocks the worker
+ * indefinitely and the transport retry in {@link br.com.ragro.service.GoogleRoutesService} never fires.
  *
- * <p>Read 10s porque {@code computeRoutes} com {@code TRAFFIC_AWARE} + otimização de ordem para até
- * 25 paradas leva legitimamente alguns segundos; um read mais curto abortaria chamadas tarifadas que
- * o Google estava prestes a concluir. Connect 2s é folgado para o endpoint anycast do Google.
+ * <p>Read 10s: {@code computeRoutes} with {@code TRAFFIC_AWARE} + optimization for up to 25 stops takes
+ * a few seconds (shorter would abort billed calls). Connect 2s for Google's anycast endpoint.
  */
 @Configuration
 public class GoogleRoutesClientConfig {

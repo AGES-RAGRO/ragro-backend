@@ -8,8 +8,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.validation.annotation.Validated;
 
 /**
- * Limites por minuto do {@link RateLimitFilter}. Endpoints públicos de auth são limitados por IP
- * (não há usuário ainda); endpoints autenticados de custo externo (LLM, Google Maps) por usuário.
+ * Per-minute limits for {@link RateLimitFilter}. Public auth endpoints are limited by IP (no user
+ * yet); authenticated endpoints with external cost (LLM, Google Maps) are limited per user.
  */
 @Getter
 @Setter
@@ -18,22 +18,22 @@ import org.springframework.validation.annotation.Validated;
 @ConfigurationProperties(prefix = "ragro.rate-limit")
 public class RateLimitProperties {
 
-  /** Desliga o filtro inteiro (ex.: profile de teste). */
+  /** Turns off the whole filter (e.g. test profile). */
   private boolean enabled = true;
 
-  /** POST /auth/register/** — por IP. Mitiga cadastro em massa e enumeração. */
+  /** POST /auth/register/** — per IP. Mitigates mass signup and enumeration. */
   @Min(1)
   private int registerPerMinute = 5;
 
-  /** POST /auth/password/forgot — por IP. Mitiga e-mail bombing via Keycloak. */
+  /** POST /auth/password/forgot — per IP. Mitigates email bombing via Keycloak. */
   @Min(1)
   private int forgotPerMinute = 5;
 
-  /** GET /recommendations — por usuário. Protege o custo de chamadas de LLM. */
+  /** GET /recommendations — per user. Protects against the cost of LLM calls. */
   @Min(1)
   private int recommendationsPerMinute = 10;
 
-  /** /routes/** — por usuário. Protege a quota/custo da API do Google. */
+  /** /routes/** — per user. Protects the Google API quota/cost. */
   @Min(1)
   private int routesPerMinute = 10;
 }

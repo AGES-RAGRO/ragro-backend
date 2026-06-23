@@ -13,8 +13,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Purge diário da trilha GPS além da janela de retenção (7 dias — decisão de produto, base LGPD:
- * suporte/disputas). Mantém apenas a contagem nos logs, nunca coordenadas.
+ * Daily purge of the GPS trail beyond the 7-day retention window (LGPD; kept for support/disputes).
+ * Logs only the count, never coordinates.
  */
 @Component
 @EnableScheduling

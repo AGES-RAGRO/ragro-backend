@@ -8,8 +8,8 @@ import java.util.UUID;
 import org.springframework.stereotype.Component;
 
 /**
- * Última posição por rota em memória, com expiração por inatividade (rota abandonada sem fechar
- * não retém localização para sempre). Suficiente para 1 task ECS; ver {@link PositionStore}.
+ * Last position per route, in memory, expiring on inactivity (an abandoned route doesn't keep its
+ * location forever). Sufficient for 1 ECS task; see {@link PositionStore}.
  */
 @Component
 public class InMemoryPositionStore implements PositionStore {

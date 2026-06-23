@@ -326,8 +326,8 @@ class StockMovementServiceTest {
     return farmer;
   }
 
-  // Após o E7, os services pedem papel via userService.requireRole(...). Nos testes mockados,
-  // delega ao getAuthenticatedUser já stubado e replica a regra (403 quando o tipo diverge).
+  // Services check role via userService.requireRole(...); this stub delegates to the already-stubbed
+  // getAuthenticatedUser and replicates the rule (403 when the type mismatches).
   private void stubRequireRoleDelegatingToAuthenticatedUser() {
     org.mockito.Mockito.lenient()
         .when(

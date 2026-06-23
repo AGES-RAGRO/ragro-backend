@@ -54,10 +54,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class OrderService {
 
   /**
-   * Máquina de estados única do pedido. Toda transição passa por {@link #applyTransition} (ou por
-   * {@link #applyCancellation}, que valida via {@link #isCancellableStatus}); antes desta tabela,
-   * {@code updateOrderStatus} aceitava qualquer transição sem efeitos de estoque/auditoria
-   * (auditoria Fase 0, achado A3).
+   * Single order state machine. Every transition goes through {@link #applyTransition} (or
+   * {@link #applyCancellation}, which validates via {@link #isCancellableStatus}).
    */
   private static final Map<OrderStatus, Set<OrderStatus>> VALID_TRANSITIONS =
       Map.of(
@@ -68,13 +66,13 @@ public class OrderService {
           OrderStatus.CANCELLED, Set.of());
 
   private static final int DEFAULT_PAGE_SIZE = 20;
-  /** Teto para o {@code size} vindo do cliente — evita página gigante sob demanda. */
+  /** Cap on client-supplied {@code size} — avoids an oversized page on demand. */
   private static final int MAX_PAGE_SIZE = 100;
 
   private static final int MAX_CONFIRMATION_ATTEMPTS = 5;
   private static final int LOCKOUT_MINUTES = 15;
 
-  /** Código de confirmação é segredo de autorização da entrega — SecureRandom, não Random. */
+  /** Confirmation code is a delivery-authorization secret — SecureRandom, not Random. */
   private static final SecureRandom CONFIRMATION_CODE_RANDOM = new SecureRandom();
 
   private final UserService userService;
@@ -147,10 +145,9 @@ public class OrderService {
   }
 
   /**
-   * Legacy cancel entry-point (backward compatible with {@code PATCH /orders/{id}/cancel}). Routes
-   * to the role-specific flow: CUSTOMER cancels their own order, FARMER refuses an incoming one.
-   * Stock is credited back only for orders that had already debited it (CONFIRMED/IN_DELIVERY);
-   * PENDING orders never debit stock (D26), so cancelling them leaves stock untouched.
+   * Cancel entry-point ({@code PATCH /orders/{id}/cancel}). Routes to the role-specific flow: CUSTOMER
+   * cancels their own order, FARMER refuses an incoming one. Stock is credited back only for orders
+   * that already debited it (CONFIRMED/IN_DELIVERY); PENDING never debits stock (D26).
    */
   @Transactional
   public OrderResponse cancelOrder(UUID orderId, Jwt jwt, CancelOrderRequest request) {
@@ -166,7 +163,7 @@ public class OrderService {
 
   /**
    * Customer cancels their own order (PENDING, CONFIRMED or IN_DELIVERY). Stock debited at
-   * confirmation is restored via {@link #applyCancellation}; PENDING orders never debited it.
+   * confirmation is restored via {@link #applyCancellation}.
    */
   @Transactional
   public OrderResponse cancelOrderAsCustomer(UUID orderId, Jwt jwt, CancelOrderRequest request) {
@@ -190,8 +187,8 @@ public class OrderService {
   }
 
   /**
-   * Farmer refuses an incoming order. Records {@code REFUSED_BY_FARMER} so the history stays
-   * distinguishable from a customer-driven cancellation.
+   * Farmer refuses an incoming order. Records {@code REFUSED_BY_FARMER} to keep history distinct from
+   * a customer-driven cancellation.
    */
   @Transactional
   public OrderResponse refuseOrderAsFarmer(UUID orderId, Jwt jwt, CancelOrderRequest request) {
@@ -213,9 +210,7 @@ public class OrderService {
     return OrderMapper.toResponse(savedOrder, storageService);
   }
 
-  /**
-   * Customer confirms that an in-delivery order was received. Transitions IN_DELIVERY → DELIVERED.
-   */
+  /** Customer confirms an in-delivery order was received. IN_DELIVERY → DELIVERED. */
   @Transactional
   public OrderResponse confirmDelivery(UUID orderId, Jwt jwt) {
     Order order =
@@ -237,16 +232,13 @@ public class OrderService {
   }
 
   /**
-   * Produtor confirma que um pedido IN_DELIVERY foi recebido pelo consumidor, validado por um
-   * código de 4 dígitos exibido no app do consumidor. Transiciona IN_DELIVERY → DELIVERED, com
-   * proteção anti-brute-force (bloqueio após {@value #MAX_CONFIRMATION_ATTEMPTS} tentativas por
-   * {@value #LOCKOUT_MINUTES} minutos).
+   * Producer confirms an IN_DELIVERY order was received, validated by a 4-digit code shown in the
+   * customer's app. IN_DELIVERY → DELIVERED, with anti-brute-force (lockout after
+   * {@value #MAX_CONFIRMATION_ATTEMPTS} attempts for {@value #LOCKOUT_MINUTES} minutes).
    */
-  // noRollbackFor: as tentativas/lockout são gravadas com saveAndFlush e EM SEGUIDA lança-se
-  // BusinessException (código errado). Como BusinessException é unchecked, o rollback padrão
-  // desfazia esse incremento — zerando o contador a cada request e anulando o anti-brute-force
-  // (5 tentativas / 15 min). As demais BusinessException deste método lançam antes de alterar
-  // estado, então não reverter nelas é seguro.
+  // noRollbackFor: a wrong code persists the attempt/lockout via saveAndFlush THEN throws
+  // BusinessException; default rollback would undo that increment, defeating the anti-brute-force.
+  // Other BusinessExceptions here throw before mutating state, so not rolling back is safe.
   @Transactional(noRollbackFor = BusinessException.class)
   public OrderResponse confirmDeliveryWithCode(UUID orderId, String code, Jwt jwt) {
     Order order =
@@ -280,7 +272,7 @@ public class OrderService {
       throw new BusinessException("Código de confirmação incorreto");
     }
 
-    // Código correto — zera os contadores antes de confirmar.
+    // Correct code — reset counters before confirming.
     order.setConfirmationAttempts(0);
     order.setConfirmationLockedUntil(null);
 
@@ -293,7 +285,7 @@ public class OrderService {
     return OrderMapper.toResponse(savedOrder, storageService);
   }
 
-  /** Gera um código de confirmação aleatório de 4 dígitos com zero à esquerda (ex.: "0042"). */
+  /** Random 4-digit confirmation code, zero-padded (e.g. "0042"). */
   private String generateConfirmationCode() {
     return String.format("%04d", CONFIRMATION_CODE_RANDOM.nextInt(10_000));
   }
@@ -304,7 +296,7 @@ public class OrderService {
    */
   private boolean applyCancellation(Order order, CancelOrderRequest request, String defaultReason) {
     if (order.getStatus() == OrderStatus.CANCELLED) {
-      return false; // idempotent: already cancelled, don't re-apply or duplicate history
+      return false; // idempotent: already cancelled
     }
 
     OrderStatus previousStatus = order.getStatus();
@@ -323,10 +315,8 @@ public class OrderService {
     order.setCancellationReason(reason);
     order.setCancellationDetails(details);
 
-    // Restore stock that was debited at confirmation. Per decision D26 a PENDING order never
-    // debits stock, so we only credit it back when the order had already moved to CONFIRMED or
-    // IN_DELIVERY (where confirmOrder ran registerSale). Without this, cancelling a confirmed
-    // order silently loses the debited quantity.
+    // Restore stock debited at confirmation. PENDING never debits (D26), so only credit back from
+    // CONFIRMED/IN_DELIVERY (where confirmOrder ran registerSale).
     if (previousStatus == OrderStatus.CONFIRMED || previousStatus == OrderStatus.IN_DELIVERY) {
       order
           .getItems()
@@ -348,8 +338,7 @@ public class OrderService {
 
   /**
    * Lists the authenticated customer's orders, newest first. {@code status}, {@code page} and
-   * {@code size} are optional: without them the full list is returned (backward compatible with
-   * the mobile app, which also already sent {@code status} — it was silently ignored before).
+   * {@code size} are optional: without them the full list is returned.
    */
   @Transactional(readOnly = true)
   public List<CustomerOrderResponse> getMyOrders(
@@ -387,7 +376,7 @@ public class OrderService {
   private Pageable buildPageable(Integer page, Integer size) {
     Sort sort = Sort.by(Sort.Direction.DESC, "createdAt");
     if (page == null && size == null) {
-      // Compatibilidade: sem parâmetros, devolve a lista inteira como antes da paginação.
+      // No params: return the whole list unpaged.
       return Pageable.unpaged(sort);
     }
     return PageRequest.of(
@@ -431,10 +420,9 @@ public class OrderService {
   }
 
   /**
-   * Único ponto de entrada genérico de transição pelo produtor. Cada status delega para o fluxo
-   * com os efeitos corretos: CONFIRMED debita estoque ({@link #confirmOrder}), CANCELLED devolve
-   * estoque e grava motivo ({@link #refuseOrderAsFarmer}), IN_DELIVERY/DELIVERED passam pela
-   * máquina de estados. Antes, qualquer transição era aceita sem efeito colateral (achado A3).
+   * Generic producer-driven transition entry point. Each status delegates to the flow with the right
+   * effects: CONFIRMED debits stock ({@link #confirmOrder}), CANCELLED restores stock and records the
+   * reason ({@link #refuseOrderAsFarmer}), IN_DELIVERY/DELIVERED go through the state machine.
    */
   @Transactional
   public OrderResponse updateOrderStatus(UUID orderId, OrderStatus newStatus, Jwt jwt) {
@@ -444,9 +432,8 @@ public class OrderService {
       case CONFIRMED -> confirmOrder(orderId, jwt);
       case CANCELLED -> refuseOrderAsFarmer(orderId, jwt, null);
       case IN_DELIVERY -> applyFarmerTransition(orderId, jwt, newStatus);
-      // DELIVERED NÃO é alcançável por esta via genérica: concluir a entrega exige o código do
-      // consumidor, validado só em confirmDeliveryWithCode (com lockout). Antes, este caminho
-      // marcava DELIVERED sem código — furava a confirmação de entrega.
+      // DELIVERED is NOT reachable here: completing delivery requires the customer's code, validated
+      // only in confirmDeliveryWithCode (with lockout).
       case DELIVERED ->
           throw new BusinessException(
               "Para concluir a entrega, informe o código de confirmação do consumidor");
@@ -498,7 +485,7 @@ public class OrderService {
     return OrderMapper.toResponse(updatedOrder, storageService);
   }
 
-  /** Valida contra {@link #VALID_TRANSITIONS}, aplica o status e registra o histórico. */
+  /** Validates against {@link #VALID_TRANSITIONS}, applies the status and records history. */
   private void applyTransition(Order order, OrderStatus newStatus) {
     Set<OrderStatus> allowed = VALID_TRANSITIONS.getOrDefault(order.getStatus(), Set.of());
     if (!allowed.contains(newStatus)) {
@@ -507,21 +494,20 @@ public class OrderService {
     }
     order.setStatus(newStatus);
     if (newStatus == OrderStatus.IN_DELIVERY) {
-      // Gera um código de confirmação novo apenas na transição real para IN_DELIVERY. A máquina de
-      // estados só permite CONFIRMED→IN_DELIVERY (nunca reentra), então o reenvio do status não
-      // reinicia o código já exibido ao consumidor (regressão corrigida no commit 16714ed).
+      // New code only on the real transition to IN_DELIVERY. The state machine only allows
+      // CONFIRMED→IN_DELIVERY (never re-enters), so re-sending the status won't reset the shown code.
       order.setConfirmationCode(generateConfirmationCode());
       order.setConfirmationAttempts(0);
       order.setConfirmationLockedUntil(null);
     }
     if (newStatus == OrderStatus.DELIVERED) {
-      // Record the delivery time — dashboard metrics filter by deliveredAt.
+      // Dashboard metrics filter by deliveredAt.
       order.setDeliveredAt(OffsetDateTime.now());
     }
     appendStatusHistory(order, newStatus);
   }
 
-  /** Registra a entrada de histórico via cascade da coleção (persistida junto com o pedido). */
+  /** Adds a history entry via collection cascade (persisted with the order). */
   private void appendStatusHistory(Order order, OrderStatus status) {
     OrderStatusHistory history = new OrderStatusHistory();
     history.setOrder(order);

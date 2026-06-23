@@ -1,7 +1,6 @@
 name: Terraform Plan
 
-# Roda SÓ quando algo em infra/ muda — não dispara nos pushes normais de código.
-# É read-only: faz fmt/validate/plan e comenta o resultado na PR. Não aplica nada.
+# Runs only on infra/ changes. Read-only: fmt/validate/plan and comments the result on the PR.
 on:
   pull_request:
     branches: [main, develop]
@@ -18,8 +17,7 @@ jobs:
   plan:
     name: Plan (${{ matrix.env }})
     runs-on: ubuntu-latest
-    # Um job por ambiente. Cada ambiente usa as credenciais (secrets) e os
-    # valores (variables) do GitHub Environment de mesmo nome.
+    # One job per env, using secrets/variables from the same-named GitHub Environment.
     strategy:
       fail-fast: false
       matrix:
@@ -121,7 +119,7 @@ jobs:
               });
             }
 
-            // Sinaliza visualmente na lista de PRs que este toca a infra.
+            // Label so infra-touching PRs stand out in the list.
             try {
               await github.rest.issues.addLabels({
                 owner: context.repo.owner,

@@ -327,7 +327,7 @@ class RecommendationServiceTest {
     stubFarmerIds(customer.getId(), List.of());
     // Signal 2: co-occurrence returns coProduct
     stubCoOccurrence(customer.getId(), List.of(purchasedId), List.of(coProduct.getId()));
-    // co-occurrence agora filtra produtos de produtores ativos (findAllByIdAndFarmerUserActiveTrue)
+    // Co-occurrence filters to active-producer products (findAllByIdAndFarmerUserActiveTrue).
     when(productRepository.findAllByIdAndFarmerUserActiveTrue(List.of(coProduct.getId())))
         .thenReturn(List.of(coProduct));
     // Signal 3: findAllById with purchasedIds to extract categories (none here)
@@ -557,7 +557,7 @@ class RecommendationServiceTest {
         Map.of("sub", "customer-sub", "email", "customer@example.com"));
   }
 
-  // ─── Cache (E4): hit serve do cache; miss responde heurística e aquece assíncrono ──────────
+  // ─── Cache: hit serves from cache; miss returns heuristic and warms async ──────────
 
   @Test
   void getRecommendations_shouldServeFromCache_withoutTouchingLlm_whenCacheHit() {
@@ -590,9 +590,8 @@ class RecommendationServiceTest {
             List.of(
                 new RankedRecommendation(
                     cachedProduct.getId(), 95, RecommendationReason.LLM_RERANKED)));
-    // Fix #17: the cache-hit re-hydration must go through findAllByIdAndFarmerUserActiveTrue (which
-    // filters product AND farmer active) — NOT the bare findAllById that leaked inactive-producer
-    // products from the cache.
+    // Cache-hit re-hydration must use findAllByIdAndFarmerUserActiveTrue (filters product AND
+    // farmer active), not the bare findAllById that leaked inactive-producer products.
     when(productRepository.findAllByIdAndFarmerUserActiveTrue(List.of(cachedProduct.getId())))
         .thenReturn(List.of(cachedProduct));
 
@@ -603,16 +602,15 @@ class RecommendationServiceTest {
     assertThat(response.getRecommendations().get(0).getScore()).isEqualTo(95);
     verifyNoInteractions(llmRerankerPort);
     verify(warmupService, never()).warmAsync(any(), any(), any(), any());
-    // Fix #17 guard: active-filtering query is used; the unfiltered one is never called on the
-    // cache-hit path.
+    // Active-filtering query is used; the unfiltered one is never called on the cache-hit path.
     verify(productRepository).findAllByIdAndFarmerUserActiveTrue(List.of(cachedProduct.getId()));
     verify(productRepository, never()).findAllById(any());
   }
 
   @Test
   void getRecommendations_shouldDropInactiveProducerProduct_onCacheHit() {
-    // Fix #17: a product whose producer went inactive after being cached must not leak. The
-    // filtering query returns nothing for it, so the cache-hit response drops it.
+    // A product whose producer went inactive after caching must not leak; the filtering query
+    // returns nothing for it, so the cache-hit response drops it.
     org.springframework.test.util.ReflectionTestUtils.setField(
         recommendationService, "cacheEnabled", true);
     User customer = buildCustomer();
@@ -637,8 +635,8 @@ class RecommendationServiceTest {
                     activeProduct.getId(), 90, RecommendationReason.LLM_RERANKED),
                 new RankedRecommendation(
                     inactiveProducerProduct.getId(), 80, RecommendationReason.LLM_RERANKED)));
-    // The filtering query only returns the active-producer product; the inactive one is excluded
-    // server-side (exactly the leak the fix closes).
+    // The filtering query returns only the active-producer product; the inactive one is excluded
+    // server-side.
     when(productRepository.findAllByIdAndFarmerUserActiveTrue(
             List.of(activeProduct.getId(), inactiveProducerProduct.getId())))
         .thenReturn(List.of(activeProduct));
@@ -696,7 +694,7 @@ class RecommendationServiceTest {
 
     RecommendationResponse response = recommendationService.getRecommendations(request, jwt());
 
-    // Só o produto da categoria pedida sobrevive ao filtro por-chamada (o de Verduras some).
+    // Only the requested-category product survives the per-call filter (Verduras drops out).
     assertThat(response.getRecommendations()).hasSize(1);
     assertThat(response.getRecommendations().get(0).getScore()).isEqualTo(90);
   }
@@ -736,7 +734,7 @@ class RecommendationServiceTest {
     RecommendationResponse response =
         recommendationService.getRecommendations(defaultRequest(), jwt());
 
-    // Resposta imediata com a ordenação heurística; a LLM roda só no warm-up assíncrono.
+    // Immediate response with heuristic ordering; the LLM runs only in the async warm-up.
     assertThat(response.getRecommendations()).isNotEmpty();
     verifyNoInteractions(llmRerankerPort);
     verify(warmupService).warmAsync(eq(customer.getId()), any(), any(), any());

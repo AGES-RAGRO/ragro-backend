@@ -23,8 +23,6 @@ public class PaymentMethodRequest {
       requiredMode = Schema.RequiredMode.REQUIRED)
   private String type;
 
-  // ── PIX ──────────────────────────────────────────────────────────────────────
-
   @Pattern(
       regexp = "cpf|cnpj|email|phone|random",
       message = "PIX key type must be one of: cpf, cnpj, email, phone, random")
@@ -34,8 +32,6 @@ public class PaymentMethodRequest {
   @Size(max = 100, message = "PIX key must contain at most 100 characters")
   @Schema(description = "PIX key value", example = "joao@email.com")
   private String pixKey;
-
-  // ── Bank account ─────────────────────────────────────────────────────────────
 
   @Size(max = 3, message = "Bank code must contain at most 3 characters")
   @Schema(description = "Bank ISPB/code (3 digits)", example = "001")

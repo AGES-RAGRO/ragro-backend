@@ -719,7 +719,6 @@ class ProducerServiceTest {
 
     ProducerUpdateRequest request = new ProducerUpdateRequest();
     request.setName("Só nome");
-    // paymentMethod == null
 
     when(userService.getAuthenticatedUser(jwt)).thenReturn(farmer);
     when(producerRepository.findDetailedById(producerId)).thenReturn(Optional.of(producer));
@@ -1011,8 +1010,6 @@ class ProducerServiceTest {
     verify(farmerAvailabilityRepository, times(1)).deleteByFarmerId(producerId);
     verify(farmerAvailabilityRepository, never()).save(any(FarmerAvailability.class));
   }
-
-  // ─── helpers ────────────────────────────────────────────────────────────────
 
   private AvailabilityRequest buildAvailabilityRequest(
       Short weekday, String opensAt, String closesAt) {
@@ -1390,7 +1387,7 @@ class ProducerServiceTest {
  
     producerService.getProducerLocations();
  
-    // Já tem coordenadas: o AddressGeocoder retorna false (skip interno) e nada é persistido.
+    // Already has coordinates: AddressGeocoder returns false (internal skip), nothing persisted.
     verify(addressRepository, never()).save(any(Address.class));
   }
  
@@ -1413,7 +1410,7 @@ class ProducerServiceTest {
  
     producerService.getProducerLocations();
  
-    // Endereço incompleto: o AddressGeocoder retorna false (skip interno) e nada é persistido.
+    // Incomplete address: AddressGeocoder returns false (internal skip), nothing persisted.
     verify(addressRepository, never()).save(any(Address.class));
   }
  

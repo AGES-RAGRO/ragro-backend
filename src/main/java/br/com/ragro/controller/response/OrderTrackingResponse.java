@@ -7,39 +7,36 @@ import lombok.Builder;
 import lombok.Getter;
 
 /**
- * Snapshot de rastreamento de UM pedido para o SEU cliente ({@code GET /orders/{id}/tracking}).
- * Usado como estado inicial da tela e como fallback de polling quando o WebSocket cai. Payload
- * mínimo por privacidade: nada sobre as demais paradas além da contagem à frente.
+ * Tracking snapshot of ONE order for ITS customer ({@code GET /orders/{id}/tracking}): initial
+ * screen state and polling fallback when the WebSocket drops. Privacy-minimal: only the count of stops ahead.
  */
 @Getter
 @Builder
 public class OrderTrackingResponse {
 
-  /** false quando o pedido não está em rota ativa (sem posição para compartilhar). */
+  /** false when the order is not on an active route (no position to share). */
   private boolean available;
 
-  /** Id da rota ativa — canal STOMP: /topic/routes/{routeId}. */
+  /** Active route id — STOMP channel: /topic/routes/{routeId}. */
   private UUID routeId;
 
   private BigDecimal producerLatitude;
   private BigDecimal producerLongitude;
   private OffsetDateTime recordedAt;
 
-  /** Destino desta entrega (do snapshot do pedido). */
+  /** Destination of this delivery (from the order snapshot). */
   private BigDecimal destinationLatitude;
   private BigDecimal destinationLongitude;
 
   private Integer etaSeconds;
   private int stopsBefore;
 
-  /** Status da parada desta entrega: PENDING | ARRIVED | DELIVERED | FAILED. */
+  /** Stop status of this delivery: PENDING | ARRIVED | DELIVERED | FAILED. */
   private String stopStatus;
 
   /**
-   * Polyline codificada (Google) do caminho até ESTA entrega — recortada no servidor ao trecho
-   * [posição atual do produtor (ou origem) → parada do cliente], para desenhar no mapa. Não inclui
-   * as paradas seguintes nem a volta à origem (privacidade entre clientes da rota). Vem só neste
-   * snapshot (não nos broadcasts de posição).
+   * Encoded polyline (Google), server-clipped to [producer's current position (or origin) → customer's stop].
+   * Excludes following stops and return-to-origin (privacy). Only in this snapshot, not in position broadcasts.
    */
   private String overviewPolyline;
 }

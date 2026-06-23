@@ -23,9 +23,8 @@ public class UserService {
   }
 
   /**
-   * Resolves the authenticated user from JWT claims. Lookup strategy (D6): 1. Try
-   * findByAuthSub(sub) 2. If not found, try findByEmail(email) and self-heal auth_sub 3. If neither
-   * matches, throw UnauthorizedException
+   * Resolves the authenticated user from JWT claims: findByAuthSub(sub), else findByEmail(email) with
+   * auth_sub self-heal, else UnauthorizedException.
    */
   @Transactional
   public User getAuthenticatedUser(Jwt jwt) {
@@ -43,17 +42,13 @@ public class UserService {
                   userRepository
                       .findByEmail(email)
                       .orElseThrow(() -> new UnauthorizedException("Usuário não autenticado"));
-              // Self-heal: update auth_sub so future lookups hit the fast path
+              // Self-heal auth_sub so future lookups hit the fast path
               user.setAuthSub(sub);
               return userRepository.save(user);
             });
   }
 
-  /**
-   * Autentica e exige o papel informado — substitui o bloco "getAuthenticatedUser + if(type!=X)
-   * throw" repetido ~25× pelos services (auditoria Fase 0). Sempre 403 com mensagem em português
-   * (antes dois sites lançavam 401 com mensagem em inglês para a MESMA regra).
-   */
+  /** Authenticates and requires the given role, always throwing 403 on mismatch. */
   @Transactional
   public User requireRole(Jwt jwt, TypeUser type, String forbiddenMessage) {
     User user = getAuthenticatedUser(jwt);

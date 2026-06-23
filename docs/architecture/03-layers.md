@@ -31,6 +31,9 @@ public class AuthController {
 - Controllers must not contain business logic
 - Controllers must not call repositories directly
 - One controller per domain/resource
+- Controllers may reference domain entities/enums (e.g. `User`, `OrderStatus`) as method types, but must not expose them in HTTP response bodies
+
+> **WebSocket flavor:** `TrackingWsController` is a STOMP `@Controller` (not `@RestController`). It handles `@MessageMapping("/routes/{routeId}/position")`, returns `void`, and rebroadcasts accepted positions via `SimpMessagingTemplate` rather than returning a response DTO. The "never return JPA entities" rule still applies, but the HTTP request/response shape above does not.
 
 ---
 
@@ -45,11 +48,12 @@ Contains all business logic and orchestration:
 
 ```java
 @Service
-public class UserService {
+public class CustomerRegistrationService {
 
-    public UserResponse addUser(Jwt jwt, UserRequest request) {
+    @Transactional
+    public CustomerRegistrationResponse register(CustomerRegistrationRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new BusinessException("Email already registered");
+            throw new ConflictException(REGISTRATION_CONFLICT_MESSAGE);
         }
         // ... create user
     }
@@ -121,23 +125,23 @@ public class User {
 Dedicated classes for converting between entities and DTOs:
 
 ```java
-public class UserMapper {
+@UtilityClass
+public class CustomerMapper {
 
-    public static User toEntity(UserRequest request) {
-        User user = new User();
-        user.setName(request.getName());
-        user.setEmail(request.getEmail());
-        user.setPhone(request.getPhone());
-        user.setActive(true);
-        return user;
+    public static Customer toEntity(User user, String fiscalNumber) {
+        Customer customer = new Customer();
+        customer.setUser(user);
+        customer.setFiscalNumber(fiscalNumber);
+        return customer;
     }
 
-    public static UserResponse toResponse(User entity) {
-        UserResponse response = new UserResponse();
-        response.setId(entity.getId());
-        response.setName(entity.getName());
-        // ...
-        return response;
+    public static CustomerResponse toResponse(User user) {
+        return CustomerResponse.builder()
+            .id(user.getId())
+            .name(user.getName())
+            .email(user.getEmail())
+            // ...
+            .build();
     }
 }
 ```
@@ -149,19 +153,63 @@ public class UserMapper {
 
 ---
 
+### Ports & Adapters (service/api + service/impl)
+
+A few capabilities are isolated behind a hexagonal-style port/adapter split:
+
+- `service/api` holds the port interfaces: `LlmRerankerPort`, `PositionStore`, `IdentityProviderService`.
+- `service/impl` holds the adapters: `SpringAiRerankerAdapter` / `DisabledRerankerAdapter` (NVIDIA reranker via Spring AI, toggled by configuration), `InMemoryPositionStore` (live GPS positions for tracking), and `KeycloakIdentityProviderService`.
+
+**Rules:**
+- Regular services depend on the port interface in `service/api`, never on a concrete adapter
+- Adapters in `service/impl` are the only place where the external integration (Spring AI client, in-memory store, Keycloak admin client) is wired up
+
+---
+
+### Event & Listener Layer
+
+The application uses Spring application events for decoupled, post-commit side effects:
+
+- Event types live in `event/` (`OrderPushNotificationEvent`) and `domain/event/` (`OrderStatusChangedEvent`).
+- Listeners react to them: `listener/PushNotificationListener` sends FCM push, while `service/OrderNotificationListener` and `service/RouteStopSyncListener` handle notification persistence and route-stop synchronization.
+
+**Rules:**
+- Listeners run after the publishing transaction commits, so failures in a side effect do not roll back the originating business operation
+- Publish an event instead of calling another service directly when the work is a fire-and-forget side effect (push, sync)
+
+---
+
+### Validation Layer
+
+Custom Jakarta Bean Validation constraints live in `validation/`:
+
+- Constraint annotations: `ValidCpf`, `ValidFiscalNumber`.
+- Validator implementations: `CpfValidator`, `CnpjValidator`, `FiscalNumberValidator`.
+
+These back the `@Valid @RequestBody` validation that controllers trigger, so the format/check-digit rules for CPF and fiscal numbers are enforced declaratively on request DTOs.
+
+**Rules:**
+- Annotate request DTO fields with the custom constraint; the matching `ConstraintValidator` runs automatically
+- Validators contain only format/structural checks — uniqueness and other business rules stay in the service layer
+
+---
+
 ## Layer Dependency Rules
 
 ```
 ┌──────────────────────────────────────────────────────┐
 │  controller/                                          │
 │    MAY import:     service/, controller.request/,     │
-│                    controller.response/                │
-│    MAY NOT import: repository/, domain/ (directly)    │
+│                    controller.response/,               │
+│                    domain/ + domain.enums/ (as types)  │
+│    MAY NOT import: repository/                         │
 ├──────────────────────────────────────────────────────┤
 │  service/                                             │
 │    MAY import:     repository/, domain/, mapper/,     │
-│                    exception/                          │
-│    MAY NOT import: controller/                        │
+│                    exception/, event/,                 │
+│                    controller.request/,                │
+│                    controller.response/                │
+│    MAY NOT import: controller (REST classes)          │
 ├──────────────────────────────────────────────────────┤
 │  repository/                                          │
 │    MAY import:     domain/                            │

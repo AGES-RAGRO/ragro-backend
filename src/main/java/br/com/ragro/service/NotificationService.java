@@ -36,10 +36,6 @@ public class NotificationService {
   private final UserService userService;
   private final ApplicationEventPublisher applicationEventPublisher;
 
-  // ---------------------------------------------------------------------------
-  // Customer read operations
-  // ---------------------------------------------------------------------------
-
   @Transactional(readOnly = true)
   public PaginatedResponse<NotificationResponse> getMyCustomerNotifications(
       Jwt jwt, Pageable pageable) {
@@ -61,10 +57,6 @@ public class NotificationService {
     markAllAsReadFor(requireCustomer(jwt));
   }
 
-  // ---------------------------------------------------------------------------
-  // Producer read operations
-  // ---------------------------------------------------------------------------
-
   @Transactional(readOnly = true)
   public PaginatedResponse<NotificationResponse> getMyProducerNotifications(
       Jwt jwt, Pageable pageable) {
@@ -85,10 +77,6 @@ public class NotificationService {
   public void markAllMyProducerNotificationsAsRead(Jwt jwt) {
     markAllAsReadFor(requireFarmer(jwt));
   }
-
-  // ---------------------------------------------------------------------------
-  // Shared read helpers (recipient-agnostic)
-  // ---------------------------------------------------------------------------
 
   private PaginatedResponse<NotificationResponse> listFor(User user, Pageable pageable) {
     return PaginatedResponse.of(
@@ -120,10 +108,6 @@ public class NotificationService {
     notificationRepository.markAllAsReadByUserId(user.getId(), OffsetDateTime.now());
   }
 
-  // ---------------------------------------------------------------------------
-  // FCM token registration
-  // ---------------------------------------------------------------------------
-
   @Transactional
   public void saveToken(Jwt jwt, String token) {
     User user = userService.getAuthenticatedUser(jwt);
@@ -134,10 +118,6 @@ public class NotificationService {
     fcmToken.setToken(normalizedToken);
     fcmTokenRepository.save(fcmToken);
   }
-
-  // ---------------------------------------------------------------------------
-  // Customer-facing order notifications
-  // ---------------------------------------------------------------------------
 
   @Transactional
   public void createCustomerOrderAcceptedNotification(Order order) {
@@ -151,9 +131,7 @@ public class NotificationService {
 
   @Transactional
   public void createCustomerOrderInDeliveryNotification(Order order) {
-    // O código só existe enquanto o pedido está IN_DELIVERY; este método é
-    // chamado nessa transição, mas guardamos contra nulo para nunca exibir
-    // "código null" caso seja invocado fora desse fluxo.
+    // Code only exists while IN_DELIVERY; guard against null so we never show a null code.
     String code = order.getConfirmationCode();
     String message =
         (code == null || code.isBlank())
@@ -186,10 +164,6 @@ public class NotificationService {
         "Pedido foi recusado",
         "O produtor recusou o seu pedido.");
   }
-
-  // ---------------------------------------------------------------------------
-  // Producer-facing order notifications
-  // ---------------------------------------------------------------------------
 
   @Transactional
   public void createProducerNewOrderNotification(Order order) {
@@ -227,10 +201,6 @@ public class NotificationService {
         new OrderPushNotificationEvent(
             recipient.getId(), title, baseMessage, order.getId(), type, NotificationReferenceType.ORDER));
   }
-
-  // ---------------------------------------------------------------------------
-  // Producer-facing stock notifications
-  // ---------------------------------------------------------------------------
 
   @Transactional
   public void createProducerLowStockNotification(Product product) {

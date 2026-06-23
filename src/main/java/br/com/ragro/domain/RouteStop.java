@@ -20,7 +20,7 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 
-/** Parada ordenada de uma {@link DeliveryRoute}, 1:1 com o pedido entregue nela. */
+/** Ordered stop within a {@link DeliveryRoute}, 1:1 with the order delivered at it. */
 @Entity
 @Table(name = "route_stops")
 @Getter
@@ -42,7 +42,7 @@ public class RouteStop {
   @JoinColumn(name = "order_id", nullable = false)
   private Order order;
 
-  /** Posição na rota otimizada (0-based, ordem de visita). */
+  /** Position within the optimized route (0-based, visit order). */
   @Column(name = "sequence", nullable = false)
   private int sequence;
 
@@ -59,14 +59,14 @@ public class RouteStop {
   @Column(name = "address_text", columnDefinition = "text")
   private String addressText;
 
-  /** Distância/duração da leg que CHEGA nesta parada (da parada anterior ou da origem). */
+  /** Distance/duration of the leg ARRIVING at this stop (from the previous stop or the origin). */
   @Column(name = "leg_distance_km", precision = 10, scale = 2)
   private BigDecimal legDistanceKm;
 
   @Column(name = "leg_duration_seconds")
   private Integer legDurationSeconds;
 
-  /** ETA absoluto estimado na criação da rota (com trânsito do momento). */
+  /** Absolute ETA estimated at route creation (using traffic at that moment). */
   @Column(name = "eta")
   private OffsetDateTime eta;
 

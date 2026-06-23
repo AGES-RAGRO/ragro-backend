@@ -5,7 +5,7 @@ import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-/** Registra o {@link RateLimitFilter} fora da security chain (ver javadoc do filtro). */
+/** Registers the {@link RateLimitFilter} outside the security chain (see the filter's javadoc). */
 @Configuration
 public class RateLimitConfig {
 
@@ -14,8 +14,8 @@ public class RateLimitConfig {
       RateLimitProperties properties, ObjectMapper objectMapper) {
     FilterRegistrationBean<RateLimitFilter> registration =
         new FilterRegistrationBean<>(new RateLimitFilter(properties, objectMapper));
-    // springSecurityFilterChain roda em order -100; 0 garante execução DEPOIS da security chain,
-    // com SecurityContext populado (chave por usuário) e sem consumir orçamento de requests 401.
+    // Order 0 runs after the security chain (order -100): SecurityContext is populated for the
+    // per-user key, and 401 requests don't consume budget.
     registration.setOrder(0);
     registration.addUrlPatterns("/auth/*", "/recommendations", "/routes", "/routes/*");
     return registration;

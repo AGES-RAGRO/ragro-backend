@@ -61,9 +61,8 @@ public class Product {
   private BigDecimal stockQuantity = BigDecimal.ZERO;
 
   /**
-   * Lock otimista: registerSale/registerCancelledSale fazem read-modify-write no estoque; sem
-   * versão, duas confirmações concorrentes do mesmo produto perdiam update silenciosamente. Em
-   * conflito, o JPA lança OptimisticLockException → 409 no GlobalExceptionHandler.
+   * Optimistic lock guarding the stock read-modify-write (registerSale/registerCancelledSale) against
+   * concurrent updates. On conflict JPA throws OptimisticLockException → 409 in GlobalExceptionHandler.
    */
   @jakarta.persistence.Version
   @Column(name = "version", nullable = false)

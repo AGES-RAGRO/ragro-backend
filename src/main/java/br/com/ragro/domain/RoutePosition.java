@@ -18,8 +18,8 @@ import lombok.Setter;
 import lombok.ToString;
 
 /**
- * Ponto da trilha GPS do produtor durante uma rota ativa. Dado pessoal de localização: retenção
- * de 7 dias (purge diário), nunca logado em logs gerais.
+ * A producer's GPS trail point during an active route. Personal location data: 7-day retention
+ * (daily purge), never written to general logs.
  */
 @Entity
 @Table(name = "route_positions")

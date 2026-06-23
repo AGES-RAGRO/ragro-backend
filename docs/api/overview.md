@@ -55,6 +55,20 @@ Endpoints are protected based on Keycloak group membership:
 
 Roles are extracted from the `groups` claim and mapped to Spring Security authorities with the `ROLE_` prefix (e.g., `ADMIN` → `ROLE_ADMIN`).
 
+### Public endpoints
+
+A dedicated higher-priority filter chain (`SecurityConfig`, `@Order(1)`) permits unauthenticated access to the following routes, and ignores any token that is presented (so a stale token never `401`s a public route):
+
+- `POST /auth/register/customer`
+- `POST /auth/password/forgot`
+- `GET /auth/config`
+- `/media/**`
+- `/actuator/health`
+- `/co2/options`, `/co2/total-saved`, `/co2/calculate`
+- Swagger UI / `/v3/api-docs` documentation routes
+
+All other endpoints require a valid JWT and are governed by the RBAC rules above.
+
 ---
 
 ## Error Format
@@ -66,7 +80,7 @@ When a request fails, the API returns a standardized JSON error response:
   "timestamp": "2026-03-30T12:00:00",
   "status": 400,
   "error": "Email already registered",
-  "path": "/users"
+  "path": "/auth/register/customer"
 }
 ```
 
@@ -74,9 +88,14 @@ Common HTTP error codes:
 
 | Code | Exception | Meaning |
 |------|-----------|---------|
-| `400` | `BusinessException` | Business rule violation (e.g., duplicate email) |
+| `400` | `BusinessException`, validation (`MethodArgumentNotValidException`/`BindException`), `MaxUploadSizeExceededException` | Business rule violation (e.g., duplicate email), invalid request body, or file too large |
 | `401` | `UnauthorizedException` | Token missing, expired, or user not found |
+| `403` | `ForbiddenException`, `AccessDeniedException` | Authenticated but not allowed (`AccessDeniedException` returns `"Acesso negado"`) |
 | `404` | `NotFoundException` | Resource does not exist |
+| `409` | `ConflictException`, optimistic-lock / data-integrity conflict | Concurrent or conflicting update |
+| `422` | `GoogleApiException` (`INVALID_INPUT`) | Invalid input rejected by a Google integration (Geocoding/Routes) |
+| `503` | `GoogleApiException` (`QUOTA`/`TRANSIENT`) | Google integration unavailable; includes a `Retry-After` header |
+| `500` | `InternalServerException`, catch-all | Unexpected server error |
 
 ---
 
@@ -85,20 +104,35 @@ Common HTTP error codes:
 List endpoints support pagination via query parameters:
 
 ```
-GET /producers?page=0&size=20
+GET /producers?page=0&size=10
 ```
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `page` | `int` | `0` | Page number (0-indexed) |
-| `size` | `int` | `20` | Items per page |
+| `size` | `int` | per-endpoint | Items per page (defaults are per-endpoint `@RequestParam` values, not global — e.g. `GET /producers` defaults to `10`) |
+
+Paginated list endpoints return a `PaginatedResponse` envelope rather than Spring's default `Page` JSON:
+
+```json
+{
+  "content": [],
+  "page": 0,
+  "size": 10,
+  "totalElements": 0,
+  "totalPages": 0
+}
+```
 
 ---
 
 ## CORS
 
-CORS is configured to accept requests from all origins during development:
+CORS is configured in `CorsConfig` and does **not** use wildcards:
 
-- **Allowed Origins**: `*`
-- **Allowed Methods**: `*`
-- **Allowed Headers**: `*`
+- **Allowed Origin Patterns**: defaults to `http://localhost:*`, configurable via the `cors.allowed-origin-patterns` property (comma-separated; production must include the API Gateway and frontend URLs)
+- **Allowed Methods**: `GET`, `POST`, `PUT`, `DELETE`, `OPTIONS`, `PATCH`
+- **Allowed Headers**: `Content-Type`, `Authorization`
+- **Exposed Headers**: `Authorization`
+- **Allow Credentials**: `false` (stateless bearer-token API, no cookies)
+- **Max Age**: `3600` seconds

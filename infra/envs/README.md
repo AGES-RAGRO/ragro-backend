@@ -1,6 +1,6 @@
 # Ambientes Terraform
 
-O código `.tf` é o mesmo para todos os ambientes (AGES, cliente). Só mudam as
+O código `.tf` é o mesmo para todos os ambientes (AGES, prod). Só mudam as
 variáveis específicas de conta e o backend do state.
 
 ## Arquivos
@@ -34,3 +34,13 @@ e não Secrets porque não são segredos, apenas identificadores:
 
 A senha do RDS (quando criar o banco do zero) é a única coisa que vai em
 **Secret**, injetada como `TF_VAR_db_password`.
+
+Esses valores são lidos de **GitHub Environments** com o mesmo nome dos ambientes
+(`ages`, `prod`), consumidos por dois workflows que rodam um job por ambiente
+(`environment: ${{ matrix.env }}`):
+
+- **Terraform Plan** (`.github/workflows/terraform.yml`) — roda em PR que toca
+  `infra/**`, faz `fmt`/`validate`/`plan` e comenta o resultado no PR.
+- **Terraform Apply** (`.github/workflows/terraform-apply.yml`) — roda no push
+  para `main`, aplicando as mudanças automaticamente. A aprovação do PR é o
+  gate humano.

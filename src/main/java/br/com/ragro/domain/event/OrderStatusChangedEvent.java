@@ -5,17 +5,14 @@ import br.com.ragro.domain.enums.OrderStatus;
 import br.com.ragro.domain.enums.TypeUser;
 
 /**
- * Evento de domínio publicado a cada transição de status de pedido (in-process, via Spring
- * {@code ApplicationEventPublisher}). Hoje é consumido sincronicamente na mesma transação pelo
- * {@code OrderNotificationListener}; é também o ponto de extração natural para a futura etapa de
- * mensageria (basta trocar o listener por um publisher externo) e o gancho que o rastreamento em
- * tempo real (Fase 3) assinará.
+ * Domain event published on every order status transition via Spring {@code ApplicationEventPublisher}.
+ * Consumed synchronously in-transaction by {@code OrderNotificationListener}.
  *
- * @param order pedido já salvo com o novo status
- * @param previousStatus status anterior ({@code null} na criação do pedido)
- * @param newStatus status aplicado
- * @param initiatedBy papel de quem disparou a transição — decide, por exemplo, se o cliente é
- *     notificado de um cancelamento (produtor recusou) ou não (ele mesmo cancelou)
+ * @param order order already saved with the new status
+ * @param previousStatus previous status ({@code null} on order creation)
+ * @param newStatus applied status
+ * @param initiatedBy role that triggered the transition — e.g. decides whether the customer is
+ *     notified of a cancellation (producer rejected) or not (self-cancelled)
  */
 public record OrderStatusChangedEvent(
     Order order, OrderStatus previousStatus, OrderStatus newStatus, TypeUser initiatedBy) {}

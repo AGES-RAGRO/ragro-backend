@@ -15,9 +15,8 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 
 /**
- * Ingestão de posição via STOMP: o app do produtor envia {@code SEND
- * /app/routes/{routeId}/position} e cada ping aceito é retransmitido em {@code
- * /topic/routes/{routeId}} para os assinantes autorizados (produtor + clientes da rota).
+ * Position ingestion via STOMP: producer sends {@code SEND /app/routes/{routeId}/position}; each
+ * accepted ping is rebroadcast on {@code /topic/routes/{routeId}} to authorized subscribers.
  */
 @Controller
 @RequiredArgsConstructor

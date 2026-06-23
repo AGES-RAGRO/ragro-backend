@@ -10,8 +10,7 @@ import lombok.Setter;
 @Setter
 public class UpdateCartItemRequest {
 
-  // Mesma regra do AddToCartRequest: o domínio aceita quantidades fracionárias (ex.: 0.5 kg).
-  // O mínimo era 1, o que impedia decrementar um item adicionado com quantidade fracionária.
+  // Same rule as AddToCartRequest: fractional quantities allowed (e.g. 0.5 kg).
   @NotNull(message = "A quantidade é obrigatória")
   @DecimalMin(value = "0.001", message = "A quantidade deve ser maior que zero")
   private BigDecimal quantity;

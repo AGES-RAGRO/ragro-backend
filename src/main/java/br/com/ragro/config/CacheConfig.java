@@ -14,9 +14,8 @@ import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 /**
- * Cache in-memory (Caffeine) atrás da abstração Spring Cache — trocar para Redis na etapa de
- * múltiplas instâncias é só substituir o {@link CacheManager}. Hoje o único cache é o de
- * recomendações (ranking LLM por cliente, TTL configurável).
+ * In-memory Caffeine cache behind Spring's {@link CacheManager} (swap for Redis when multi-instance).
+ * Only cache today is recommendations (per-customer LLM ranking, configurable TTL).
  */
 @Configuration
 @EnableCaching
@@ -33,16 +32,14 @@ public class CacheConfig {
         Caffeine.newBuilder()
             .expireAfterWrite(Duration.ofHours(ttlHours))
             .maximumSize(10_000)
-            // Sem isto o Micrometer só registra cache.size; recordStats habilita
-            // cache.gets{result=hit|miss}, de onde sai o hit-rate (meta do E4).
+            // recordStats enables cache.gets{result=hit|miss} for hit-rate metrics (E4).
             .recordStats());
     return manager;
   }
 
   /**
-   * Executor dedicado do rerank assíncrono de recomendações. Pequeno de propósito: a chamada à
-   * NVIDIA demora segundos e 2 threads bastam para aquecer caches sem competir com o Tomcat; em
-   * pico, warm-ups excedentes ficam na fila (e a request já respondeu com a heurística).
+   * Executor for async recommendation rerank. Kept small (2 threads): warming caches without
+   * competing with Tomcat; the request already responded with the heuristic.
    */
   @Bean(name = "recommendationExecutor")
   public Executor recommendationExecutor() {
@@ -51,8 +48,7 @@ public class CacheConfig {
     executor.setMaxPoolSize(2);
     executor.setQueueCapacity(100);
     executor.setThreadNamePrefix("rec-warmup-");
-    // Warm-up é best-effort: em saturação, descarta o excedente em vez de lançar
-    // RejectedExecutionException (que quebraria a request que já respondeu com a heurística).
+    // Warm-up is best-effort: discard under saturation instead of throwing RejectedExecutionException.
     executor.setRejectedExecutionHandler(new ThreadPoolExecutor.DiscardPolicy());
     executor.initialize();
     return executor;

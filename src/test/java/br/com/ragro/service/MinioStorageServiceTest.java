@@ -417,8 +417,6 @@ class MinioStorageServiceTest {
     assertThatCode(service::bootstrapBucket).doesNotThrowAnyException();
   }
 
-  // ─── helpers ─────────────────────────────────────────────────────────
-
   private GetObjectResponse buildGetObjectResponse(
       byte[] bytes, String contentType, String contentLength) {
     Headers.Builder headersBuilder = new Headers.Builder();

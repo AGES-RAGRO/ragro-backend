@@ -18,8 +18,11 @@ This will:
 2. **Start** PostgreSQL with the schema applied automatically
 3. **Create** the `keycloak` database inside PostgreSQL (via `data/00-create-keycloak-db.sh`)
 4. **Start** Keycloak 26 with the pre-configured `ragro` realm
-5. **Wait** for the database to be ready
-6. **Start** the backend connected to the database and Keycloak
+5. **Start** MinIO (object storage for media) and Mailpit (SMTP testing)
+6. **Wait** for PostgreSQL and MinIO health checks to pass
+7. **Start** the backend connected to PostgreSQL, Keycloak, and MinIO
+
+> **Prerequisites:** copy `.env.example` to `.env` and fill in the required keys before bringing the stack up. `GOOGLE_MAPS_API_KEY` (geocoding + routes) has no default and must be set. `NVIDIA_API_KEY` (LLM reranker) and `FIREBASE_SERVICE_ACCOUNT_JSON` (FCM push) are optional — leave them empty to disable those features.
 
 ## Application Access
 
@@ -33,6 +36,14 @@ This will:
   - User: `postgres`
   - Password: `postgres`
   - Databases: `gearheads` (application), `keycloak` (Keycloak)
+- **MinIO Console**: http://localhost:9001 (API at http://localhost:9000)
+  - User: `minioadmin`
+  - Password: `minioadmin`
+  - Bucket: `ragro-media`
+- **Mailpit (email testing)**: http://localhost:8025 (SMTP at localhost:1025)
+  - Catches password-reset / verification emails sent via Keycloak
+
+> All published ports are bound to the loopback interface (`127.0.0.1`), so they are reachable only from the host machine.
 
 ## Docker Structure
 
@@ -61,31 +72,60 @@ This will:
   - Groups: `ADMIN`, `CUSTOMER`, `FARMER`
   - Mapper: `groups` claim in the JWT
   - Pre-configured test users
+  - Custom `ragro` login theme (mounted from `./keycloak/themes`) with pt-BR localization
+  - `smtpServer` pointing at the `mailpit` container (host `mailpit:1025`) for outgoing email
 - Depends on: PostgreSQL (waits for health check)
+
+#### Service: `minio`
+- Image: `quay.io/minio/minio:latest`
+- Object storage for media; the backend reads/writes here and serves files via `GET /media/**`
+- Root credentials: `minioadmin` / `minioadmin`, bucket `ragro-media`
+- Ports: `9000` (API), `9001` (console)
+- Health Check: `GET /minio/health/live`
+
+#### Service: `mailpit`
+- Image: `axllent/mailpit`
+- SMTP server + web UI for capturing outgoing email in development
+- Ports: `1025` (SMTP), `8025` (web UI)
+- Keycloak's realm `smtpServer` is wired to this container, so password-reset and verification emails land in the Mailpit inbox
 
 #### Service: `backend`
 - Built from `Dockerfile`
 - Migrations run automatically via Flyway (`src/main/resources/db/migration`)
-- Environment variables:
+- Key environment variables (see `.env.example` for the full template):
   - `SPRING_DATASOURCE_URL`: jdbc:postgresql://postgres:5432/gearheads
+  - `SPRING_DATASOURCE_USERNAME` / `SPRING_DATASOURCE_PASSWORD`: postgres / postgres
+  - `SPRING_JPA_HIBERNATE_DDL_AUTO`: validate (schema is owned by Flyway)
   - `KEYCLOAK_SERVER_URL`: http://keycloak:8180 (internal communication)
   - `KEYCLOAK_PUBLIC_URL`: http://localhost:8180 (Swagger UI / browser)
-  - `KEYCLOAK_ISSUER_URI`: http://keycloak:8180/realms/ragro
-  - `KEYCLOAK_JWK_SET_URI`: http://keycloak:8180/realms/ragro/protocol/openid-connect/certs
-- Depends on: PostgreSQL (waits for health check)
+  - `KEYCLOAK_ADMIN` / `KEYCLOAK_ADMIN_PASSWORD`: admin / admin
+  - `KEYCLOAK_ISSUER_URI`: http://localhost:8180/realms/ragro (must match the token issuer, i.e. the public URL)
+  - `KEYCLOAK_JWK_SET_URI`: http://keycloak:8180/realms/ragro/protocol/openid-connect/certs (internal hostname)
+  - `STORAGE_ENDPOINT`: http://minio:9000 (internal); `STORAGE_PUBLIC_URL`, `STORAGE_ACCESS_KEY`, `STORAGE_SECRET_KEY`, `STORAGE_BUCKET`
+  - `MEDIA_PUBLIC_URL`: base URL the backend uses for `GET /media/**` links
+  - `NVIDIA_API_KEY`: LLM reranker (optional; empty = disabled)
+  - `GOOGLE_MAPS_API_KEY`: geocoding + Google Routes (required, no default)
+  - `FIREBASE_SERVICE_ACCOUNT_JSON`: FCM push credentials (optional; empty = push disabled)
+- Depends on: PostgreSQL and MinIO (waits for both health checks)
 - Network: isolated in `ragro-network`
 
 ## Docker Files
 
 ```
 /Dockerfile                       - Backend Docker image (multi-stage)
-/docker-compose.yml               - Orchestration: postgres + keycloak + backend
-/docker-compose.test.yml          - Orchestration for tests
+/docker-compose.yml               - Orchestration: postgres + keycloak + minio + mailpit + backend
+/docker-compose.test.yml          - Orchestration for tests (postgres + backend only, fully env-driven)
+/.env.example                     - Template of required env vars (copy to .env)
 /.dockerignore                    - Files ignored in the build
 /src/main/resources/db/migration/ - Flyway migrations (schema and seed)
 /data/00-create-keycloak-db.sh    - Init script: creates keycloak database in postgres
 /keycloak/ragro-realm.json        - Pre-configured Keycloak realm
+/keycloak/themes/                 - Custom Keycloak login theme (ragro)
 ```
+
+### docker-compose.test.yml
+
+A trimmed compose used by CI / integration tests: only `postgres` and `backend`, no Keycloak/MinIO/Mailpit. Every value is interpolated from environment variables (`${POSTGRES_*}`, `${SPRING_*}`), typically supplied via an `.env.test` file or the CI environment.
 
 ## Configuration in application.yml
 
@@ -152,20 +192,20 @@ docker compose build --no-cache
 
 ### Start infrastructure only (for local dev)
 ```bash
-docker compose up postgres keycloak -d
+docker compose up postgres keycloak minio mailpit -d
 ```
 
 ## Troubleshooting
 
-### Port 5432, 8080, or 8180 already in use
+### Port 5432, 8080, 8180, 9000/9001, or 1025/8025 already in use
 
-Edit `docker-compose.yml` to use different ports:
+Edit `docker-compose.yml` to use different ports (keep the `127.0.0.1:` loopback prefix used throughout):
 
 ```yaml
 ports:
-  - "5433:5432"  # PostgreSQL
-  - "8081:8080"  # Backend
-  - "8181:8180"  # Keycloak
+  - "127.0.0.1:5433:5432"  # PostgreSQL
+  - "127.0.0.1:8081:8080"  # Backend
+  - "127.0.0.1:8181:8180"  # Keycloak
 ```
 
 ### Backend can't connect to PostgreSQL
@@ -207,19 +247,20 @@ This removes all volumes, forces a rebuild, reapplies the schema, and reimports 
 - **Network isolation**: services isolated in a custom network
 - **Health checks**: ensure readiness before starting dependencies
 
-## Production Security
+## Environment Configuration (`.env`)
 
-For production, consider:
+`docker-compose.yml` already interpolates several values from a local `.env` file (e.g. `STORAGE_PUBLIC_URL`, `MEDIA_PUBLIC_URL`, `NVIDIA_API_KEY`, `GOOGLE_MAPS_API_KEY`, `FIREBASE_SERVICE_ACCOUNT_JSON`). A committed `.env.example` documents every supported variable.
 
-```yaml
-# docker-compose.yml
-environment:
-  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-  SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
-  KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+```bash
+cp .env.example .env
+# then fill in GOOGLE_MAPS_API_KEY (required) and, if needed, NVIDIA_API_KEY / FIREBASE_SERVICE_ACCOUNT_JSON
 ```
 
-Use an `.env` file (not versioned):
+The `.env` file is gitignored — keep secrets out of version control.
+
+## Production Security
+
+For production, also override the default credentials via `.env` (do not rely on the `admin`/`postgres`/`minioadmin` defaults baked into the compose file):
 
 ```
 POSTGRES_PASSWORD=senha_segura

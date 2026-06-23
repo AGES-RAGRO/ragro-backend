@@ -57,7 +57,7 @@ class TrackingServiceTest {
   private RouteStop stop;
   private Order order;
 
-  /** Store simples em memória para os testes (sem Caffeine/expiração). */
+  /** Simple in-memory store for tests (no Caffeine/expiration). */
   static class FakePositionStore implements PositionStore {
     final Map<UUID, LastPosition> map = new HashMap<>();
 
@@ -160,7 +160,7 @@ class TrackingServiceTest {
   @Test
   void ingestPosition_shouldDiscardImpossibleJump() {
     when(deliveryRouteRepository.findWithStopsById(routeId)).thenReturn(Optional.of(route));
-    // Última posição aceita há 1s, a ~111 km de distância (1 grau de latitude) → ~400.000 km/h.
+    // Last accepted position 1s ago, ~111 km away (1 deg latitude) -> ~400,000 km/h.
     positionStore.put(
         routeId,
         new LastPosition(
@@ -193,7 +193,7 @@ class TrackingServiceTest {
 
     assertThat(trackingService.ingestPosition(routeId, farmerId, ping(-30.0, -51.0, 10.0)))
         .isPresent();
-    // Segundo ping imediato: descartado pelo intervalo mínimo (default 2s).
+    // Immediate second ping: discarded by the min interval (default 2s).
     assertThat(trackingService.ingestPosition(routeId, farmerId, ping(-30.001, -51.0, 10.0)))
         .isEmpty();
   }
@@ -229,15 +229,15 @@ class TrackingServiceTest {
 
   @Test
   void trackingForOrder_shouldReturnPolylineClippedToCustomerStop_notFullRoute() {
-    // Rota round-trip cuja polyline passa pela parada do cliente (-30.05/-51.05) e segue para
-    // uma parada FUTURA + volta à origem. O cliente não pode receber o trecho futuro/volta.
+    // Round-trip polyline that passes the customer's stop (-30.05/-51.05), then a FUTURE stop and
+    // back to origin. The customer must not receive the future/return segment.
     route.setOverviewPolyline(
         PolylineUtil.encode(
             java.util.List.of(
-                new PolylineUtil.Point(-30.00, -51.00), // origem
-                new PolylineUtil.Point(-30.05, -51.05), // parada DESTE cliente
-                new PolylineUtil.Point(-30.09, -51.09), // parada FUTURA (outro cliente)
-                new PolylineUtil.Point(-30.00, -51.00)))); // volta
+                new PolylineUtil.Point(-30.00, -51.00), // origin
+                new PolylineUtil.Point(-30.05, -51.05), // THIS customer's stop
+                new PolylineUtil.Point(-30.09, -51.09), // FUTURE stop (another customer)
+                new PolylineUtil.Point(-30.00, -51.00)))); // return
     when(routeStopRepository.findByOrderIdAndRouteStatus(
             order.getId(), DeliveryRouteStatus.ACTIVE))
         .thenReturn(Optional.of(stop));
@@ -250,7 +250,7 @@ class TrackingServiceTest {
         trackingService.trackingForOrder(order.getId(), order.getCustomer().getUser());
 
     var pts = PolylineUtil.decode(response.getOverviewPolyline());
-    // Termina na parada do cliente e nunca alcança a parada futura (-30.09).
+    // Ends at the customer's stop and never reaches the future stop (-30.09).
     assertThat(pts).isNotEmpty();
     assertThat(pts.get(pts.size() - 1).lat()).isCloseTo(-30.05, org.assertj.core.data.Offset.offset(1e-4));
     assertThat(pts).noneMatch(p -> p.lat() < -30.06);
@@ -313,9 +313,9 @@ class TrackingServiceTest {
 
   @Test
   void ingestPosition_shouldNotUpdateInMemoryState_whenPersistFails() {
-    // Fix #20: positionStore/lastAcceptedAt are updated only AFTER routePositionRepository.save
-    // succeeds. If the DB write throws, the in-memory state must keep its previous value (no
-    // "ghost" position, no rate-limit window consumed by a ping that was never persisted).
+    // positionStore/lastAcceptedAt update only AFTER routePositionRepository.save succeeds. If the
+    // DB write throws, in-memory state keeps its previous value (no ghost position, no rate-limit
+    // window consumed by a ping that was never persisted).
     when(deliveryRouteRepository.findWithStopsById(routeId)).thenReturn(Optional.of(route));
 
     OffsetDateTime previousTime = OffsetDateTime.now().minusSeconds(5);

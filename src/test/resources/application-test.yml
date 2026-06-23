@@ -23,16 +23,16 @@ spring:
     openai:
       api-key: test-key
 
-# Resolve os placeholders sem default do application.yml (credenciais são fail-fast em prod).
-# Nenhum teste fala com Keycloak/MinIO reais — os clients são construídos mas nunca conectam.
+# Fills application.yml placeholders that have no default (fail-fast in prod). No test hits real
+# Keycloak/MinIO — clients are built but never connect.
 keycloak:
   admin:
     password: test-admin
 
 ragro:
   rate-limit:
-    # Desligado nos testes para não interferir em suítes que repetem chamadas ao mesmo endpoint.
-    # O RateLimitFilterTest reabilita via @TestPropertySource.
+    # Off in tests so suites can repeat calls to the same endpoint. RateLimitFilterTest re-enables
+    # via @TestPropertySource.
     enabled: false
 
 minio:

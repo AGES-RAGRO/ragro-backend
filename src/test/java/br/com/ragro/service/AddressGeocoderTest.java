@@ -53,8 +53,7 @@ class AddressGeocoderTest {
 
   @Test
   void geocodeAndApply_shouldApplyApproximateCoordinates_whenAmbiguous() {
-    // AMBIGUOUS (ex.: praça/rua sem número exato) ainda traz lat/lng utilizável: aplica a
-    // coordenada e registra o status como aviso de qualidade.
+    // AMBIGUOUS still yields usable lat/lng: apply it, record status as a quality warning.
     when(googleMapsService.geocode(any()))
         .thenReturn(
             GeocodeOutcome.ambiguous(

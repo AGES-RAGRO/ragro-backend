@@ -3,7 +3,7 @@ package br.com.ragro.mapper;
 import br.com.ragro.controller.response.BankInfoResponse;
 import br.com.ragro.domain.PaymentMethod;
 
-/** Mapeamento compartilhado de {@link PaymentMethod} — usado pelo carrinho e pelos pedidos. */
+/** Shared {@link PaymentMethod} mapping — used by the cart and by orders. */
 public class PaymentMethodMapper {
 
   private PaymentMethodMapper() {}

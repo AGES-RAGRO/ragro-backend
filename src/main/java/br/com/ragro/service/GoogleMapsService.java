@@ -17,18 +17,17 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 /**
- * Geocodificação de endereços (Geocoding API, client Java oficial). O cálculo de rota migrou para
- * a Routes API nova em {@link GoogleRoutesService}; o {@code optimizeRoute} legado (Directions
- * API, rota efêmera) foi removido junto com {@code POST /routes/optimize}.
+ * Address geocoding (Geocoding API, official Java client). Route calculation lives in the new Routes
+ * API ({@link GoogleRoutesService}).
  */
 @Service
 @Slf4j
 public class GoogleMapsService {
 
   /**
-   * Resultado validado de uma geocodificação. {@code FAILED} nunca tem coordenadas; {@code
-   * AMBIGUOUS} (partial_match/precisão aproximada) AINDA traz lat/lng utilizáveis — a coordenada
-   * serve para rotear, o status é só um aviso de qualidade (ex.: cadastro pede confirmação).
+   * Validated result of a geocoding call. {@code FAILED} never carries coordinates; {@code AMBIGUOUS}
+   * (partial_match/approximate) still carries usable lat/lng — enough to route, the status is just a
+   * quality warning (e.g. registration asks for confirmation).
    */
   public record GeocodeOutcome(BigDecimal latitude, BigDecimal longitude, GeocodeStatus status) {
     public static GeocodeOutcome failed() {
@@ -43,7 +42,7 @@ public class GoogleMapsService {
       return status == GeocodeStatus.OK;
     }
 
-    /** Há uma coordenada utilizável (OK ou AMBIGUOUS aproximado). */
+    /** Whether there is a usable coordinate (OK or approximate AMBIGUOUS). */
     public boolean hasCoordinates() {
       return latitude != null && longitude != null;
     }
@@ -59,16 +58,15 @@ public class GoogleMapsService {
   }
 
   /**
-   * Geocodifica um endereço brasileiro com validação de qualidade: restringe à região BR, rejeita
-   * {@code partial_match} e precisão APPROXIMATE como AMBIGUOUS (antes, "Rua das Flores" podia
-   * geocodar em outra cidade e o pin aparecia errado silenciosamente). Nunca lança: falhas viram
-   * FAILED e o chamador decide (cadastro avisa o usuário; mapa filtra o produtor).
+   * Geocodes a Brazilian address with quality validation: restricts to BR, flags {@code partial_match}
+   * and APPROXIMATE precision as AMBIGUOUS. Never throws: failures become FAILED and the caller decides
+   * (registration warns the user; the map filters out the producer).
    */
   public GeocodeOutcome geocode(String address) {
     meterRegistry.counter("ragro.google.calls", "api", "geocoding").increment();
     try {
-      // components(country=BR) é filtro RÍGIDO (region("br") era só viés — podia retornar coords
-      // fora do Brasil em endereços ambíguos).
+      // components(country=BR) is a HARD filter (region("br") was only a bias and could return
+      // coords outside Brazil for ambiguous addresses).
       GeocodingResult[] results =
           GeocodingApi.geocode(context, address).components(ComponentFilter.country("BR")).await();
       if (results == null || results.length == 0) {
@@ -81,9 +79,8 @@ public class GoogleMapsService {
       LatLng location = best.geometry.location;
       BigDecimal lat = BigDecimal.valueOf(location.lat);
       BigDecimal lng = BigDecimal.valueOf(location.lng);
-      // partial_match ou precisão aproximada (ex.: praça/rua sem o número exato): a coordenada é
-      // utilizável para rotear; marca AMBIGUOUS como aviso de qualidade SEM descartar o lat/lng —
-      // antes isso bloqueava a montagem da rota com endereços levemente imprecisos.
+      // partial_match or approximate precision (e.g. street without exact number): coordinate is
+      // usable for routing; mark AMBIGUOUS as a quality warning WITHOUT discarding the lat/lng.
       if (best.partialMatch || best.geometry.locationType == LocationType.APPROXIMATE) {
         return GeocodeOutcome.ambiguous(lat, lng);
       }
@@ -95,13 +92,13 @@ public class GoogleMapsService {
       Thread.currentThread().interrupt();
       return GeocodeOutcome.failed();
     } catch (Exception e) {
-      // Não loga o endereço (rua/número/CEP = PII); o stacktrace basta para diagnóstico.
+      // Don't log the address (street/number/zip = PII); the stacktrace suffices.
       log.error("Failed to geocode address", e);
       return GeocodeOutcome.failed();
     }
   }
 
-  /** Sem o shutdown, o GeoApiContext deixa threads órfãs a cada redeploy. */
+  /** Without shutdown, GeoApiContext leaks orphan threads on each redeploy. */
   @PreDestroy
   public void shutdown() {
     context.shutdown();

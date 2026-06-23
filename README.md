@@ -2,7 +2,9 @@
 
 REST API for the RAGRO platform — connecting urban customers with local family farmers.
 
-**Stack:** Java 21 · Spring Boot 3.3 · PostgreSQL 16 · Keycloak 26 · Docker
+**Stack:** Java 21 · Spring Boot 3.5.14 · PostgreSQL 16 · Keycloak 26 · MinIO · Docker
+
+Highlights: delivery-route optimization (Google Routes API), real-time GPS tracking (WebSocket/STOMP), CO2-savings tracking, LLM-powered recommendations (Spring AI → NVIDIA), and FCM push notifications.
 
 ---
 
@@ -25,8 +27,11 @@ REST API for the RAGRO platform — connecting urban customers with local family
 | [Error Handling](docs/architecture/05-error-handling.md) | Exception hierarchy and standardized error responses |
 | **Standards** | |
 | [Conventions](docs/conventions.md) | Naming, coding, database, and workflow conventions |
+| [Gitflow](docs/GITFLOW.md) | Branching model and pull-request workflow |
+| **Operations** | |
+| [Docker Setup](docs/DOCKER_README.md) | Running the full stack (backend, PostgreSQL, Keycloak, MinIO, Mailpit) with Docker Compose |
 | **Reference** | |
-| [Database](docs/database.md) | Full schema documentation — 21 tables, ER diagram, triggers |
+| [Database](docs/database.md) | Full schema documentation — 26 tables, ER diagram, triggers |
 | [Product Backlog](docs/backlog_ragro.md) | All epics, user stories, and acceptance criteria |
 
 ---
@@ -62,6 +67,7 @@ docker compose up --build
 This starts:
 - `ragro-postgres` — PostgreSQL 16 on port `5432`
 - `ragro-keycloak` — Keycloak 26 on port `8180`, pre-configured with realm `ragro`
+- `ragro-minio` — MinIO object storage on port `9000` (bucket `ragro-media`, serves uploaded media)
 - `ragro-backend` — Spring Boot API on port `8080` (applies Flyway migrations automatically)
 
 **3. Verify the services are running**
@@ -142,13 +148,13 @@ All protected endpoints require a **Bearer JWT token** issued by Keycloak.
 
 ### Pre-configured test users
 
-These users are created automatically in both **Keycloak** (`keycloak/ragro-realm.json`) and the **database** (`src/main/resources/db/migration/V2__seed_test_users.sql`) when Docker starts from scratch. They are ready to use with no manual setup.
+The **Keycloak** realm (`keycloak/ragro-realm.json`) ships with the three accounts below. In the **database**, however, migration `V18__remove_seed_test_customers_farmers.sql` removes the seeded customer and farmer rows, so after all Flyway migrations run only the **admin** is seeded in `users`. To exercise the customer/farmer flows, register an account via the public registration endpoint (see below), which creates the matching `users` + `customers` row.
 
-| Email | Password | Role | DB Table |
-|-------|----------|------|----------|
-| `admin@ragro.com.br` | `Admin@123` | ADMIN | `users` only |
-| `customer@ragro.com.br` | `Test@123` | CUSTOMER | `users` + `customers` |
-| `farmer@ragro.com.br` | `Test@123` | FARMER | `users` + `farmers` |
+| Email | Password | Role | DB seed (after migrations) |
+|-------|----------|------|----------------------------|
+| `admin@ragro.com.br` | `Admin@123` | ADMIN | `users` (seeded) |
+| `customer@ragro.com.br` | `Test@123` | CUSTOMER | Keycloak only — register to create the DB row |
+| `farmer@ragro.com.br` | `Test@123` | FARMER | Keycloak only — register to create the DB row |
 
 ### Obtaining a token (via curl)
 
@@ -183,6 +189,8 @@ curl -X POST http://localhost:8080/auth/register/customer \
 
 This creates the user in both Keycloak and the application database. The user can then log in immediately.
 
+Other public (no-token) `/auth` endpoints handled by the public security chain are `GET /auth/config` (client config for the app) and `POST /auth/password/forgot` (request a password-reset email). The reset itself (`POST /auth/password/reset`) and `GET /auth/session` are authenticated.
+
 See [Security docs](docs/architecture/04-security.md) for the full authentication flow.
 
 ---
@@ -213,11 +221,20 @@ Swagger UI is integrated with Keycloak's OAuth2 password flow — no need to cop
 
 ### Available Endpoints in Swagger
 
-- **Authentication** — Customer registration (`/auth/register/customer`)
-- **Users** — User profile operations (`/users/me`)
+The API exposes 20 controllers. The main groups:
+
+- **Auth** — Registration, config, password forgot/reset, session (`/auth/**`)
 - **Customers** — Customer-specific operations (requires `ROLE_CUSTOMER`)
+- **Producers** — Producer-specific operations (requires `ROLE_FARMER`)
 - **Admin** — Administrative endpoints (requires `ROLE_ADMIN`)
-- **Farmer** — Farmer-specific operations (requires `ROLE_FARMER`)
+- **Products** / **Search** / **Stock** — Product catalog, search, and inventory
+- **Cart** / **Orders** — Shopping cart and order placement
+- **Order Tracking** / **Routes** — Delivery-route optimization and order tracking, plus real-time GPS via WebSocket/STOMP (`TrackingWsController`)
+- **Co2** — CO2-savings calculation and tracking (`/co2`)
+- **Recommendations** — LLM-powered product recommendations (`/recommendations`)
+- **Reviews** / **Favorites** — Product reviews and favorite producers
+- **Media** — Uploaded media served via `GET /media/**` (MinIO)
+- **Notifications** — Push (FCM) and in-app notifications (customer/producer)
 
 ### API Documentation Files
 
@@ -240,6 +257,15 @@ Swagger UI is integrated with Keycloak's OAuth2 password flow — no need to cop
 | `KEYCLOAK_JWK_SET_URI` | `http://localhost:8180/realms/ragro/protocol/openid-connect/certs` | JWKS endpoint for JWT signature verification |
 | `KEYCLOAK_ADMIN` | `admin` | Keycloak admin username (used for user registration via Admin API) |
 | `KEYCLOAK_ADMIN_PASSWORD` | `admin` | Keycloak admin password |
+| `STORAGE_ENDPOINT` | `http://localhost:9000` | MinIO/S3 endpoint for object storage |
+| `STORAGE_BUCKET` | `ragro-media` | Bucket name for uploaded media |
+| `STORAGE_ACCESS_KEY` | — | MinIO/S3 access key |
+| `STORAGE_SECRET_KEY` | — | MinIO/S3 secret key |
+| `MINIO_PUBLIC_URL` | `http://localhost:9000` | Client-facing media base URL (use `10.0.2.2` on the Android emulator) |
+| `GOOGLE_MAPS_API_KEY` | — | Server-side Google Maps key for route optimization (Routes API) and geocoding |
+| `FIREBASE_SERVICE_ACCOUNT_JSON` | — | Firebase service-account JSON (single line) for FCM push notifications |
+| `NVIDIA_API_KEY` | — | NVIDIA LLM API key for the recommendation re-ranker (optional; falls back to heuristic) |
+| `NVIDIA_MODEL` | `meta/llama-3.1-8b-instruct` | NVIDIA model used by the re-ranker (use an instruct, non-reasoning model) |
 
 ---
 
@@ -264,12 +290,17 @@ src/
   main/
     java/br/com/ragro/       # Application source code
       config/                 # Security, CORS, Keycloak converters, OpenAPI
-      controller/             # REST endpoints and DTOs
-      domain/                 # JPA entities and enums
-      service/                # Business logic
+      controller/             # REST + WebSocket endpoints
+        request/              #   request DTOs
+        response/             #   response DTOs
+      domain/                 # JPA entities (also enums/, llm/, event/, specification/)
+      service/                # Business logic (api/ interfaces, impl/ implementations)
       repository/             # Data access (Spring Data JPA)
       mapper/                 # Entity <-> DTO converters
       exception/              # Custom exceptions and global handler
+      validation/             # Custom Bean Validation constraints
+      event/                  # Application events
+      listener/               # Event listeners (e.g. post-commit FCM dispatch)
     resources/
       application.yml         # Configuration
 data/
@@ -281,6 +312,8 @@ src/
         migration/
           V1__initial_schema.sql      # Initial schema migration
           V2__seed_test_users.sql     # Seed users synced with Keycloak
+          ...                         # 23 migrations total (V1–V24, V15 skipped)
+          V24__route_positions.sql    # Latest migration (real-time GPS positions)
 keycloak/
   ragro-realm.json            # Pre-configured Keycloak realm (groups, client, test users)
 docs/

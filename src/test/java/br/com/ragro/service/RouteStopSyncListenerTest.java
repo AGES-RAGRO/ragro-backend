@@ -58,7 +58,7 @@ class RouteStopSyncListenerTest {
         .when(deliveryRouteService)
         .syncStopForTerminalOrder(e.order().getId(), OrderStatus.DELIVERED);
 
-    // Não deve propagar (o pedido já foi confirmado; sync é best-effort).
+    // Must not propagate (order is already confirmed; sync is best-effort).
     listener.onOrderStatusChanged(e);
   }
 }

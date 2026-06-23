@@ -59,8 +59,7 @@ class RateLimitFilterTest {
   @MockBean private UserService userService;
   @MockBean private UserRepository userRepository;
 
-  // Blinda contra contaminação do SecurityContextHolder (thread-local) por uma classe de teste
-  // anterior: sem isto, um JWT residual fazia o ActiveUserFilter responder 401 nos registros.
+  // Guard against a residual JWT from a prior test class making ActiveUserFilter return 401 on register.
   @org.junit.jupiter.api.BeforeEach
   void clearSecurityContext() {
     org.springframework.security.core.context.SecurityContextHolder.clearContext();
@@ -123,20 +122,20 @@ class RateLimitFilterTest {
     when(customerRegistrationService.register(any()))
         .thenReturn(CustomerRegistrationResponse.builder().id(UUID.randomUUID()).build());
 
-    // O último hop é o único appendado pelo proxy confiável (ALB); a esquerda é forjável.
+    // Only the last hop is appended by the trusted proxy (ALB); values to the left are forgeable.
     for (int i = 0; i < 3; i++) {
       mockMvc
           .perform(registerRequest("172.16.0.1").header("X-Forwarded-For", "200.1.2.3"))
           .andExpect(status().isCreated());
     }
 
-    // Spoofing à esquerda do header NÃO escapa do limite: o último valor continua o mesmo.
+    // Spoofing to the left of the header does not escape the limit: the last value is unchanged.
     mockMvc
         .perform(
             registerRequest("172.16.0.9").header("X-Forwarded-For", "6.6.6.6, 7.7.7.7, 200.1.2.3"))
         .andExpect(status().isTooManyRequests());
 
-    // Cliente real diferente (último valor diferente): passa.
+    // Different real client (different last value): passes.
     mockMvc
         .perform(registerRequest("172.16.0.1").header("X-Forwarded-For", "200.9.9.9"))
         .andExpect(status().isCreated());

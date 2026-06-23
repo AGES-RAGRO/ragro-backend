@@ -7,7 +7,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 import org.springframework.validation.annotation.Validated;
 
-/** Configuração do rastreamento em tempo real (Fase 3). */
+/** Real-time tracking configuration (Phase 3). */
 @Getter
 @Setter
 @Validated
@@ -15,26 +15,26 @@ import org.springframework.validation.annotation.Validated;
 @ConfigurationProperties(prefix = "ragro.tracking")
 public class TrackingProperties {
 
-  /** Liga/desliga o canal WebSocket/STOMP inteiro (rollback instantâneo). */
+  /** Toggles the entire WebSocket/STOMP channel on/off (instant rollback). */
   private boolean enabled = true;
 
-  /** Janela de retenção da trilha GPS (decisão de produto: 7 dias, base LGPD). */
+  /** GPS trail retention window (product decision: 7 days, LGPD-based). */
   @Min(1)
   private int retentionDays = 7;
 
-  /** Pings com precisão pior que isto são descartados (ruído de GPS). */
+  /** Pings with accuracy worse than this are dropped (GPS noise). */
   @Min(1)
   private double maxAccuracyMeters = 50;
 
-  /** Salto implicando velocidade acima disto é descartado (teleporte de GPS). */
+  /** A jump implying speed above this is dropped (GPS teleport). */
   @Min(1)
   private double maxSpeedKmh = 150;
 
-  /** Intervalo mínimo entre pings aceitos por rota (rate limit de ingestão). */
+  /** Minimum interval between accepted pings per route (ingestion rate limit). */
   @Min(100)
   private long minIntervalMs = 2000;
 
-  /** Distância da polyline a partir da qual o produtor é considerado fora da rota. */
+  /** Distance from the polyline beyond which the producer is considered off-route. */
   @Min(10)
   private double deviationMeters = 200;
 }

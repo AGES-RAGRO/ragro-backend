@@ -5,9 +5,9 @@ import lombok.Getter;
 import lombok.Setter;
 
 /**
- * Ping de posição enviado pelo app do produtor via STOMP ({@code SEND
- * /app/routes/{routeId}/position}). Validado/filtrado no {@code TrackingService} (precisão ruim e
- * saltos impossíveis são descartados antes de persistir/retransmitir).
+ * Position ping sent by the producer app via STOMP ({@code SEND /app/routes/{routeId}/position}).
+ * Validated/filtered in {@code TrackingService} (poor accuracy and impossible jumps are discarded
+ * before persisting/rebroadcasting).
  */
 @Getter
 @Setter
@@ -16,9 +16,9 @@ public class TrackingPositionMessage {
   private BigDecimal latitude;
   private BigDecimal longitude;
 
-  /** Precisão reportada pelo GPS, em metros (pings > maxAccuracyMeters são descartados). */
+  /** GPS-reported accuracy, in meters (pings > maxAccuracyMeters are discarded). */
   private Double accuracyMeters;
 
-  /** Velocidade reportada, em km/h (opcional; melhora o ETA). */
+  /** Reported speed, in km/h (optional; improves the ETA). */
   private Double speedKmh;
 }

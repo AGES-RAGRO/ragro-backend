@@ -19,14 +19,13 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
 
   Optional<Order> findByIdAndCustomerId(UUID id, UUID customerId);
 
-  /** Pedidos do produtor nos status entregáveis — insumo da criação de rota de entrega. */
+  /** Producer's orders in deliverable statuses — input for delivery route creation. */
   @EntityGraph(attributePaths = {"customer.user"})
   List<Order> findByFarmerIdAndStatusInOrderByCreatedAtAsc(
       UUID farmerId, Collection<OrderStatus> statuses);
 
-  // O grafo das listagens cobre só associações to-one (fetch join + paginação em coleção faria o
-  // Hibernate paginar em memória); items/statusHistory continuam lazy, atenuados pelo
-  // hibernate.default_batch_fetch_size.
+  // Listing graph fetches only to-one associations (collection fetch + pagination paginates in
+  // memory); items/statusHistory stay lazy, mitigated by hibernate.default_batch_fetch_size.
 
   @EntityGraph(attributePaths = {"customer.user", "farmer.user", "paymentMethod"})
   Page<Order> findByCustomerId(UUID customerId, Pageable pageable);

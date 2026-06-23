@@ -10,7 +10,7 @@ import org.springframework.data.repository.query.Param;
 
 public interface RoutePositionRepository extends JpaRepository<RoutePosition, UUID> {
 
-  /** Purge da trilha além da janela de retenção (7 dias — decisão LGPD). */
+  /** Purge track points beyond the retention window (7 days — LGPD decision). */
   @Modifying
   @Query("DELETE FROM RoutePosition p WHERE p.recordedAt < :cutoff")
   int deleteOlderThan(@Param("cutoff") OffsetDateTime cutoff);
