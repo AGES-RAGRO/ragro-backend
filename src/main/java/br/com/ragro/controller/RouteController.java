@@ -57,6 +57,20 @@ public class RouteController {
     return ResponseEntity.ok(deliveryRouteService.getActiveRoute(jwt));
   }
 
+  @PatchMapping("/{routeId}/add-stops")
+  @PreAuthorize("hasRole('FARMER')")
+  @Operation(
+      summary = "Add new orders to the active route",
+      description =
+          "Pulls newly CONFIRMED orders into the ACTIVE route, keeping DELIVERED/FAILED stops as"
+              + " history and re-optimizing only the pending portion (single Google call). New orders"
+              + " move to IN_DELIVERY. Idempotent: with no new order it self-heals and returns the route"
+              + " unchanged. 404 if the route already completed.")
+  public ResponseEntity<RouteResponse> addStops(
+      @PathVariable UUID routeId, @AuthenticationPrincipal Jwt jwt) {
+    return ResponseEntity.ok(deliveryRouteService.addStops(routeId, jwt));
+  }
+
   @PatchMapping("/{routeId}/stops/{stopId}")
   @PreAuthorize("hasRole('FARMER')")
   @Operation(
