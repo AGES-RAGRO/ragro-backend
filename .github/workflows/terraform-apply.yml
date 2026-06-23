@@ -1,0 +1,61 @@
+name: Terraform Apply
+
+# Auto-applies infra changes when a commit touching infra/** lands on main.
+# Human gate = PR approval (requires branch protection on main; a direct push would apply unreviewed).
+# Each env uses secrets/variables from the same-named GitHub Environment; these have no required
+# reviewers on purpose (gating them would also block app deploy in aws.yml) — the PR is the gate.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'infra/**'
+      - '.github/workflows/terraform-apply.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    name: Apply (${{ matrix.env }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        env: [ages, prod]
+    environment: ${{ matrix.env }}
+    env:
+      TF_VAR_environment: ${{ matrix.env }}
+      TF_VAR_kms_key_id: ${{ vars.RDS_KMS_KEY_ARN }}
+      TF_VAR_monitoring_role_arn: ${{ vars.RDS_MONITORING_ROLE_ARN }}
+      TF_VAR_db_subnet_group_name: ${{ vars.RDS_DB_SUBNET_GROUP }}
+    defaults:
+      run:
+        working-directory: infra
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.MY_AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.14.8"
+
+      - name: Terraform init
+        run: |
+          terraform init -input=false \
+            -backend-config="bucket=${{ vars.TFSTATE_BUCKET }}" \
+            -backend-config="key=${{ matrix.env }}/terraform.tfstate" \
+            -backend-config="region=us-east-2" \
+            -backend-config="encrypt=true" \
+            -backend-config="use_lockfile=true"
+
+      - name: Terraform apply
+        run: terraform apply -input=false -auto-approve -no-color

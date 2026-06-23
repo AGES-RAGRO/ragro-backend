@@ -39,3 +39,4 @@ build/
 .claude/
 
 /tasks
+.env.local

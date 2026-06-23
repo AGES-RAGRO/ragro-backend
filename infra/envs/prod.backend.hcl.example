@@ -1,0 +1,7 @@
+# Template do backend do state do PROD (cliente). Copiar para prod.backend.hcl.
+# Recomendado: bucket de state DENTRO da conta do cliente (independência total).
+bucket       = "<BUCKET_TFSTATE_CLIENTE>"
+key          = "prod/terraform.tfstate"
+region       = "us-east-2"
+encrypt      = true
+use_lockfile = true

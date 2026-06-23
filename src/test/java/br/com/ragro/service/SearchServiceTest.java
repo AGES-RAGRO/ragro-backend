@@ -33,14 +33,14 @@ class SearchServiceTest {
   void shouldReturnProductsAndProducers_whenSearchMatchesBoth() {
     SearchRequest request = new SearchRequest();
     request.setQuery("tomate");
-    request.setCategory("Horta");
+    request.setCategory(br.com.ragro.domain.enums.ProductCategory.FRUTAS);
 
-    Product product = buildProduct("Tomate Cereja", "Horta");
+    Product product = buildProduct("Tomate Cereja", "Frutas");
     Producer producer = buildProducer("Sítio Boa Colheita", "Mariana Alves");
 
-    when(productRepository.searchActiveMarketplaceProducts("tomate", "horta"))
+    when(productRepository.searchActiveMarketplaceProducts("tomate", "frutas"))
         .thenReturn(List.of(product));
-    when(producerRepository.searchMarketplace("tomate", "horta")).thenReturn(List.of(producer));
+    when(producerRepository.searchMarketplace("tomate", "frutas")).thenReturn(List.of(producer));
 
     List<SearchResultResponse> response = searchService.search(request);
 
@@ -48,7 +48,7 @@ class SearchServiceTest {
     assertThat(response.get(0).getType()).isEqualTo("product");
     assertThat(response.get(0).getName()).isEqualTo("Tomate Cereja");
     assertThat(response.get(0).getSubtitle()).isEqualTo("Sítio Boa Colheita");
-    assertThat(response.get(0).getCategory()).isEqualTo("Horta");
+    assertThat(response.get(0).getCategory()).isEqualTo("Frutas");
     assertThat(response.get(0).getProducerId()).isEqualTo(product.getFarmer().getId());
     assertThat(response.get(0).getFarmerId()).isEqualTo(product.getFarmer().getId());
     assertThat(response.get(1).getType()).isEqualTo("producer");
@@ -60,10 +60,10 @@ class SearchServiceTest {
   }
 
   @Test
-  void shouldSendNullCategoryToRepositories_whenCategoryIsBlank() {
+  void shouldSendNullCategoryToRepositories_whenCategoryIsNull() {
     SearchRequest request = new SearchRequest();
     request.setQuery("alface");
-    request.setCategory("   ");
+    request.setCategory(null);
 
     when(productRepository.searchActiveMarketplaceProducts("alface", null)).thenReturn(List.of());
     when(producerRepository.searchMarketplace("alface", null)).thenReturn(List.of());

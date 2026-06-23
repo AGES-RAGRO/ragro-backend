@@ -9,12 +9,13 @@ import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
+import org.springframework.data.domain.Persistable;
 
 @Entity
 @Table(name = "vehicle_preferences")
 @Getter
 @Setter
-public class VehiclePreference {
+public class VehiclePreference implements Persistable<UUID> {
 
   @Id
   @Column(name = "user_id")
@@ -24,6 +25,9 @@ public class VehiclePreference {
   @MapsId
   @JoinColumn(name = "user_id")
   private User user;
+
+  @Transient
+  private boolean isNew;
 
   @Enumerated(EnumType.STRING)
   @Column(name = "vehicle_type", nullable = false)
@@ -43,4 +47,18 @@ public class VehiclePreference {
   @UpdateTimestamp
   @Column(name = "updated_at", nullable = false)
   private OffsetDateTime updatedAt;
+
+  @Override
+  public UUID getId() {
+    return userId;
+  }
+
+  @Override
+  public boolean isNew() {
+    return isNew;
+  }
+
+  public void markAsNew() {
+    this.isNew = true;
+  }
 }

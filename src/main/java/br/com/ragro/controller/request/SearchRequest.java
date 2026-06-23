@@ -1,5 +1,6 @@
 package br.com.ragro.controller.request;
 
+import br.com.ragro.domain.enums.ProductCategory;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -18,10 +19,9 @@ public class SearchRequest {
       example = "tomate")
   private String query;
 
-  @Size(max = 80, message = "category must contain at most 80 characters")
   @Schema(
       description = "Optional product category filter",
-      example = "Frutas",
+      example = "FRUTAS",
       requiredMode = Schema.RequiredMode.NOT_REQUIRED)
-  private String category;
+  private ProductCategory category;
 }

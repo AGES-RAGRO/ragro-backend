@@ -104,8 +104,6 @@ class UserServiceTest {
     verify(userRepository, never()).findByAuthSub(org.mockito.ArgumentMatchers.any());
   }
 
-  // ─── helpers ─────────────────────────────────────────────────────────────
-
   private User buildUser(String authSub) {
     User user = new User();
     user.setId(UUID.randomUUID());

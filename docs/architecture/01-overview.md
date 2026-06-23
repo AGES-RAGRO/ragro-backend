@@ -5,11 +5,16 @@
 | Technology | Version | Purpose |
 |------------|---------|---------|
 | **Java** | 21 | Programming language (LTS) |
-| **Spring Boot** | 3.3 | Application framework |
+| **Spring Boot** | 3.5.14 | Application framework |
 | **Spring Security** | 6.x | Authentication and authorization |
 | **Spring Data JPA** | 3.x | Data access and ORM |
+| **Spring WebSocket** | (Boot) | Real-time tracking via STOMP |
 | **PostgreSQL** | 16 | Relational database |
 | **Keycloak** | 26 | Identity provider (OAuth2 / JWT) |
+| **Spring AI** | 1.0.3 | LLM integration (OpenAI client → NVIDIA reranker) |
+| **MinIO** | 8.5.17 | Object storage for media |
+| **Google Maps Services** | 2.2.0 | Routes / geocoding |
+| **Firebase Admin** | 9.8.0 | Push notifications (FCM) |
 | **Docker** | 24+ | Containerization |
 | **Maven** | 3.9+ | Build and dependency management |
 
@@ -38,6 +43,16 @@ The project follows a **layered architecture** aligned with Spring Boot conventi
 │  the core business model.                                  │
 └─────────────────────────────────────────────────────────┘
 ```
+
+Beyond this synchronous request/response stack, the service also exposes a
+**WebSocket/STOMP channel** (`config/WebSocketConfig.java`, `TrackingWsController`)
+for real-time delivery tracking: clients connect to the `/ws` STOMP endpoint and
+subscribe to `/topic` broker destinations, with position updates persisted as
+`RoutePosition` entities. The service layer additionally integrates with several
+**external systems** — Spring AI (OpenAI client → NVIDIA LLM reranker), the Google
+Maps Services API (routes / geocoding), MinIO object storage (media served via
+`GET /media/**`), and Firebase/FCM (push notifications) — so the application is not
+a self-contained CRUD service but a coordinator across these boundaries.
 
 ---
 

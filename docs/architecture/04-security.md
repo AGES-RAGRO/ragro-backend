@@ -29,21 +29,72 @@
 
 ### SecurityConfig
 
-The central security configuration (`SecurityConfig.java`) defines:
+The central security configuration (`SecurityConfig.java`) is annotated with `@EnableMethodSecurity` and defines **two** `SecurityFilterChain` beans:
 
-- **CSRF**: Disabled (stateless API)
-- **Session management**: `STATELESS` — no server-side sessions
-- **CORS**: Enabled via `CorsConfig`
-- **Authorization rules**:
+- **CSRF**: Disabled on both chains (stateless API)
+- **Session management**: `STATELESS` on both chains — no server-side sessions
+- **CORS**: Enabled on both chains via `CorsConfig`
+
+#### Public chain (`@Order(1)`)
+
+`publicSecurityFilterChain` matches `PUBLIC_MATCHERS` and applies `anyRequest().permitAll()`. Crucially, this chain is registered **without** the OAuth2 resource server, so a presented JWT is ignored on these routes. This is deliberate: a stale/expired token must not produce a `401` on a `permitAll` route (this is why `register`/`forgot`/`config` no longer fail with a stale token). `/error` is included so an unhandled exception surfaces its real status instead of a misleading `401` (Spring Security filters the `ERROR` dispatch by default).
+
+The `PUBLIC_MATCHERS` allowlist is:
 
 ```
-/admin/**    → requires ROLE_ADMIN
-/producers/**   → requires ROLE_FARMER
-/customers/** → requires ROLE_CUSTOMER
-All other    → requires authentication (any role)
+/error
+/actuator/health
+/media/**
+/auth/register/customer
+/auth/password/forgot
+/auth/config
+/v3/api-docs, /v3/api-docs/**
+/swagger-ui, /swagger-ui.html, /swagger-ui/**
+/swagger-resources, /swagger-resources/**
+/webjars/**
+/co2/options, /co2/total-saved, /co2/calculate
 ```
 
-- **OAuth2 Resource Server**: JWT-based with a custom authority converter
+Note `/co2/record-savings` is **not** public — it is authenticated.
+
+#### Authenticated chain (`@Order(2)`)
+
+`securityFilterChain` covers everything not matched by the public chain. It enables the **OAuth2 Resource Server** (JWT-based with a custom authority converter) and adds `ActiveUserFilter` after `BearerTokenAuthenticationFilter`. Its URL authorization rules (evaluated top-down) are:
+
+```
+/admin/**                          → ROLE_ADMIN
+GET  /search                       → ROLE_CUSTOMER
+POST /reviews                      → ROLE_CUSTOMER
+GET  /producers/locations          → authenticated
+GET  /producers                    → ROLE_CUSTOMER
+GET  /producers/*/profile          → ROLE_CUSTOMER
+GET  /producers/*/products         → ROLE_CUSTOMER
+GET  /producers/*/products/*       → ROLE_CUSTOMER
+GET  /producers/*/reviews          → ROLE_CUSTOMER or ROLE_FARMER
+GET  /producers/stock/*/movements  → ROLE_FARMER
+/producers/**                      → ROLE_FARMER (catch-all)
+/customers/**                      → ROLE_CUSTOMER
+All other                          → requires authentication (any role)
+```
+
+> `/producers/**` is **not** uniformly `ROLE_FARMER`: several `GET` sub-paths require `ROLE_CUSTOMER` (or `CUSTOMER`+`FARMER`); only paths not matched by an earlier rule fall back to `ROLE_FARMER`.
+
+---
+
+### Method-level security (@PreAuthorize)
+
+URL-pattern rules in `SecurityConfig` are only one half of access control. Because `SecurityConfig` enables `@EnableMethodSecurity`, per-endpoint authorization is also enforced with `@PreAuthorize` annotations on controllers (13 controllers): `AdminController` (`hasRole('ADMIN')`), `RouteController`, `StockController`, `ProducerNotificationController` (`hasRole('FARMER')`), `CustomerController`, `FavoriteProducerController`, `ReviewController`, `RecommendationController`, `SearchController`, `OrderTrackingController`, `CustomerNotificationController` (`hasRole('CUSTOMER')`), `ProducerController` (mixed `CUSTOMER`/`FARMER`/`ADMIN` per method), and `NotificationController` (`isAuthenticated()`). This `@PreAuthorize` style is the de-facto pattern for new endpoints; the URL matchers act as a coarse backstop.
+
+---
+
+### ActiveUserFilter
+
+`ActiveUserFilter` is a custom `OncePerRequestFilter` registered on the authenticated chain after `BearerTokenAuthenticationFilter`. For requests carrying a `JwtAuthenticationToken`, it loads the `User` by the `sub` claim and:
+
+- Returns `401` with body `{"error": "Conta desativada ou usuário não encontrado", ...}` if the user is missing or `users.active = false`.
+- Otherwise stashes the resolved `User` as the `authenticatedUser` request attribute for downstream use.
+
+This enforces account-deactivation at the request boundary (the `users.active` column defaults to `true`).
 
 ---
 
@@ -57,6 +108,19 @@ A custom `Converter<Jwt, Collection<GrantedAuthority>>` that:
 4. Prefixes with `ROLE_` (e.g., `ADMIN` → `ROLE_ADMIN`)
 
 This converter is composed with the default scopes converter using a `DelegatingJwtGrantedAuthoritiesConverter`.
+
+---
+
+### CorsConfig
+
+`CorsConfig` registers a single `CorsConfigurationSource` for `/**` with these security-relevant settings:
+
+- **Allowed origin patterns**: configurable via `cors.allowed-origin-patterns` (comma-separated, wildcards allowed); default `http://localhost:*`. In prod this must include the public API Gateway and frontend URLs.
+- **Allowed methods**: `GET`, `POST`, `PUT`, `DELETE`, `OPTIONS`, `PATCH`
+- **Allowed headers**: `Content-Type`, `Authorization`
+- **Exposed headers**: `Authorization`
+- **Allow credentials**: `false` — deliberate. The API is a stateless bearer-token resource server (no cookies), so credentialed CORS is unnecessary, and keeping it `false` avoids the wildcard-origin-pattern + credentials combination.
+- **Max age**: `3600` seconds
 
 ---
 
@@ -76,7 +140,7 @@ JWT Token                    Database
 **User resolution strategy** (in `UserService`):
 
 1. First, try to find user by `authSub` (primary lookup)
-2. If not found, fall back to `email` (secondary lookup)
+2. If not found, fall back to `email` (secondary lookup). On a match, the record's `auth_sub` is **self-healed** (back-filled with the JWT `sub`) and saved, so future lookups hit the fast path
 3. If neither matches, throw `UnauthorizedException`
 
 ---
@@ -88,9 +152,12 @@ The Keycloak realm `ragro` is pre-configured via `keycloak/ragro-realm.json`:
 | Configuration | Value |
 |---------------|-------|
 | Login attribute | Email (`loginWithEmailAllowed: true`) |
-| Groups | `ADMIN`, `FARMER`, `CUSTOMER` |
+| Groups | `ADMIN`, `CUSTOMER`, `FARMER` |
 | Client | `ragro-app` (public, Direct Access Grants enabled) |
+| Self-registration | Disabled (`registrationAllowed: false`) |
 | Password policy | Min 8 chars, 1 lowercase, 1 uppercase, 1 digit |
+| SSL required | `external` |
+| Brute-force protection | Enabled (`failureFactor: 5`, `waitIncrementSeconds: 60`, `maxFailureWaitSeconds: 900`, `permanentLockout: false`) |
 | JWT claims | `sub`, `email`, `groups` (via group membership mapper) |
 
 **JWKS endpoint** (configured in `application.yml`):
@@ -115,9 +182,11 @@ The `CustomerRegistrationService` wraps this in a compensating transaction: if t
 
 When adding a new endpoint that requires role-based access:
 
-1. **URL pattern** — if it follows `/admin/**`, `/producers/**`, or `/customers/**`, it is automatically protected by the existing rules
-2. **Custom pattern** — add a new matcher in `SecurityConfig.java`:
+1. **Method-level (preferred)** — annotate the controller method (or class) with `@PreAuthorize`, e.g. `@PreAuthorize("hasRole('CUSTOMER')")` or `@PreAuthorize("isAuthenticated()")`. This is the de-facto pattern for new endpoints (see [Method-level security](#method-level-security-preauthorize)).
+2. **URL pattern** — `/admin/**` and `/customers/**` map cleanly to `ROLE_ADMIN`/`ROLE_CUSTOMER`. **Do not** assume `/producers/**` is `ROLE_FARMER`: several `GET` sub-paths are scoped to `ROLE_CUSTOMER`, so add an explicit, more-specific matcher (ordered above the `/producers/**` catch-all) or rely on `@PreAuthorize`.
+3. **Custom matcher** — add it in `SecurityConfig.java`:
    ```java
    .requestMatchers("/new-path/**").hasRole("REQUIRED_ROLE")
    ```
-3. **JWT access** — inject `@AuthenticationPrincipal Jwt jwt` in the controller method to access token claims
+4. **Public endpoint** — to make a route public, add its pattern to `PUBLIC_MATCHERS` in the `@Order(1)` chain (which has no OAuth2 resource server), not just `permitAll()` on the authenticated chain.
+5. **JWT access** — inject `@AuthenticationPrincipal Jwt jwt` in the controller method to access token claims (or read the `authenticatedUser` request attribute populated by `ActiveUserFilter`).

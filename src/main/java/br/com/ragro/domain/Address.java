@@ -1,5 +1,6 @@
 package br.com.ragro.domain;
 
+import br.com.ragro.domain.enums.GeocodeStatus;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import java.math.BigDecimal;
@@ -60,6 +61,17 @@ public class Address {
 
   @Column(name = "longitude", precision = 10, scale = 7)
   private BigDecimal longitude;
+
+  /**
+   * Last geocoding attempt ({@code null} = never attempted). FAILED/AMBIGUOUS are not auto-retried
+   * (avoids re-billing on every map open); reset when the address is edited.
+   */
+  @Enumerated(EnumType.STRING)
+  @Column(name = "geocode_status", length = 12)
+  private GeocodeStatus geocodeStatus;
+
+  @Column(name = "geocoded_at")
+  private OffsetDateTime geocodedAt;
 
   @Column(name = "is_primary", nullable = false)
   private boolean isPrimary;

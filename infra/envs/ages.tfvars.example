@@ -1,0 +1,8 @@
+# Template do ambiente AGES. Copie para ages.tfvars (gitignored) e preencha com
+# os valores reais para rodar localmente. No CI, os valores vêm de GitHub
+# Variables (TF_VAR_*). Apenas ARNs/nomes — nunca segredos.
+aws_region           = "us-east-2"
+environment          = "ages"
+kms_key_id           = "arn:aws:kms:us-east-2:<ACCOUNT_ID>:key/<KEY_ID>"
+monitoring_role_arn  = "arn:aws:iam::<ACCOUNT_ID>:role/rds-monitoring-role"
+db_subnet_group_name = "default-vpc-<VPC_ID>"

@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -18,6 +19,7 @@ import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.RecommendationReason;
 import br.com.ragro.domain.enums.TypeUser;
 import br.com.ragro.domain.llm.RankedItem;
+import br.com.ragro.domain.llm.RankedRecommendation;
 import br.com.ragro.exception.ForbiddenException;
 import br.com.ragro.exception.LlmInvalidOutputException;
 import br.com.ragro.repository.OrderItemRepository;
@@ -53,6 +55,7 @@ class RecommendationServiceTest {
   @Mock private ProductRepository productRepository;
   @Mock private LlmRerankerPort llmRerankerPort;
   @Mock private MinioStorageService minioStorageService;
+  @Mock private RecommendationWarmupService warmupService;
 
   @Spy private MeterRegistry meterRegistry = new SimpleMeterRegistry();
 
@@ -249,6 +252,21 @@ class RecommendationServiceTest {
     farmer.setId(UUID.randomUUID());
     farmer.setType(TypeUser.FARMER);
     when(userService.getAuthenticatedUser(any(Jwt.class))).thenReturn(farmer);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
 
     assertThatThrownBy(() -> recommendationService.getRecommendations(defaultRequest(), jwt()))
         .isInstanceOf(ForbiddenException.class)
@@ -309,8 +327,9 @@ class RecommendationServiceTest {
     stubFarmerIds(customer.getId(), List.of());
     // Signal 2: co-occurrence returns coProduct
     stubCoOccurrence(customer.getId(), List.of(purchasedId), List.of(coProduct.getId()));
-    // findAllById called with the co-occurring IDs (signal 2)
-    when(productRepository.findAllById(List.of(coProduct.getId()))).thenReturn(List.of(coProduct));
+    // Co-occurrence filters to active-producer products (findAllByIdAndFarmerUserActiveTrue).
+    when(productRepository.findAllByIdAndFarmerUserActiveTrue(List.of(coProduct.getId())))
+        .thenReturn(List.of(coProduct));
     // Signal 3: findAllById with purchasedIds to extract categories (none here)
     when(productRepository.findAllById(List.of(purchasedId)))
         .thenReturn(List.of(buildProduct(farmerId)));
@@ -482,6 +501,21 @@ class RecommendationServiceTest {
 
   private void stubCustomer(User user) {
     when(userService.getAuthenticatedUser(any(Jwt.class))).thenReturn(user);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
   }
 
   private void stubPurchasedIds(UUID customerId, List<UUID> ids) {
@@ -521,5 +555,232 @@ class RecommendationServiceTest {
         Instant.now().plusSeconds(300),
         Map.of("alg", "none"),
         Map.of("sub", "customer-sub", "email", "customer@example.com"));
+  }
+
+  // ─── Cache: hit serves from cache; miss returns heuristic and warms async ──────────
+
+  @Test
+  void getRecommendations_shouldServeFromCache_withoutTouchingLlm_whenCacheHit() {
+    org.springframework.test.util.ReflectionTestUtils.setField(
+        recommendationService, "cacheEnabled", true);
+    User customer = buildCustomer();
+    when(userService.getAuthenticatedUser(any())).thenReturn(customer);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
+    when(orderItemRepository.findDistinctProductIdsByCustomerId(customer.getId()))
+        .thenReturn(List.of());
+
+    UUID farmerId = UUID.randomUUID();
+    Product cachedProduct = buildProduct(farmerId);
+    when(warmupService.getCached(customer.getId()))
+        .thenReturn(
+            List.of(
+                new RankedRecommendation(
+                    cachedProduct.getId(), 95, RecommendationReason.LLM_RERANKED)));
+    // Cache-hit re-hydration must use findAllByIdAndFarmerUserActiveTrue (filters product AND
+    // farmer active), not the bare findAllById that leaked inactive-producer products.
+    when(productRepository.findAllByIdAndFarmerUserActiveTrue(List.of(cachedProduct.getId())))
+        .thenReturn(List.of(cachedProduct));
+
+    RecommendationResponse response =
+        recommendationService.getRecommendations(defaultRequest(), jwt());
+
+    assertThat(response.getRecommendations()).hasSize(1);
+    assertThat(response.getRecommendations().get(0).getScore()).isEqualTo(95);
+    verifyNoInteractions(llmRerankerPort);
+    verify(warmupService, never()).warmAsync(any(), any(), any(), any());
+    // Active-filtering query is used; the unfiltered one is never called on the cache-hit path.
+    verify(productRepository).findAllByIdAndFarmerUserActiveTrue(List.of(cachedProduct.getId()));
+    verify(productRepository, never()).findAllById(any());
+  }
+
+  @Test
+  void getRecommendations_shouldDropInactiveProducerProduct_onCacheHit() {
+    // A product whose producer went inactive after caching must not leak; the filtering query
+    // returns nothing for it, so the cache-hit response drops it.
+    org.springframework.test.util.ReflectionTestUtils.setField(
+        recommendationService, "cacheEnabled", true);
+    User customer = buildCustomer();
+    when(userService.getAuthenticatedUser(any())).thenReturn(customer);
+    org.mockito.Mockito.lenient()
+        .when(
+            userService.requireRole(
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(inv -> userService.getAuthenticatedUser(inv.getArgument(0)));
+    when(orderItemRepository.findDistinctProductIdsByCustomerId(customer.getId()))
+        .thenReturn(List.of());
+
+    UUID farmerId = UUID.randomUUID();
+    Product activeProduct = buildProduct(farmerId);
+    Product inactiveProducerProduct = buildProduct(UUID.randomUUID());
+    when(warmupService.getCached(customer.getId()))
+        .thenReturn(
+            List.of(
+                new RankedRecommendation(
+                    activeProduct.getId(), 90, RecommendationReason.LLM_RERANKED),
+                new RankedRecommendation(
+                    inactiveProducerProduct.getId(), 80, RecommendationReason.LLM_RERANKED)));
+    // The filtering query returns only the active-producer product; the inactive one is excluded
+    // server-side.
+    when(productRepository.findAllByIdAndFarmerUserActiveTrue(
+            List.of(activeProduct.getId(), inactiveProducerProduct.getId())))
+        .thenReturn(List.of(activeProduct));
+
+    RecommendationResponse response =
+        recommendationService.getRecommendations(defaultRequest(), jwt());
+
+    assertThat(response.getRecommendations()).hasSize(1);
+    assertThat(response.getRecommendations().get(0).getId()).isEqualTo(activeProduct.getId());
+    verify(productRepository, never()).findAllById(any());
+  }
+
+  @Test
+  void getRecommendations_shouldFilterByCategory_onCacheHit() {
+    org.springframework.test.util.ReflectionTestUtils.setField(
+        recommendationService, "cacheEnabled", true);
+    User customer = buildCustomer();
+    when(userService.getAuthenticatedUser(any())).thenReturn(customer);
+    org.mockito.Mockito.lenient()
+        .when(
+            userService.requireRole(
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(inv -> userService.getAuthenticatedUser(inv.getArgument(0)));
+    when(orderItemRepository.findDistinctProductIdsByCustomerId(customer.getId()))
+        .thenReturn(List.of());
+
+    UUID farmerId = UUID.randomUUID();
+    ProductCategory frutas = new ProductCategory();
+    frutas.setId(1);
+    frutas.setName("Frutas");
+    ProductCategory verduras = new ProductCategory();
+    verduras.setId(2);
+    verduras.setName("Verduras");
+
+    Product fruitProduct = buildProduct(farmerId);
+    fruitProduct.getCategories().add(frutas);
+    Product veggieProduct = buildProduct(farmerId);
+    veggieProduct.getCategories().add(verduras);
+
+    when(warmupService.getCached(customer.getId()))
+        .thenReturn(
+            List.of(
+                new RankedRecommendation(
+                    fruitProduct.getId(), 90, RecommendationReason.LLM_RERANKED),
+                new RankedRecommendation(
+                    veggieProduct.getId(), 80, RecommendationReason.LLM_RERANKED)));
+    when(productRepository.findAllByIdAndFarmerUserActiveTrue(
+            List.of(fruitProduct.getId(), veggieProduct.getId())))
+        .thenReturn(List.of(fruitProduct, veggieProduct));
+
+    RecommendationRequest request = defaultRequest();
+    request.setCategory(br.com.ragro.domain.enums.ProductCategory.FRUTAS);
+
+    RecommendationResponse response = recommendationService.getRecommendations(request, jwt());
+
+    // Only the requested-category product survives the per-call filter (Verduras drops out).
+    assertThat(response.getRecommendations()).hasSize(1);
+    assertThat(response.getRecommendations().get(0).getScore()).isEqualTo(90);
+  }
+
+  @Test
+  void getRecommendations_shouldReturnHeuristicAndWarmAsync_whenCacheMiss() {
+    org.springframework.test.util.ReflectionTestUtils.setField(
+        recommendationService, "cacheEnabled", true);
+    User customer = buildCustomer();
+    when(userService.getAuthenticatedUser(any())).thenReturn(customer);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
+    when(orderItemRepository.findDistinctProductIdsByCustomerId(customer.getId()))
+        .thenReturn(List.of());
+    when(warmupService.getCached(customer.getId())).thenReturn(null);
+
+    UUID farmerId = UUID.randomUUID();
+    Product trendingProduct = buildProduct(farmerId);
+    when(productRepository.findTrendingProducts(any(), any(Pageable.class)))
+        .thenReturn(new PageImpl<>(List.of(trendingProduct)));
+    when(productRepository.findRecentActiveProducts(any(Pageable.class)))
+        .thenReturn(new PageImpl<>(List.of()));
+
+    RecommendationResponse response =
+        recommendationService.getRecommendations(defaultRequest(), jwt());
+
+    // Immediate response with heuristic ordering; the LLM runs only in the async warm-up.
+    assertThat(response.getRecommendations()).isNotEmpty();
+    verifyNoInteractions(llmRerankerPort);
+    verify(warmupService).warmAsync(eq(customer.getId()), any(), any(), any());
+  }
+
+  @Test
+  void getRecommendations_shouldApplyRequestExcludes_onCacheHit() {
+    org.springframework.test.util.ReflectionTestUtils.setField(
+        recommendationService, "cacheEnabled", true);
+    User customer = buildCustomer();
+    when(userService.getAuthenticatedUser(any())).thenReturn(customer);
+    org.mockito.Mockito.lenient()
+        .when(userService.requireRole(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              br.com.ragro.domain.User authenticated =
+                  userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType()
+                  != inv.<br.com.ragro.domain.enums.TypeUser>getArgument(1)) {
+                throw new br.com.ragro.exception.ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
+    when(orderItemRepository.findDistinctProductIdsByCustomerId(customer.getId()))
+        .thenReturn(List.of());
+
+    UUID farmerId = UUID.randomUUID();
+    Product keep = buildProduct(farmerId);
+    Product excluded = buildProduct(farmerId);
+    when(warmupService.getCached(customer.getId()))
+        .thenReturn(
+            List.of(
+                new RankedRecommendation(excluded.getId(), 99, RecommendationReason.LLM_RERANKED),
+                new RankedRecommendation(keep.getId(), 80, RecommendationReason.LLM_RERANKED)));
+    when(productRepository.findAllByIdAndFarmerUserActiveTrue(List.of(keep.getId())))
+        .thenReturn(List.of(keep));
+
+    RecommendationRequest request = defaultRequest();
+    request.setExcludeProductIds(List.of(excluded.getId()));
+
+    RecommendationResponse response = recommendationService.getRecommendations(request, jwt());
+
+    assertThat(response.getRecommendations()).hasSize(1);
+    assertThat(response.getRecommendations().get(0).getId()).isEqualTo(keep.getId());
   }
 }

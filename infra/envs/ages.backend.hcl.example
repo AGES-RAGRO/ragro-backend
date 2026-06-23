@@ -1,0 +1,7 @@
+# Template do backend do state AGES. Copie para ages.backend.hcl (gitignored).
+# Uso local: terraform init -backend-config=envs/ages.backend.hcl
+bucket       = "<BUCKET_TFSTATE>"
+key          = "ages/terraform.tfstate"
+region       = "us-east-2"
+encrypt      = true
+use_lockfile = true

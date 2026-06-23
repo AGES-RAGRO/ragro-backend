@@ -8,7 +8,7 @@ All authenticated endpoints require the header: `Authorization: Bearer <token>`
 
 ---
 
-## Implemented Endpoints
+## Endpoints
 
 ### Authentication
 
@@ -47,91 +47,21 @@ Returns the authenticated user's session data. Requires valid JWT.
 
 ---
 
-### Admin — Users
+#### POST /auth/register/customer
 
-#### POST /admin/users
-
-Creates a new user. Requires `ROLE_ADMIN`.
-
-**Request Body:**
-```json
-{
-  "name": "João da Silva",
-  "email": "joao@email.com",
-  "phone": "(51) 98765-4321"
-}
-```
-
-**Response (201 Created):**
-```json
-{
-  "id": "550e8400-e29b-41d4-a716-446655440000",
-  "name": "João da Silva",
-  "email": "joao@email.com",
-  "phone": "(51) 98765-4321",
-  "type": null,
-  "active": true,
-  "createdAt": "2026-01-15T10:30:00-03:00",
-  "updatedAt": "2026-01-15T10:30:00-03:00"
-}
-```
-
-**Errors:**
-- `400 Bad Request` — email already registered or authSub already exists
+Registers a new customer (public). No auth required.
 
 ---
 
-### Role-Based Access Verification (Debug / Test Only)
+#### POST /auth/password/forgot
 
-> **These endpoints are temporary** — they exist only to verify that role-based access control is working correctly. They return raw JWT claims and are **not part of the product backlog**. They will be replaced by the real domain endpoints as features are implemented.
-
-#### GET /admin/dashboard
-
-Verifies `ROLE_ADMIN` access. Returns JWT claims.
-
-**Response (200 OK):**
-```json
-{
-  "area": "admin",
-  "sub": "keycloak-sub-uuid",
-  "email": "admin@ragro.com.br",
-  "groups": ["ADMIN"]
-}
-```
+Starts the password-reset flow for a customer (public). No auth required.
 
 ---
 
-#### GET /producers/dashboard
+#### POST /auth/password/reset
 
-Verifies `ROLE_FARMER` access. Returns JWT claims.
-
-**Response (200 OK):**
-```json
-{
-  "area": "farmer",
-  "sub": "keycloak-sub-uuid",
-  "email": "farmer@ragro.com.br",
-  "groups": ["FARMER"]
-}
-```
-
----
-
-#### GET /customers/orders
-
-Verifies `ROLE_CUSTOMER` access. Returns JWT claims.
-
-> **Warning**: This is NOT the real customer order history endpoint (`GET /orders/customer` from the backlog). This is a temporary test endpoint that will be replaced.
-
-**Response (200 OK):**
-```json
-{
-  "area": "customer",
-  "sub": "keycloak-sub-uuid",
-  "email": "customer@ragro.com.br",
-  "groups": ["CUSTOMER"]
-}
-```
+Resets the authenticated user's password. Requires valid JWT.
 
 ---
 
@@ -246,115 +176,175 @@ Returns the authenticated producer's weekly sales data for the last 7 days (incl
 
 ---
 
-## Planned Endpoints
+## Endpoint Reference by Domain
 
-The following endpoints are defined in the product backlog and will be implemented as the project progresses. See [backlog_ragro.md](../backlog_ragro.md) for full specifications.
+The tables below list the routes exposed by each controller on the `develop` branch. See [backlog_ragro.md](../backlog_ragro.md) for the original product specifications.
 
-### Authentication
+### Authentication (`/auth`)
 
-| Method | Route | Description | Epic |
-|--------|-------|-------------|------|
-| POST | /auth/register/customer | Customer registration | 1 |
-| GET | /auth/config | Keycloak configuration (public) | 1 |
-| GET | /auth/session | Authenticated user session | 1 |
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET | /auth/config | Keycloak configuration (public) |
+| GET | /auth/session | Authenticated user session |
+| POST | /auth/register/customer | Customer registration (public) |
+| POST | /auth/password/forgot | Start password reset (public) |
+| POST | /auth/password/reset | Reset authenticated user's password |
 
-### Customers
+### Customers (`/customers`)
 
-| Method | Route | Description | Epic |
-|--------|-------|-------------|------|
-| GET | /customers/me | Retrieve authenticated customer profile | 1 |
-| PUT | /customers/me | Update authenticated customer profile | 1 |
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET | /customers/me | Retrieve authenticated customer profile |
+| PUT | /customers/me | Update authenticated customer profile |
 
-### Producers
+### Cart (`/customers/carts`)
 
-| Method | Route | Description | Epic |
-|--------|-------|-------------|------|
-| GET | /search | Search marketplace products and producers | 2 |
-| GET | /producers | List active producers (marketplace) | 2 |
-| GET | /producers/:id | Retrieve complete producer profile (farmer owner only) | 3 |
-| GET | /producers/:id/profile | Retrieve public producer profile for customers | 3 |
-| GET | /producers/:id/products | List active products from a producer for customers | 3 |
-| PUT | /producers/:id | Update producer profile | 1 |
-| GET | /producers/:id/reviews | List producer reviews | 8 |
-| GET | /producers/me/dashboard | Get authenticated producer's financial dashboard | 11 |
-| GET | /producers/me/dashboard/week | Get authenticated producer's weekly sales dashboard | 11 |
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET | /customers/carts | Retrieve active cart |
+| POST | /customers/carts/items | Add item to cart |
+| PATCH | /customers/carts/items/{id} | Update item quantity |
+| DELETE | /customers/carts/items/{id} | Remove item from cart |
+| DELETE | /customers/carts | Clear cart |
 
-### Administration
+### Favorite Producers (`/customers/me/favorites`)
 
-| Method | Route | Description | Epic |
-|--------|-------|-------------|------|
-| POST | /admin/producers | Register producer | 1 |
-| GET | /admin/producers | List producers (admin) | 1 |
-| GET | /admin/producers/:id | Producer details (admin) | 1 |
-| GET | /admin/customers/:id | Customer details (admin) | 1 |
-| PATCH | /admin/producers/:id/deactivate | Deactivate producer | 1 |
-| PATCH | /admin/producers/:id/activate | Reactivate producer | 1 |
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET | /customers/me/favorites | List favorited producers |
+| POST | /customers/me/favorites/{producerId} | Favorite a producer |
+| DELETE | /customers/me/favorites/{producerId} | Unfavorite a producer |
 
-### Products
+### Producers (`/producers`)
 
-| Method | Route | Description | Epic |
-|--------|-------|-------------|------|
-| POST | /products | Create product | 4 |
-| GET | /products/:id | Retrieve product | 4 |
-| PUT | /products/:id | Edit product | 4 |
-| DELETE | /products/:id | Delete product (soft delete) | 4 |
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET | /producers | List active producers (marketplace) |
+| GET | /producers/locations | List producer map locations |
+| GET | /producers/{id} | Retrieve complete producer profile |
+| GET | /producers/{id}/profile | Retrieve public producer profile for customers |
+| GET | /producers/{id}/products | List active products from a producer for customers |
+| GET | /producers/{producerId}/products/{productId} | Retrieve a single producer product for customers |
+| GET | /producers/{id}/reviews | List producer reviews |
+| GET | /producers/me/dashboard | Get authenticated producer's financial dashboard |
+| GET | /producers/me/dashboard/week | Get authenticated producer's weekly sales dashboard |
+| PUT | /producers/{id} | Update producer profile |
+| POST | /producers/{id}/avatar | Upload producer avatar image (multipart) |
+| POST | /producers/{id}/cover | Upload producer cover image (multipart) |
 
-### Stock
+### Products (`/producers/products`)
 
-| Method | Route | Description | Epic |
-|--------|-------|-------------|------|
-| POST | /stock/entry | Register stock entry | 5 |
-| POST | /stock/exit | Register stock exit | 5 |
-| GET | /stock/:productId/movements | Product movement history | 5 |
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET | /producers/products | List the authenticated producer's products |
+| GET | /producers/products/{id} | Retrieve product |
+| POST | /producers/products | Create product |
+| PUT | /producers/products/{id} | Edit product |
+| DELETE | /producers/products/{id} | Delete product (soft delete) |
+| GET | /producers/products/categories | List product categories |
+| POST | /producers/products/{id}/photo | Upload product photo (multipart) |
 
-### Cart
+### Stock (`/producers/stock`)
 
-| Method | Route | Description | Epic |
-|--------|-------|-------------|------|
-| GET | /cart | Retrieve active cart | 6 |
-| POST | /cart/items | Add item to cart | 6 |
-| PUT | /cart/items/:id | Update item quantity | 6 |
-| DELETE | /cart/items/:id | Remove item from cart | 6 |
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET | /producers/stock/movements | Stock movement history |
+| GET | /producers/stock/{productId}/movements | Product movement history |
+| POST | /producers/stock/entry | Register stock entry |
+| POST | /producers/stock/exit | Register stock exit |
 
-### Orders
+### Orders (`/orders`)
 
-| Method | Route | Description | Epic |
-|--------|-------|-------------|------|
-| POST | /orders | Create order from cart | 7 |
-| GET | /orders/customer | Customer order history | 7 |
-| GET | /orders/producer | Orders received by producer | 7 |
-| GET | /orders/today | Today's orders (producer) | 9 |
-| PATCH | /orders/:id/confirm | Confirm order (producer) | 7 |
-| PATCH | /orders/:id/cancel | Cancel order (customer) | 7 |
-| PATCH | /orders/:id/status | Update delivery status | 7 |
-| POST | /orders/:id/repeat | Repeat previous order | 7 |
-| POST | /orders/:id/schedule | Schedule order for future date | 7 |
+| Method | Route | Description |
+|--------|-------|-------------|
+| POST | /orders | Create order from cart |
+| GET | /orders/consumer | Customer order history |
+| GET | /orders/producer | Orders received by producer |
+| GET | /orders/customer/{id} | Retrieve a single order |
+| PATCH | /orders/{id}/status | Update delivery status |
+| PATCH | /orders/{id}/confirm | Confirm order (producer) |
+| PATCH | /orders/{id}/cancel | Cancel order (producer) |
+| PATCH | /orders/customer/{id}/cancel | Cancel order (customer) |
+| PATCH | /orders/customer/{id}/confirm-delivery | Confirm delivery (customer) |
+| PATCH | /orders/{id}/confirm-delivery-with-code | Confirm delivery with 4-digit code |
+| PATCH | /orders/{id}/refuse | Refuse order (producer) |
+| PATCH | /orders/{id}/seen | Mark order as seen by producer |
+| POST | /orders/{id}/repeat | Repeat previous order |
 
-### Reviews
+### Order Tracking (`/orders`)
 
-| Method | Route | Description | Epic |
-|--------|-------|-------------|------|
-| POST | /reviews | Create review for delivered order | 8 |
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET | /orders/{id}/tracking | Retrieve real-time delivery tracking for an order |
 
-### Logistics
+### Reviews (`/reviews`)
 
-| Method | Route | Description | Epic |
-|--------|-------|-------------|------|
-| GET | /logistics/route | Generate optimized daily route | 9 |
+| Method | Route | Description |
+|--------|-------|-------------|
+| POST | /reviews | Create review for delivered order |
 
-### Recommendations
+### Delivery Routes (`/routes`)
 
-| Method | Route | Description | Epic |
-|--------|-------|-------------|------|
-| GET | /recommendations | Product suggestions for customer | 10 |
+| Method | Route | Description |
+|--------|-------|-------------|
+| POST | /routes | Optimize and create a delivery route (Google Routes API) |
+| GET | /routes/active | Retrieve the active route |
+| PATCH | /routes/{routeId}/stops/{stopId} | Update a route stop |
 
-### Financial Dashboard
+Real-time GPS ingestion uses STOMP: the producer sends `SEND /app/routes/{routeId}/position` and each accepted ping is rebroadcast on `/topic/routes/{routeId}` to authorized subscribers (`TrackingWsController`, enabled via `ragro.tracking.enabled`).
 
-| Method | Route | Description | Epic |
-|--------|-------|-------------|------|
-| ~~GET~~ | ~~GET /dashboard/producer/summary~~ | ~~Producer financial summary~~ | ~~11~~ |
-| ~~GET~~ | ~~GET /dashboard/producer/sales~~ | ~~Producer sales history~~ | ~~11~~ |
+### CO2 Savings (`/co2`)
 
-> **Note**: Financial dashboard endpoints have been replaced with the new endpoints:
-> - `GET /producers/me/dashboard` — Monthly financial summary
-> - `GET /producers/me/dashboard/week` — Weekly sales data
+| Method | Route | Description |
+|--------|-------|-------------|
+| POST | /co2/calculate | Calculate CO2 savings for a scenario |
+| GET | /co2/preference | Retrieve the customer's vehicle preference |
+| GET | /co2/emissions | Retrieve emission factors |
+| POST | /co2/record-savings | Record realized CO2 savings |
+| GET | /co2/options | List vehicle options |
+| GET | /co2/total-saved | Retrieve total CO2 saved |
+
+### Recommendations (`/recommendations`)
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET | /recommendations | Product suggestions for customer (Spring AI → NVIDIA) |
+
+### Search (`/search`)
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET | /search | Search marketplace products and producers |
+
+### Notifications
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| POST | /notifications/token | Register FCM device token |
+| GET | /customers/me/notifications | List the customer's notifications |
+| GET | /customers/me/notifications/unread-count | Customer unread notification count |
+| PATCH | /customers/me/notifications/{notificationId}/read | Mark a customer notification as read |
+| PATCH | /customers/me/notifications/read-all | Mark all customer notifications as read |
+| GET | /producers/me/notifications | List the producer's notifications |
+| GET | /producers/me/notifications/unread-count | Producer unread notification count |
+| PATCH | /producers/me/notifications/{notificationId}/read | Mark a producer notification as read |
+| PATCH | /producers/me/notifications/read-all | Mark all producer notifications as read |
+
+### Administration (`/admin`)
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| POST | /admin/producers | Register producer |
+| GET | /admin/producers | List producers |
+| GET | /admin/producers/{id} | Producer details |
+| PUT | /admin/producers/{id} | Update producer |
+| PATCH | /admin/producers/{id}/activate | Reactivate producer |
+| PATCH | /admin/producers/{id}/deactivate | Deactivate producer |
+| GET | /admin/customers/{id} | Customer details |
+| GET | /admin/dashboard | Admin dashboard (returns JWT claims; debug stub) |
+
+### Media (`/media`)
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET | /media/** | Serve MinIO-backed media (images, uploads) |

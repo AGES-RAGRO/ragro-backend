@@ -43,10 +43,7 @@ public class CartService {
 
   @Transactional
   public CartResponse addItem(Jwt jwt, AddToCartRequest request) {
-    User user = userService.getAuthenticatedUser(jwt);
-    if (user.getType() != TypeUser.CUSTOMER) {
-      throw new ForbiddenException("Apenas consumidores podem gerenciar o carrinho");
-    }
+    User user = userService.requireRole(jwt, TypeUser.CUSTOMER, "Apenas consumidores podem gerenciar o carrinho");
 
     Customer customer =
         customerRepository
@@ -89,10 +86,7 @@ public class CartService {
 
   @Transactional(readOnly = true)
   public CartResponse getCart(Jwt jwt) {
-    User user = userService.getAuthenticatedUser(jwt);
-    if (user.getType() != TypeUser.CUSTOMER) {
-      throw new ForbiddenException("Apenas consumidores podem visualizar o carrinho");
-    }
+    User user = userService.requireRole(jwt, TypeUser.CUSTOMER, "Apenas consumidores podem visualizar o carrinho");
 
     return cartRepository
         .findByCustomerIdAndActiveTrue(user.getId())
@@ -103,10 +97,7 @@ public class CartService {
 
   @Transactional
   public CartResponse updateItemQuantity(Jwt jwt, UUID itemId, UpdateCartItemRequest request) {
-    User user = userService.getAuthenticatedUser(jwt);
-    if (user.getType() != TypeUser.CUSTOMER) {
-      throw new ForbiddenException("Apenas consumidores podem gerenciar o carrinho");
-    }
+    User user = userService.requireRole(jwt, TypeUser.CUSTOMER, "Apenas consumidores podem gerenciar o carrinho");
 
     CartItem item =
         cartItemRepository
@@ -143,10 +134,7 @@ public class CartService {
 
   @Transactional
   public CartResponse clearActiveCart(Jwt jwt) {
-    User user = userService.getAuthenticatedUser(jwt);
-    if (user.getType() != TypeUser.CUSTOMER) {
-      throw new ForbiddenException("Apenas consumidores podem gerenciar o carrinho");
-    }
+    User user = userService.requireRole(jwt, TypeUser.CUSTOMER, "Apenas consumidores podem gerenciar o carrinho");
 
     Cart cart =
         cartRepository
@@ -234,10 +222,7 @@ public class CartService {
 
   @Transactional
   public CartResponse removeItem(Jwt jwt, UUID itemId) {
-    User user = userService.getAuthenticatedUser(jwt);
-    if (user.getType() != TypeUser.CUSTOMER) {
-      throw new ForbiddenException("Apenas consumidores podem gerenciar o carrinho");
-    }
+    User user = userService.requireRole(jwt, TypeUser.CUSTOMER, "Apenas consumidores podem gerenciar o carrinho");
 
     Cart cart =
         cartRepository

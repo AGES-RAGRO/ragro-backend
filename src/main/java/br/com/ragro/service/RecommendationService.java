@@ -11,7 +11,7 @@ import br.com.ragro.domain.enums.TypeUser;
 import br.com.ragro.domain.llm.Candidate;
 import br.com.ragro.domain.llm.CustomerFeatures;
 import br.com.ragro.domain.llm.RankedItem;
-import br.com.ragro.exception.ForbiddenException;
+import br.com.ragro.domain.llm.RankedRecommendation;
 import br.com.ragro.exception.LlmInvalidOutputException;
 import br.com.ragro.mapper.RecommendationMapper;
 import br.com.ragro.repository.OrderItemRepository;
@@ -27,13 +27,16 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
@@ -62,18 +65,41 @@ public class RecommendationService {
   private final LlmRerankerPort llmRerankerPort;
   private final MeterRegistry meterRegistry;
   private final MinioStorageService minioStorageService;
+  private final RecommendationWarmupService warmupService;
+
+  /**
+   * On: LLM never runs on the request thread — hit responds in ms; miss serves the heuristic ordering and
+   * fires the async rerank ({@link RecommendationWarmupService}). Off: synchronous rerank per call (rollback).
+   */
+  @Value("${ragro.recommendations.cache.enabled:true}")
+  private boolean cacheEnabled;
 
   @Transactional(readOnly = true)
   public RecommendationResponse getRecommendations(RecommendationRequest request, Jwt jwt) {
-    User user = userService.getAuthenticatedUser(jwt);
-    if (user.getType() != TypeUser.CUSTOMER) {
-      throw new ForbiddenException("Recomendações disponíveis apenas para consumidores");
-    }
+    User user = userService.requireRole(jwt, TypeUser.CUSTOMER, "Recomendações disponíveis apenas para consumidores");
 
     UUID customerId = user.getId();
 
     List<UUID> purchasedIds = orderItemRepository.findDistinctProductIdsByCustomerId(customerId);
     Set<UUID> purchasedSet = Set.copyOf(purchasedIds);
+
+    if (cacheEnabled) {
+      List<RankedRecommendation> cached = warmupService.getCached(customerId);
+      if (cached != null) {
+        meterRegistry.counter("ragro.recommendation.cache", "result", "hit").increment();
+        List<RecommendationProductResponse> fromCache =
+            buildFromCache(
+                cached,
+                resolveExcludeSet(request, purchasedSet),
+                request.getCategory(),
+                request.getLimit());
+        return RecommendationResponse.builder()
+            .recommendations(fromCache)
+            .total(fromCache.size())
+            .build();
+      }
+      meterRegistry.counter("ragro.recommendation.cache", "result", "miss").increment();
+    }
 
     Map<UUID, int[]> scoreMap = new HashMap<>();
     Map<UUID, RecommendationReason> reasonMap = new HashMap<>();
@@ -98,7 +124,7 @@ public class RecommendationService {
 
       List<UUID> coIds = orderItemRepository.findCoOccurringProductIds(customerId, purchasedIds);
       if (!coIds.isEmpty()) {
-        List<Product> coProducts = productRepository.findAllById(coIds);
+        List<Product> coProducts = productRepository.findAllByIdAndFarmerUserActiveTrue(coIds);
         for (Product p : coProducts) {
           accumulate(
               p,
@@ -148,17 +174,106 @@ public class RecommendationService {
       }
     }
 
-    Set<UUID> excludeSet = resolveExcludeSet(request, purchasedSet);
-    excludeSet.forEach(scoreMap::remove);
-
     int limit = request.getLimit();
-    List<RecommendationProductResponse> recommendations =
-        buildRecommendations(scoreMap, productCache, reasonMap, limit, customerId);
+    List<RecommendationProductResponse> recommendations;
+
+    if (cacheEnabled) {
+      // Purchased products leave the cacheable ranking (stable until the next order evicts the cache);
+      // request excludeProductIds are per-call and filter only the response, never the cache.
+      purchasedSet.forEach(scoreMap::remove);
+      warmupService.warmAsync(
+          customerId,
+          buildCandidates(scoreMap, productCache, reasonMap),
+          buildCustomerFeatures(productCache, reasonMap),
+          heuristicRankedSnapshot(scoreMap, reasonMap));
+
+      Map<UUID, int[]> serveMap = new HashMap<>(scoreMap);
+      if (request.getExcludeProductIds() != null) {
+        request.getExcludeProductIds().forEach(serveMap::remove);
+      }
+      // Category filter is per-call (like excludeProductIds): filters only the served response, never the
+      // cacheable snapshot (warmAsync above got the unfiltered scoreMap).
+      if (request.getCategory() != null) {
+        serveMap
+            .keySet()
+            .removeIf(id -> !matchesCategory(productCache.get(id), request.getCategory()));
+      }
+      recommendations = buildHeuristicRecommendations(serveMap, productCache, reasonMap, limit);
+    } else {
+      // Rollback path: synchronous LLM rerank on the request thread.
+      Set<UUID> excludeSet = resolveExcludeSet(request, purchasedSet);
+      excludeSet.forEach(scoreMap::remove);
+      if (request.getCategory() != null) {
+        scoreMap
+            .keySet()
+            .removeIf(id -> !matchesCategory(productCache.get(id), request.getCategory()));
+      }
+      recommendations = buildRecommendations(scoreMap, productCache, reasonMap, limit, customerId);
+    }
 
     return RecommendationResponse.builder()
         .recommendations(recommendations)
         .total(recommendations.size())
         .build();
+  }
+
+  /**
+   * Serves from the cached ranking: filters excludes and category, re-hydrates active products from the DB,
+   * and limits. Category filter is per-call — applied here, not in the cache.
+   */
+  private List<RecommendationProductResponse> buildFromCache(
+      List<RankedRecommendation> cached,
+      Set<UUID> excludeSet,
+      br.com.ragro.domain.enums.ProductCategory category,
+      int limit) {
+    List<RankedRecommendation> selected =
+        cached.stream().filter(r -> !excludeSet.contains(r.productId())).toList();
+
+    // findAllByIdAndFarmerUserActiveTrue filters active product AND active producer (like the other serve
+    // paths); plain findAllById would reintroduce inactive-producer products on a cache hit.
+    Map<UUID, Product> products =
+        productRepository
+            .findAllByIdAndFarmerUserActiveTrue(
+                selected.stream().map(RankedRecommendation::productId).toList())
+            .stream()
+            .collect(Collectors.toMap(Product::getId, p -> p));
+
+    return selected.stream()
+        .map(
+            r -> {
+              Product product = products.get(r.productId());
+              return product == null || !matchesCategory(product, category)
+                  ? null
+                  : RecommendationMapper.toResponse(
+                      product, r.score(), r.reason(), minioStorageService);
+            })
+        .filter(Objects::nonNull)
+        .limit(limit)
+        .collect(Collectors.toList());
+  }
+
+  /** Matches a product against the requested category (case-insensitive). {@code null} = no filter. */
+  private boolean matchesCategory(
+      Product product, br.com.ragro.domain.enums.ProductCategory category) {
+    if (category == null) {
+      return true;
+    }
+    if (product == null || product.getCategories() == null) {
+      return false;
+    }
+    String requested = category.getLabel().toLowerCase(Locale.ROOT);
+    return product.getCategories().stream()
+        .map(c -> c.getName().toLowerCase(Locale.ROOT))
+        .anyMatch(requested::equals);
+  }
+
+  /** Full heuristic ranking (no limit) in cacheable form — warm-up fallback. */
+  private List<RankedRecommendation> heuristicRankedSnapshot(
+      Map<UUID, int[]> scoreMap, Map<UUID, RecommendationReason> reasonMap) {
+    return scoreMap.entrySet().stream()
+        .sorted((a, b) -> Integer.compare(b.getValue()[0], a.getValue()[0]))
+        .map(e -> new RankedRecommendation(e.getKey(), e.getValue()[0], reasonMap.get(e.getKey())))
+        .toList();
   }
 
   private List<RecommendationProductResponse> buildRecommendations(
@@ -203,10 +318,7 @@ public class RecommendationService {
     }
   }
 
-  /**
-   * Applies heuristic ordering and records the fallback metric, making it observable when the AI did
-   * NOT rerank (Ollama down, invalid output, flag off, etc.).
-   */
+  /** Applies heuristic ordering and records the fallback metric (AI did not rerank). */
   private List<RecommendationProductResponse> heuristicFallback(
       Map<UUID, int[]> scoreMap,
       Map<UUID, Product> productCache,

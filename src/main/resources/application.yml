@@ -1,8 +1,10 @@
+# Credentials have no default on purpose: a missing secret fails boot (fail-fast) instead of
+# silently using a known credential. For local runs without docker-compose, use the "local" profile.
 spring:
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/gearheads}
     username: ${SPRING_DATASOURCE_USERNAME:postgres}
-    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD}
 
   jpa:
     hibernate:
@@ -11,6 +13,9 @@ spring:
     properties:
       hibernate:
         format_sql: false
+        # Batch-load LAZY collections in groups of 16 (IN (...)) to ease N+1 on listings
+        # (e.g. order items) without a fetch join on paginated queries.
+        default_batch_fetch_size: 16
 
   flyway:
     locations: classpath:db/migration
@@ -32,24 +37,29 @@ spring:
           jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost:8180/realms/ragro/protocol/openid-connect/certs}
 
   ai:
-    ollama:
-      base-url: ${OLLAMA_BASE_URL:http://ollama:11434}
-      init:
-        # Não tenta baixar o modelo no startup (evita falha quando o Ollama está fora).
-        pull-model-strategy: never
+    openai:
+      # NVIDIA LLM API is compatible with the Spring AI OpenAI client.
+      base-url: ${NVIDIA_BASE_URL:https://integrate.api.nvidia.com}
+      api-key: ${NVIDIA_API_KEY:}
+      # NVIDIA LLM API has no embeddings — disable so autoconfig skips the bean.
+      embedding:
+        enabled: false
       chat:
         options:
-          model: ${OLLAMA_MODEL:gemma2:2b}
+          # INSTRUCT model (no reasoning). Reasoning models (e.g. stepfun-ai/step-3.7-flash) blow
+          # time/tokens reranking ~50 candidates (>180s, finish_reason=length) and always fall back
+          # to the heuristic. Higher-quality/slower alternative: meta/llama-3.3-70b-instruct.
+          model: ${NVIDIA_MODEL:meta/llama-3.1-8b-instruct}
           temperature: 0.2
-          format: json
+          # NVIDIA LLM API requires max-tokens; covers ~50 reranked items in JSON.
+          max-tokens: ${NVIDIA_MAX_TOKENS:4096}
 
-# Timeouts do cliente HTTP do Ollama. O Spring AI 1.0.3 não expõe timeout via
-# propriedade (só base-url), então OllamaConfig aplica estes valores ao RestClient
-# do OllamaApi. O read-timeout precisa cobrir a inferência da LLM em CPU
-# (gemma2:2b leva ~10s+), bem acima do default de 10s do cliente HTTP.
-ollama:
-  connect-timeout-ms: ${OLLAMA_CONNECT_TIMEOUT_MS:2000}
-  read-timeout-ms: ${OLLAMA_READ_TIMEOUT_MS:60000}
+# NVIDIA LLM API HTTP client timeouts. Spring AI 1.0.3 exposes no timeout property for the OpenAI
+# client and its default RestClient has no read-timeout, so NvidiaChatConfig applies these to the
+# OpenAiApi RestClient. read-timeout covers the hosted LLM inference.
+nvidia:
+  connect-timeout-ms: ${NVIDIA_CONNECT_TIMEOUT_MS:2000}
+  read-timeout-ms: ${NVIDIA_READ_TIMEOUT_MS:60000}
 
 keycloak:
   server-url: ${KEYCLOAK_SERVER_URL:http://localhost:8180}
@@ -57,14 +67,14 @@ keycloak:
   realm: ragro
   admin:
     username: ${KEYCLOAK_ADMIN:admin}
-    password: ${KEYCLOAK_ADMIN_PASSWORD:admin}
+    password: ${KEYCLOAK_ADMIN_PASSWORD}
 
 minio:
   endpoint: ${STORAGE_ENDPOINT:http://localhost:9000}
   media-public-url: ${MEDIA_PUBLIC_URL:http://localhost:8080}
   region: ${STORAGE_REGION:us-east-1}
-  access-key: ${STORAGE_ACCESS_KEY:minioadmin}
-  secret-key: ${STORAGE_SECRET_KEY:minioadmin}
+  access-key: ${STORAGE_ACCESS_KEY}
+  secret-key: ${STORAGE_SECRET_KEY}
   bucket: ${STORAGE_BUCKET:ragro-media}
 
 springdoc:
@@ -86,8 +96,26 @@ cors:
 ragro:
   recommendations:
     rerank:
-      # Liga/desliga o reranker por IA. Desligado, usa só a ordenação heurística.
+      # Toggle the AI reranker. Off = heuristic ordering only.
       enabled: ${RECOMMENDATION_RERANK_ENABLED:true}
+    cache:
+      # Per-customer ranking cache (Caffeine). On: hits return in ms, LLM runs async at most
+      # 1x/customer/TTL (or after a new order — event eviction). Off: rerank runs synchronously per call.
+      enabled: ${RECOMMENDATION_CACHE_ENABLED:true}
+      ttl-hours: ${RECOMMENDATION_CACHE_TTL_HOURS:6}
+  tracking:
+    # Real-time tracking (WebSocket/STOMP). Off: /ws channel doesn't start and
+    # GET /orders/{id}/tracking returns available=false (app falls back to the no-map flow).
+    enabled: ${TRACKING_ENABLED:true}
+    retention-days: ${TRACKING_RETENTION_DAYS:7}
+  rate-limit:
+    # In-memory token bucket (RateLimitFilter): register/forgot per IP; recommendations/routes
+    # per user (LLM/Google cost). Limits are requests per minute.
+    enabled: ${RATE_LIMIT_ENABLED:true}
+    register-per-minute: ${RATE_LIMIT_REGISTER_PER_MINUTE:5}
+    forgot-per-minute: ${RATE_LIMIT_FORGOT_PER_MINUTE:5}
+    recommendations-per-minute: ${RATE_LIMIT_RECOMMENDATIONS_PER_MINUTE:10}
+    routes-per-minute: ${RATE_LIMIT_ROUTES_PER_MINUTE:10}
 
 server:
   error:
@@ -96,3 +124,15 @@ server:
 google:
   maps:
     api-key: ${GOOGLE_MAPS_API_KEY:}
+  # Routes API: explicit timeouts (Boot's default RestClient has no read-timeout — a stuck call
+  # would block the worker and prevent transport retry) + retry backoff for transient transport
+  # failures (DNS/connection). Read 10s because computeRoutes (TRAFFIC_AWARE + order optimization)
+  # legitimately takes a few seconds.
+  routes:
+    connect-timeout-ms: ${GOOGLE_ROUTES_CONNECT_TIMEOUT_MS:2000}
+    read-timeout-ms: ${GOOGLE_ROUTES_READ_TIMEOUT_MS:10000}
+    retry:
+      backoff-ms: ${GOOGLE_ROUTES_RETRY_BACKOFF_MS:200}
+
+firebase:
+  service-account-json: ${FIREBASE_SERVICE_ACCOUNT_JSON:}

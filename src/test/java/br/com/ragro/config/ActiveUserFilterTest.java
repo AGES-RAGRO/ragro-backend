@@ -44,6 +44,13 @@ class ActiveUserFilterTest {
     SecurityContextHolder.clearContext();
   }
 
+  // Clear the JWT so it does not leak via SecurityContextHolder's thread-local into the next test class
+  // (e.g. RateLimitFilterTest seeing a 401 from ActiveUserFilter on unauthenticated requests).
+  @org.junit.jupiter.api.AfterEach
+  void tearDown() {
+    SecurityContextHolder.clearContext();
+  }
+
   @Test
   void shouldContinueChain_whenRequestIsNotAuthenticated() throws Exception {
     filter.doFilterInternal(request, response, filterChain);

@@ -14,9 +14,7 @@ import br.com.ragro.domain.enums.StockMovementType;
 import br.com.ragro.domain.enums.TypeUser;
 import br.com.ragro.domain.specification.StockMovementSpecification;
 import br.com.ragro.exception.BusinessException;
-import br.com.ragro.exception.ForbiddenException;
 import br.com.ragro.exception.NotFoundException;
-import br.com.ragro.exception.UnauthorizedException;
 import br.com.ragro.mapper.StockMovementMapper;
 import br.com.ragro.repository.ProducerRepository;
 import br.com.ragro.repository.ProductRepository;
@@ -38,20 +36,20 @@ public class StockMovementService {
       java.util.Set.of(
           StockMovementReason.SALE, StockMovementReason.LOSS, StockMovementReason.DISPOSAL);
 
+  static final BigDecimal LOW_STOCK_THRESHOLD = new BigDecimal("5");
+
   private final StockMovementRepository stockMovementRepository;
   private final ProducerRepository producerRepository;
   private final ProductRepository productRepository;
   private final UserService userService;
+  private final NotificationService notificationService;
 
   @Transactional(readOnly = true)
   public PaginatedResponse<StockMovementResponse> getProducerStockMovements(
       Jwt jwt, StockMovementFilter filter, Pageable pageable) {
 
-    User authenticated = userService.getAuthenticatedUser(jwt);
-
-    if (authenticated.getType() != TypeUser.FARMER) {
-      throw new ForbiddenException("Acesso restrito a produtores");
-    }
+    User authenticated =
+        userService.requireRole(jwt, TypeUser.FARMER, "Acesso restrito a produtores");
 
     UUID producerId = authenticated.getId();
 
@@ -120,7 +118,8 @@ public class StockMovementService {
           "Saldo insuficiente no estoque para o produto " + product.getName());
     }
 
-    product.setStockQuantity(product.getStockQuantity().subtract(quantity));
+    BigDecimal stockBefore = product.getStockQuantity();
+    product.setStockQuantity(stockBefore.subtract(quantity));
     productRepository.saveAndFlush(product);
 
     StockMovement movement = new StockMovement();
@@ -130,6 +129,13 @@ public class StockMovementService {
     movement.setQuantity(quantity);
     movement.setNotes(orderIdNotes);
     stockMovementRepository.saveAndFlush(movement);
+
+    boolean crossedThreshold =
+        stockBefore.compareTo(LOW_STOCK_THRESHOLD) > 0
+            && product.getStockQuantity().compareTo(LOW_STOCK_THRESHOLD) <= 0;
+    if (crossedThreshold) {
+      notificationService.createProducerLowStockNotification(product);
+    }
   }
 
   @Transactional
@@ -146,24 +152,13 @@ public class StockMovementService {
     stockMovementRepository.saveAndFlush(movement);
   }
 
+  // Delegates to the official StockMovementMapper to avoid drift.
   private StockMovementResponse toResponse(StockMovement movement) {
-    return StockMovementResponse.builder()
-        .id(movement.getId())
-        .productId(movement.getProduct().getId())
-        .productName(movement.getProduct().getName())
-        .type(movement.getType())
-        .reason(movement.getReason())
-        .quantity(movement.getQuantity())
-        .notes(movement.getNotes())
-        .createdAt(movement.getCreatedAt())
-        .build();
+    return StockMovementMapper.toResponse(movement);
   }
 
   private Producer getAuthenticatedFarmer(Jwt jwt) {
-    User user = userService.getAuthenticatedUser(jwt);
-    if (user.getType() != TypeUser.FARMER) {
-      throw new UnauthorizedException("Access restricted to farmers");
-    }
+    User user = userService.requireRole(jwt, TypeUser.FARMER, "Acesso restrito a produtores");
     return producerRepository
         .findById(user.getId())
         .orElseThrow(() -> new NotFoundException("Dados do produtor não encontrados"));

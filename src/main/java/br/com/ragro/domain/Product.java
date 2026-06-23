@@ -60,6 +60,14 @@ public class Product {
   @Column(name = "stock_quantity", nullable = false, precision = 12, scale = 3)
   private BigDecimal stockQuantity = BigDecimal.ZERO;
 
+  /**
+   * Optimistic lock guarding the stock read-modify-write (registerSale/registerCancelledSale) against
+   * concurrent updates. On conflict JPA throws OptimisticLockException → 409 in GlobalExceptionHandler.
+   */
+  @jakarta.persistence.Version
+  @Column(name = "version", nullable = false)
+  private Long version;
+
   @Column(name = "image_s3", columnDefinition = "text")
   private String imageS3;
 

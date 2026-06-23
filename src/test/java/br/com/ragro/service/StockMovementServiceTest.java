@@ -25,6 +25,7 @@ import br.com.ragro.exception.NotFoundException;
 import br.com.ragro.repository.ProducerRepository;
 import br.com.ragro.repository.ProductRepository;
 import br.com.ragro.repository.StockMovementRepository;
+import static org.mockito.Mockito.times;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
@@ -48,6 +49,7 @@ class StockMovementServiceTest {
   @Mock private ProducerRepository producerRepository;
   @Mock private ProductRepository productRepository;
   @Mock private StockMovementRepository stockMovementRepository;
+  @Mock private NotificationService notificationService;
 
   @InjectMocks private StockMovementService stockMovementService;
 
@@ -295,6 +297,7 @@ class StockMovementServiceTest {
     customer.setType(TypeUser.CUSTOMER);
     customer.setActive(true);
     when(userService.getAuthenticatedUser(any(Jwt.class))).thenReturn(customer);
+    stubRequireRoleDelegatingToAuthenticatedUser();
 
     assertThatThrownBy(
             () ->
@@ -318,8 +321,28 @@ class StockMovementServiceTest {
     farmer.setUser(user);
 
     when(userService.getAuthenticatedUser(any(Jwt.class))).thenReturn(user);
+    stubRequireRoleDelegatingToAuthenticatedUser();
     when(producerRepository.findById(farmerId)).thenReturn(Optional.of(farmer));
     return farmer;
+  }
+
+  // Services check role via userService.requireRole(...); this stub delegates to the already-stubbed
+  // getAuthenticatedUser and replicates the rule (403 when the type mismatches).
+  private void stubRequireRoleDelegatingToAuthenticatedUser() {
+    org.mockito.Mockito.lenient()
+        .when(
+            userService.requireRole(
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyString()))
+        .thenAnswer(
+            inv -> {
+              User authenticated = userService.getAuthenticatedUser(inv.getArgument(0));
+              if (authenticated.getType() != inv.<TypeUser>getArgument(1)) {
+                throw new ForbiddenException(inv.getArgument(2));
+              }
+              return authenticated;
+            });
   }
 
   private Product buildProduct(Producer farmer, BigDecimal stockQuantity) {
@@ -348,6 +371,67 @@ class StockMovementServiceTest {
     request.setProductId(productId);
     request.setQuantity(quantity);
     return request;
+  }
+
+  // ─── registerSale — low stock notification ──────────────────────────────────
+
+  @Test
+  void registerSale_shouldNotifyProducer_whenStockDropsToThreshold() {
+    Producer farmer = buildFarmerWithUser();
+    Product product = buildProduct(farmer, new BigDecimal("6.000"));
+
+    when(productRepository.saveAndFlush(product)).thenReturn(product);
+    when(stockMovementRepository.saveAndFlush(any(StockMovement.class)))
+        .thenAnswer(inv -> inv.getArgument(0));
+
+    stockMovementService.registerSale(product, new BigDecimal("1.000"), "order-note");
+
+    verify(notificationService, times(1))
+        .createProducerLowStockNotification(product);
+  }
+
+  @Test
+  void registerSale_shouldNotNotifyProducer_whenStockRemainsAboveThreshold() {
+    Producer farmer = buildFarmerWithUser();
+    Product product = buildProduct(farmer, new BigDecimal("20.000"));
+
+    when(productRepository.saveAndFlush(product)).thenReturn(product);
+    when(stockMovementRepository.saveAndFlush(any(StockMovement.class)))
+        .thenAnswer(inv -> inv.getArgument(0));
+
+    stockMovementService.registerSale(product, new BigDecimal("10.000"), "order-note");
+
+    verify(notificationService, never())
+        .createProducerLowStockNotification(any());
+  }
+
+  @Test
+  void registerSale_shouldNotNotifyProducer_whenStockWasAlreadyBelowThreshold() {
+    Producer farmer = buildFarmerWithUser();
+    // Stock starts at 3 (already below threshold of 5) — selling 1 more should not re-notify
+    Product product = buildProduct(farmer, new BigDecimal("3.000"));
+
+    when(productRepository.saveAndFlush(product)).thenReturn(product);
+    when(stockMovementRepository.saveAndFlush(any(StockMovement.class)))
+        .thenAnswer(inv -> inv.getArgument(0));
+
+    stockMovementService.registerSale(product, new BigDecimal("1.000"), "order-note");
+
+    verify(notificationService, never())
+        .createProducerLowStockNotification(any());
+  }
+
+  private Producer buildFarmerWithUser() {
+    UUID farmerId = UUID.randomUUID();
+    User user = new User();
+    user.setId(farmerId);
+    user.setType(TypeUser.FARMER);
+    user.setActive(true);
+
+    Producer farmer = new Producer();
+    farmer.setId(farmerId);
+    farmer.setUser(user);
+    return farmer;
   }
 
   private Jwt jwt() {

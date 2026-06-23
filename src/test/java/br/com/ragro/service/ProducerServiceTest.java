@@ -47,6 +47,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -55,7 +56,10 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.multipart.MultipartFile;
+
 
 @ExtendWith(MockitoExtension.class)
 class ProducerServiceTest {
@@ -69,7 +73,7 @@ class ProducerServiceTest {
   @Mock private UserService userService;
   @Mock private MinioStorageService minioStorageService;
   @Mock private ReviewRepository reviewRepository;
-  @Mock private GoogleMapsService googleMapsService;
+  @Mock private AddressGeocoder addressGeocoder;
 
   private ProducerService producerService;
 
@@ -88,7 +92,7 @@ class ProducerServiceTest {
             minioStorageService,
             producerMapper,
             reviewRepository,
-            googleMapsService);
+            addressGeocoder);
   }
 
   // ─── getProducerLocations ────────────────────────────────────────────────────
@@ -598,6 +602,7 @@ class ProducerServiceTest {
   void updateProducerProfile_shouldCreateProducerProfile_whenItDoesNotExistYet() {
     UUID producerId = UUID.randomUUID();
     User farmer = buildProducer(producerId);
+    farmer.setCreatedAt(OffsetDateTime.parse("2026-06-18T02:30:00Z"));
     Producer producer = buildProducerEntity(producerId, farmer);
 
     Jwt jwt = buildJwt(farmer.getAuthSub(), farmer.getEmail());
@@ -619,6 +624,7 @@ class ProducerServiceTest {
     ProducerGetResponse response = producerService.updateProducerProfile(producerId, jwt, request);
 
     assertThat(response).isNotNull();
+    assertThat(response.getMemberSince()).isEqualTo(LocalDate.of(2026, 6, 17));
     verify(producerProfileRepository).save(any(ProducerProfile.class));
   }
 
@@ -713,7 +719,6 @@ class ProducerServiceTest {
 
     ProducerUpdateRequest request = new ProducerUpdateRequest();
     request.setName("Só nome");
-    // paymentMethod == null
 
     when(userService.getAuthenticatedUser(jwt)).thenReturn(farmer);
     when(producerRepository.findDetailedById(producerId)).thenReturn(Optional.of(producer));
@@ -1006,8 +1011,6 @@ class ProducerServiceTest {
     verify(farmerAvailabilityRepository, never()).save(any(FarmerAvailability.class));
   }
 
-  // ─── helpers ────────────────────────────────────────────────────────────────
-
   private AvailabilityRequest buildAvailabilityRequest(
       Short weekday, String opensAt, String closesAt) {
     AvailabilityRequest req = new AvailabilityRequest();
@@ -1090,5 +1093,502 @@ class ProducerServiceTest {
         .claim("sub", sub)
         .claim("email", email)
         .build();
+  }
+
+  
+  @Test
+  void updateProducerProfile_shouldSetAllPixFields_onNewPaymentMethod() {
+    UUID producerId = UUID.randomUUID();
+    User farmer = buildUser(producerId, TypeUser.FARMER, "João");
+    Producer producer = buildProducerEntity(producerId, farmer);
+    ProducerProfile profile = new ProducerProfile();
+    Jwt jwt = buildJwt(farmer.getAuthSub(), farmer.getEmail());
+ 
+    PaymentMethodRequest pm = new PaymentMethodRequest();
+    pm.setType("pix");
+    pm.setPixKeyType("cpf");
+    pm.setPixKey("12345678901");
+ 
+    ProducerUpdateRequest request = new ProducerUpdateRequest();
+    request.setPaymentMethods(List.of(pm));
+ 
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(farmer);
+    when(producerRepository.findDetailedById(producerId)).thenReturn(Optional.of(producer));
+    when(userRepository.save(farmer)).thenReturn(farmer);
+    when(producerRepository.save(producer)).thenReturn(producer);
+    when(producerProfileRepository.findById(producerId)).thenReturn(Optional.of(profile));
+    when(producerProfileRepository.save(profile)).thenReturn(profile);
+    when(addressRepository.findByUserIdAndIsPrimaryTrue(producerId)).thenReturn(Optional.empty());
+    when(paymentMethodRepository.findByFarmerIdAndTypeAndActiveTrue(producerId, "pix"))
+        .thenReturn(Optional.empty());
+    when(paymentMethodRepository.save(any(PaymentMethod.class))).thenAnswer(i -> i.getArgument(0));
+    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(producerId))
+        .thenReturn(List.of());
+ 
+    producerService.updateProducerProfile(producerId, jwt, request);
+ 
+    ArgumentCaptor<PaymentMethod> captor = ArgumentCaptor.forClass(PaymentMethod.class);
+    verify(paymentMethodRepository).save(captor.capture());
+    PaymentMethod saved = captor.getValue();
+    assertThat(saved.getFarmer()).isEqualTo(producer);
+    assertThat(saved.getType()).isEqualTo("pix");
+    assertThat(saved.getPixKeyType()).isEqualTo("cpf");
+    assertThat(saved.getPixKey()).isEqualTo("12345678901");
+  }
+ 
+  @Test
+  void updateProducerProfile_shouldSetAllBankFields_onNewPaymentMethod() {
+    UUID producerId = UUID.randomUUID();
+    User farmer = buildUser(producerId, TypeUser.FARMER, "João");
+    Producer producer = buildProducerEntity(producerId, farmer);
+    ProducerProfile profile = new ProducerProfile();
+    Jwt jwt = buildJwt(farmer.getAuthSub(), farmer.getEmail());
+ 
+    PaymentMethodRequest pm = new PaymentMethodRequest();
+    pm.setType("bank_account");
+    pm.setBankCode("001");
+    pm.setBankName("Banco do Brasil");
+    pm.setAgency("1234");
+    pm.setAccountNumber("56789-0");
+    pm.setAccountType("checking");
+    pm.setHolderName("João Silva");
+    pm.setFiscalNumber("98765432100");
+ 
+    ProducerUpdateRequest request = new ProducerUpdateRequest();
+    request.setPaymentMethods(List.of(pm));
+ 
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(farmer);
+    when(producerRepository.findDetailedById(producerId)).thenReturn(Optional.of(producer));
+    when(userRepository.save(farmer)).thenReturn(farmer);
+    when(producerRepository.save(producer)).thenReturn(producer);
+    when(producerProfileRepository.findById(producerId)).thenReturn(Optional.of(profile));
+    when(producerProfileRepository.save(profile)).thenReturn(profile);
+    when(addressRepository.findByUserIdAndIsPrimaryTrue(producerId)).thenReturn(Optional.empty());
+    when(paymentMethodRepository.findByFarmerIdAndTypeAndActiveTrue(producerId, "bank_account"))
+        .thenReturn(Optional.empty());
+    when(paymentMethodRepository.save(any(PaymentMethod.class))).thenAnswer(i -> i.getArgument(0));
+    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(producerId))
+        .thenReturn(List.of());
+ 
+    producerService.updateProducerProfile(producerId, jwt, request);
+ 
+    ArgumentCaptor<PaymentMethod> captor = ArgumentCaptor.forClass(PaymentMethod.class);
+    verify(paymentMethodRepository).save(captor.capture());
+    PaymentMethod saved = captor.getValue();
+    assertThat(saved.getBankCode()).isEqualTo("001");
+    assertThat(saved.getBankName()).isEqualTo("Banco do Brasil");
+    assertThat(saved.getAgency()).isEqualTo("1234");
+    assertThat(saved.getAccountNumber()).isEqualTo("56789-0");
+    assertThat(saved.getAccountType()).isEqualTo("checking");
+    assertThat(saved.getHolderName()).isEqualTo("João Silva");
+    assertThat(saved.getFiscalNumber()).isEqualTo("98765432100");
+  }
+ 
+  @Test
+  void updateProducerProfile_shouldUpdateExistingPaymentMethod_withoutCreatingNew() {
+    UUID producerId = UUID.randomUUID();
+    User farmer = buildUser(producerId, TypeUser.FARMER, "João");
+    Producer producer = buildProducerEntity(producerId, farmer);
+    ProducerProfile profile = new ProducerProfile();
+    Jwt jwt = buildJwt(farmer.getAuthSub(), farmer.getEmail());
+ 
+    PaymentMethod existing = new PaymentMethod();
+    existing.setId(UUID.randomUUID());
+    existing.setFarmer(producer);
+    existing.setType("pix");
+    existing.setPixKey("old@email.com");
+ 
+    PaymentMethodRequest pm = new PaymentMethodRequest();
+    pm.setType("pix");
+    pm.setPixKey("new@email.com");
+ 
+    ProducerUpdateRequest request = new ProducerUpdateRequest();
+    request.setPaymentMethods(List.of(pm));
+ 
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(farmer);
+    when(producerRepository.findDetailedById(producerId)).thenReturn(Optional.of(producer));
+    when(userRepository.save(farmer)).thenReturn(farmer);
+    when(producerRepository.save(producer)).thenReturn(producer);
+    when(producerProfileRepository.findById(producerId)).thenReturn(Optional.of(profile));
+    when(producerProfileRepository.save(profile)).thenReturn(profile);
+    when(addressRepository.findByUserIdAndIsPrimaryTrue(producerId)).thenReturn(Optional.empty());
+    when(paymentMethodRepository.findByFarmerIdAndTypeAndActiveTrue(producerId, "pix"))
+        .thenReturn(Optional.of(existing));
+    when(paymentMethodRepository.save(any(PaymentMethod.class))).thenAnswer(i -> i.getArgument(0));
+    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(producerId))
+        .thenReturn(List.of());
+ 
+    producerService.updateProducerProfile(producerId, jwt, request);
+ 
+    ArgumentCaptor<PaymentMethod> captor = ArgumentCaptor.forClass(PaymentMethod.class);
+    verify(paymentMethodRepository).save(captor.capture());
+    assertThat(captor.getValue().getId()).isEqualTo(existing.getId());
+    assertThat(captor.getValue().getPixKey()).isEqualTo("new@email.com");
+  }
+ 
+  @Test
+  void updateProducerProfile_shouldSkipPaymentMethod_whenTypeIsNull() {
+    UUID producerId = UUID.randomUUID();
+    User farmer = buildUser(producerId, TypeUser.FARMER, "João");
+    Producer producer = buildProducerEntity(producerId, farmer);
+    ProducerProfile profile = new ProducerProfile();
+    Jwt jwt = buildJwt(farmer.getAuthSub(), farmer.getEmail());
+ 
+    PaymentMethodRequest pm = new PaymentMethodRequest();
+    pm.setType(null);
+ 
+    ProducerUpdateRequest request = new ProducerUpdateRequest();
+    request.setPaymentMethods(List.of(pm));
+ 
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(farmer);
+    when(producerRepository.findDetailedById(producerId)).thenReturn(Optional.of(producer));
+    when(userRepository.save(farmer)).thenReturn(farmer);
+    when(producerRepository.save(producer)).thenReturn(producer);
+    when(producerProfileRepository.findById(producerId)).thenReturn(Optional.of(profile));
+    when(producerProfileRepository.save(profile)).thenReturn(profile);
+    when(addressRepository.findByUserIdAndIsPrimaryTrue(producerId)).thenReturn(Optional.empty());
+    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(producerId))
+        .thenReturn(List.of());
+ 
+    producerService.updateProducerProfile(producerId, jwt, request);
+ 
+    verify(paymentMethodRepository, never()).save(any(PaymentMethod.class));
+  }
+ 
+  // ─── applyAvailability: each setter ──────────────────────────────────────
+ 
+  @Test
+  void updateProducerProfile_shouldSetAllAvailabilityFields() {
+    UUID producerId = UUID.randomUUID();
+    User farmer = buildUser(producerId, TypeUser.FARMER, "João");
+    Producer producer = buildProducerEntity(producerId, farmer);
+    ProducerProfile profile = new ProducerProfile();
+    Jwt jwt = buildJwt(farmer.getAuthSub(), farmer.getEmail());
+ 
+    AvailabilityRequest avail = new AvailabilityRequest();
+    avail.setWeekday((short) 3);
+    avail.setOpensAt("09:30");
+    avail.setClosesAt("17:45");
+ 
+    ProducerUpdateRequest request = new ProducerUpdateRequest();
+    request.setAvailability(List.of(avail));
+ 
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(farmer);
+    when(producerRepository.findDetailedById(producerId)).thenReturn(Optional.of(producer));
+    when(userRepository.save(farmer)).thenReturn(farmer);
+    when(producerRepository.save(producer)).thenReturn(producer);
+    when(producerProfileRepository.findById(producerId)).thenReturn(Optional.of(profile));
+    when(producerProfileRepository.save(profile)).thenReturn(profile);
+    when(addressRepository.findByUserIdAndIsPrimaryTrue(producerId)).thenReturn(Optional.empty());
+    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(producerId))
+        .thenReturn(List.of());
+    when(farmerAvailabilityRepository.findByFarmerIdAndActiveTrueOrderByWeekdayAsc(producerId))
+        .thenReturn(List.of());
+ 
+    producerService.updateProducerProfile(producerId, jwt, request);
+ 
+    ArgumentCaptor<FarmerAvailability> captor = ArgumentCaptor.forClass(FarmerAvailability.class);
+    verify(farmerAvailabilityRepository).save(captor.capture());
+    FarmerAvailability saved = captor.getValue();
+    assertThat(saved.getFarmer()).isEqualTo(producer);
+    assertThat(saved.getWeekday()).isEqualTo((short) 3);
+    assertThat(saved.getOpensAt().toString()).isEqualTo("09:30");
+    assertThat(saved.getClosesAt().toString()).isEqualTo("17:45");
+  }
+ 
+  // ─── ensureGeocoded (via getProducerLocations) ──────────────────────────
+ 
+  @Test
+  void getProducerLocations_shouldGeocodeAndPersist_whenAddressLacksCoordinates() {
+    UUID id = UUID.randomUUID();
+    User user = buildUser(id, TypeUser.FARMER, "Produtor Sem Coords");
+    Address address = new Address();
+    address.setId(UUID.randomUUID());
+    address.setUser(user);
+    address.setStreet("Rua Sem Nome");
+    address.setNumber("1");
+    address.setNeighborhood("Centro");
+    address.setCity("Porto Alegre");
+    address.setState("RS");
+    address.setZipCode("90000000");
+    address.setPrimary(true);
+    address.setLatitude(null);
+    address.setLongitude(null);
+    user.getAddresses().add(address);
+ 
+    Producer producer = buildProducerEntity(id, user);
+ 
+    when(producerRepository.findAllByUserActiveTrue()).thenReturn(List.of(producer));
+    when(addressGeocoder.ensureGeocoded(any()))
+        .thenAnswer(
+            inv -> {
+              Address a = inv.getArgument(0);
+              a.setLatitude(BigDecimal.valueOf(-30.05));
+              a.setLongitude(BigDecimal.valueOf(-51.2));
+              return true;
+            });
+    when(minioStorageService.composePublicUrl(any())).thenReturn(null);
+ 
+    producerService.getProducerLocations();
+ 
+    verify(addressRepository).save(address);
+    assertThat(address.getLatitude()).isEqualByComparingTo(BigDecimal.valueOf(-30.05));
+    assertThat(address.getLongitude()).isEqualByComparingTo(BigDecimal.valueOf(-51.2));
+  }
+ 
+  @Test
+  void getProducerLocations_shouldNotPersist_whenGeocodingReturnsNull() {
+    UUID id = UUID.randomUUID();
+    User user = buildUser(id, TypeUser.FARMER, "Produtor Sem Geo");
+    Address address = new Address();
+    address.setId(UUID.randomUUID());
+    address.setUser(user);
+    address.setStreet("Rua Sem Nome");
+    address.setNumber("1");
+    address.setNeighborhood("Centro");
+    address.setCity("Porto Alegre");
+    address.setState("RS");
+    address.setZipCode("90000000");
+    address.setPrimary(true);
+    user.getAddresses().add(address);
+ 
+    Producer producer = buildProducerEntity(id, user);
+ 
+    when(producerRepository.findAllByUserActiveTrue()).thenReturn(List.of(producer));
+    when(addressGeocoder.ensureGeocoded(any())).thenReturn(false);
+    when(minioStorageService.composePublicUrl(any())).thenReturn(null);
+ 
+    producerService.getProducerLocations();
+ 
+    verify(addressRepository, never()).save(any(Address.class));
+  }
+ 
+  @Test
+  void getProducerLocations_shouldSkipGeocoding_whenAddressAlreadyHasCoordinates() {
+    UUID id = UUID.randomUUID();
+    User user = buildUser(id, TypeUser.FARMER, "Produtor Com Coords");
+    Address address = new Address();
+    address.setId(UUID.randomUUID());
+    address.setUser(user);
+    address.setStreet("Rua Existente");
+    address.setNumber("1");
+    address.setCity("Porto Alegre");
+    address.setState("RS");
+    address.setZipCode("90000000");
+    address.setPrimary(true);
+    address.setLatitude(new BigDecimal("-30.0"));
+    address.setLongitude(new BigDecimal("-51.0"));
+    user.getAddresses().add(address);
+ 
+    Producer producer = buildProducerEntity(id, user);
+ 
+    when(producerRepository.findAllByUserActiveTrue()).thenReturn(List.of(producer));
+    when(minioStorageService.composePublicUrl(any())).thenReturn(null);
+ 
+    producerService.getProducerLocations();
+ 
+    // Already has coordinates: AddressGeocoder returns false (internal skip), nothing persisted.
+    verify(addressRepository, never()).save(any(Address.class));
+  }
+ 
+  @Test
+  void getProducerLocations_shouldSkipGeocoding_whenStreetOrCityMissing() {
+    UUID id = UUID.randomUUID();
+    User user = buildUser(id, TypeUser.FARMER, "Produtor Endereco Incompleto");
+    Address address = new Address();
+    address.setId(UUID.randomUUID());
+    address.setUser(user);
+    address.setStreet(null); // missing street -> buildFullAddress returns ""
+    address.setCity("Porto Alegre");
+    address.setPrimary(true);
+    user.getAddresses().add(address);
+ 
+    Producer producer = buildProducerEntity(id, user);
+ 
+    when(producerRepository.findAllByUserActiveTrue()).thenReturn(List.of(producer));
+    when(minioStorageService.composePublicUrl(any())).thenReturn(null);
+ 
+    producerService.getProducerLocations();
+ 
+    // Incomplete address: AddressGeocoder returns false (internal skip), nothing persisted.
+    verify(addressRepository, never()).save(any(Address.class));
+  }
+ 
+  // ─── updateAvatarPhoto / updateCoverPhoto / updateProducerPhoto ────────
+ 
+  @Test
+  void updateAvatarPhoto_shouldUploadAndReplaceOldAvatar() {
+    UUID producerId = UUID.randomUUID();
+    User farmer = buildUser(producerId, TypeUser.FARMER, "João");
+    Producer producer = buildProducerEntity(producerId, farmer);
+    producer.setAvatarS3("old-avatar-key.jpg");
+    Jwt jwt = buildJwt(farmer.getAuthSub(), farmer.getEmail());
+ 
+    MultipartFile file = new MockMultipartFile("file", "avatar.jpg", "image/jpeg", new byte[] {1, 2, 3});
+ 
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(farmer);
+    when(producerRepository.findDetailedById(producerId)).thenReturn(Optional.of(producer));
+    when(minioStorageService.upload(file, "profile_pic")).thenReturn("new-avatar-key.jpg");
+    when(producerRepository.save(producer)).thenReturn(producer);
+    when(producerProfileRepository.findById(producerId)).thenReturn(Optional.empty());
+    when(addressRepository.findByUserIdAndIsPrimaryTrue(producerId)).thenReturn(Optional.empty());
+    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(producerId))
+        .thenReturn(List.of());
+    when(farmerAvailabilityRepository.findByFarmerIdAndActiveTrueOrderByWeekdayAsc(producerId))
+        .thenReturn(List.of());
+ 
+    ProducerGetResponse response = producerService.updateAvatarPhoto(producerId, jwt, file);
+ 
+    assertThat(response).isNotNull();
+    assertThat(producer.getAvatarS3()).isEqualTo("new-avatar-key.jpg");
+    verify(minioStorageService).delete("old-avatar-key.jpg");
+    verify(producerRepository).save(producer);
+  }
+ 
+  @Test
+  void updateCoverPhoto_shouldUploadAndReplaceOldCover() {
+    UUID producerId = UUID.randomUUID();
+    User farmer = buildUser(producerId, TypeUser.FARMER, "João");
+    Producer producer = buildProducerEntity(producerId, farmer);
+    producer.setDisplayPhotoS3("old-cover-key.jpg");
+    Jwt jwt = buildJwt(farmer.getAuthSub(), farmer.getEmail());
+ 
+    MultipartFile file = new MockMultipartFile("file", "cover.jpg", "image/jpeg", new byte[] {1, 2, 3});
+ 
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(farmer);
+    when(producerRepository.findDetailedById(producerId)).thenReturn(Optional.of(producer));
+    when(minioStorageService.upload(file, "background_pic")).thenReturn("new-cover-key.jpg");
+    when(producerRepository.save(producer)).thenReturn(producer);
+    when(producerProfileRepository.findById(producerId)).thenReturn(Optional.empty());
+    when(addressRepository.findByUserIdAndIsPrimaryTrue(producerId)).thenReturn(Optional.empty());
+    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(producerId))
+        .thenReturn(List.of());
+    when(farmerAvailabilityRepository.findByFarmerIdAndActiveTrueOrderByWeekdayAsc(producerId))
+        .thenReturn(List.of());
+ 
+    ProducerGetResponse response = producerService.updateCoverPhoto(producerId, jwt, file);
+ 
+    assertThat(response).isNotNull();
+    assertThat(producer.getDisplayPhotoS3()).isEqualTo("new-cover-key.jpg");
+    verify(minioStorageService).delete("old-cover-key.jpg");
+  }
+ 
+  @Test
+  void updateAvatarPhoto_shouldThrow_whenRequesterIsNotOwnerOrAdmin() {
+    UUID producerId = UUID.randomUUID();
+    UUID otherId = UUID.randomUUID();
+    User otherFarmer = buildUser(otherId, TypeUser.FARMER, "Outro");
+    Jwt jwt = buildJwt(otherFarmer.getAuthSub(), otherFarmer.getEmail());
+ 
+    MultipartFile file = new MockMultipartFile("file", "avatar.jpg", "image/jpeg", new byte[] {1});
+ 
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(otherFarmer);
+ 
+    assertThatThrownBy(() -> producerService.updateAvatarPhoto(producerId, jwt, file))
+        .isInstanceOf(ForbiddenException.class);
+  }
+ 
+  // ─── updateReviewStats ───────────────────────────────────────────────────
+ 
+  @Test
+  void updateReviewStats_shouldComputeRoundedAverageAndCount() {
+    UUID producerId = UUID.randomUUID();
+    User farmer = buildUser(producerId, TypeUser.FARMER, "João");
+    Producer producer = buildProducerEntity(producerId, farmer);
+ 
+    when(producerRepository.findById(producerId)).thenReturn(Optional.of(producer));
+    when(reviewRepository.countByFarmer_Id(producerId)).thenReturn(7L);
+    when(reviewRepository.findAverageRatingByFarmerId(producerId)).thenReturn(4.666);
+    when(producerRepository.save(producer)).thenReturn(producer);
+ 
+    producerService.updateReviewStats(producerId);
+ 
+    assertThat(producer.getTotalReviews()).isEqualTo(7);
+    assertThat(producer.getAverageRating()).isEqualByComparingTo("4.67");
+  }
+ 
+  @Test
+  void updateReviewStats_shouldUseZero_whenNoReviewsYet() {
+    UUID producerId = UUID.randomUUID();
+    User farmer = buildUser(producerId, TypeUser.FARMER, "João");
+    Producer producer = buildProducerEntity(producerId, farmer);
+ 
+    when(producerRepository.findById(producerId)).thenReturn(Optional.of(producer));
+    when(reviewRepository.countByFarmer_Id(producerId)).thenReturn(0L);
+    when(reviewRepository.findAverageRatingByFarmerId(producerId)).thenReturn(null);
+    when(producerRepository.save(producer)).thenReturn(producer);
+ 
+    producerService.updateReviewStats(producerId);
+ 
+    assertThat(producer.getTotalReviews()).isEqualTo(0);
+    assertThat(producer.getAverageRating()).isEqualByComparingTo("0.00");
+  }
+ 
+  @Test
+  void updateReviewStats_shouldThrow_whenProducerNotFound() {
+    UUID producerId = UUID.randomUUID();
+    when(producerRepository.findById(producerId)).thenReturn(Optional.empty());
+ 
+    assertThatThrownBy(() -> producerService.updateReviewStats(producerId))
+        .isInstanceOf(NotFoundException.class);
+  }
+ 
+  // ─── getProducerProfileById(id, jwt): role guard branches ─────────────
+ 
+  @Test
+  void getProducerProfileById_shouldThrowForbidden_whenFarmerRequestsAnotherFarmerProfile() {
+    UUID ownId = UUID.randomUUID();
+    UUID otherId = UUID.randomUUID();
+    User farmer = buildUser(ownId, TypeUser.FARMER, "João");
+    Jwt jwt = buildJwt(farmer.getAuthSub(), farmer.getEmail());
+ 
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(farmer);
+ 
+    assertThatThrownBy(() -> producerService.getProducerProfileById(otherId, jwt))
+        .isInstanceOf(ForbiddenException.class);
+  }
+ 
+  @Test
+  void getProducerProfileById_shouldAllowAdmin_toViewAnyProfile() {
+    UUID adminId = UUID.randomUUID();
+    UUID producerId = UUID.randomUUID();
+    User admin = buildUser(adminId, TypeUser.ADMIN, "Admin");
+    User farmer = buildUser(producerId, TypeUser.FARMER, "João");
+    Producer producer = buildProducerEntity(producerId, farmer);
+    Jwt jwt = buildJwt(admin.getAuthSub(), admin.getEmail());
+ 
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(admin);
+    when(producerRepository.findDetailedById(producerId)).thenReturn(Optional.of(producer));
+    when(producerProfileRepository.findById(producerId)).thenReturn(Optional.empty());
+    when(addressRepository.findByUserIdAndIsPrimaryTrue(producerId)).thenReturn(Optional.empty());
+    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(producerId))
+        .thenReturn(List.of());
+    when(farmerAvailabilityRepository.findByFarmerIdAndActiveTrueOrderByWeekdayAsc(producerId))
+        .thenReturn(List.of());
+ 
+    ProducerGetResponse response = producerService.getProducerProfileById(producerId, jwt);
+ 
+    assertThat(response).isNotNull();
+  }
+ 
+  @Test
+  void getProducerProfileById_shouldAllowFarmer_toViewOwnProfile() {
+    UUID producerId = UUID.randomUUID();
+    User farmer = buildUser(producerId, TypeUser.FARMER, "João");
+    Producer producer = buildProducerEntity(producerId, farmer);
+    Jwt jwt = buildJwt(farmer.getAuthSub(), farmer.getEmail());
+ 
+    when(userService.getAuthenticatedUser(jwt)).thenReturn(farmer);
+    when(producerRepository.findDetailedById(producerId)).thenReturn(Optional.of(producer));
+    when(producerProfileRepository.findById(producerId)).thenReturn(Optional.empty());
+    when(addressRepository.findByUserIdAndIsPrimaryTrue(producerId)).thenReturn(Optional.empty());
+    when(paymentMethodRepository.findByFarmerIdAndActiveTrueOrderByCreatedAtAsc(producerId))
+        .thenReturn(List.of());
+    when(farmerAvailabilityRepository.findByFarmerIdAndActiveTrueOrderByWeekdayAsc(producerId))
+        .thenReturn(List.of());
+ 
+    ProducerGetResponse response = producerService.getProducerProfileById(producerId, jwt);
+ 
+    assertThat(response).isNotNull();
   }
 }

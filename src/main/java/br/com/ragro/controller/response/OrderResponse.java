@@ -17,6 +17,10 @@ public class OrderResponse {
   private UUID id;
   private UUID customerId;
   private String customerName;
+
+  /** Customer summary (phone, "member since"); read by the producer app from a nested {@code customer} object. */
+  private OrderCustomerResponse customer;
+
   private UUID farmerId;
   private String farmerName;
   private AddressSnapshot deliveryAddress;
