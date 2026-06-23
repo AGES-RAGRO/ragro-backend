@@ -8,6 +8,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import br.com.ragro.controller.request.AddStopsRequest;
 import br.com.ragro.controller.request.CreateRouteRequest;
 import br.com.ragro.controller.response.RouteResponse;
 import br.com.ragro.domain.AddressSnapshot;
@@ -388,6 +389,97 @@ class DeliveryRouteServiceTest {
     assertThatThrownBy(() -> deliveryRouteService.createRoute(request(), jwt()))
         .isInstanceOf(ForbiddenException.class)
         .hasMessageContaining("produtores");
+  }
+
+  @Test
+  void addStops_shouldReoptimizeAddingNewOrder_keepingExistingStopAndCo2Delta() {
+    Order existing = order(OrderStatus.IN_DELIVERY, -30.1, -51.1);
+    RouteStop existingStop = stop(existing, RouteStopStatus.PENDING);
+    DeliveryRoute route = activeRouteWithStops(existingStop);
+    route.setBaselineDistanceKm(BigDecimal.valueOf(10));
+
+    Order newOrder = order(OrderStatus.CONFIRMED, -30.2, -51.2);
+
+    stubFarmerAuthenticated();
+    when(deliveryRouteRepository.findWithStopsById(route.getId()))
+        .thenReturn(Optional.of(route));
+    when(orderRepository.findByFarmerIdAndStatusInOrderByCreatedAtAsc(
+            eq(farmerUser.getId()), any()))
+        .thenReturn(List.of(newOrder));
+    when(googleRoutesService.computeOptimizedRoundTrip(any(), any()))
+        .thenReturn(
+            new ComputedRoute(
+                BigDecimal.valueOf(20.0),
+                2000,
+                "poly2",
+                List.of(0, 1),
+                List.of(
+                    new RouteLeg(BigDecimal.valueOf(5.0), 600),
+                    new RouteLeg(BigDecimal.valueOf(4.0), 500),
+                    new RouteLeg(BigDecimal.valueOf(3.5), 700))));
+    when(googleRoutesService.distancesFromOrigin(any(), any()))
+        .thenReturn(List.of(BigDecimal.valueOf(4.0)));
+    when(deliveryRouteRepository.saveAndFlush(any(DeliveryRoute.class)))
+        .thenAnswer(inv -> inv.getArgument(0));
+
+    // Producer moved: send current GPS so the route re-anchors/re-optimizes from there.
+    AddStopsRequest req = new AddStopsRequest();
+    req.setOriginLatitude(BigDecimal.valueOf(-30.5));
+    req.setOriginLongitude(BigDecimal.valueOf(-51.5));
+    RouteResponse response = deliveryRouteService.addStops(route.getId(), req, jwt());
+
+    assertThat(response.getStops()).hasSize(2);
+    assertThat(response.getStops())
+        .anyMatch(s -> s.getOrderId().equals(newOrder.getId()));
+    assertThat(response.getStops())
+        .anyMatch(s -> s.getOrderId().equals(existing.getId()));
+    assertThat(response.getTotalDistanceKm()).isEqualByComparingTo("20.0");
+    assertThat(response.getOverviewPolyline()).isEqualTo("poly2");
+    // Baseline grows by the new order's round-trip delta only (10 + 2*4 = 18), no double count.
+    assertThat(response.getBaselineDistanceKm()).isEqualByComparingTo("18.00");
+    // Re-anchored: route origin updated to the producer's current GPS.
+    assertThat(response.getOriginLatitude()).isEqualByComparingTo("-30.5");
+    assertThat(response.getOriginLongitude()).isEqualByComparingTo("-51.5");
+    // Only the NEW order moves to IN_DELIVERY; the existing in-delivery order is untouched.
+    verify(orderService).updateOrderStatus(newOrder.getId(), OrderStatus.IN_DELIVERY, jwt());
+    verify(orderService, never())
+        .updateOrderStatus(eq(existing.getId()), any(), any());
+  }
+
+  @Test
+  void addStops_shouldBeNoOp_whenNoNewOrders() {
+    Order existing = order(OrderStatus.IN_DELIVERY, -30.1, -51.1);
+    DeliveryRoute route = activeRouteWithStops(stop(existing, RouteStopStatus.PENDING));
+
+    stubFarmerAuthenticated();
+    when(deliveryRouteRepository.findWithStopsById(route.getId()))
+        .thenReturn(Optional.of(route));
+    // No CONFIRMED orders to add.
+    when(orderRepository.findByFarmerIdAndStatusInOrderByCreatedAtAsc(
+            eq(farmerUser.getId()), any()))
+        .thenReturn(List.of());
+
+    RouteResponse response = deliveryRouteService.addStops(route.getId(), null, jwt());
+
+    assertThat(response.getStops()).hasSize(1);
+    // No re-optimization (no Google call) and no order transitions when nothing is new.
+    verify(googleRoutesService, never()).computeOptimizedRoundTrip(any(), any());
+    verify(orderService, never()).updateOrderStatus(any(), any(), any());
+  }
+
+  @Test
+  void addStops_shouldThrowBusinessException_whenRouteNotActive() {
+    Order existing = order(OrderStatus.IN_DELIVERY, -30.1, -51.1);
+    DeliveryRoute route = activeRouteWithStops(stop(existing, RouteStopStatus.PENDING));
+    route.setStatus(DeliveryRouteStatus.COMPLETED);
+
+    stubFarmerAuthenticated();
+    when(deliveryRouteRepository.findWithStopsById(route.getId()))
+        .thenReturn(Optional.of(route));
+
+    assertThatThrownBy(() -> deliveryRouteService.addStops(route.getId(), null, jwt()))
+        .isInstanceOf(BusinessException.class)
+        .hasMessageContaining("não está mais ativa");
   }
 
   private DeliveryRoute activeRouteWithStops(RouteStop... stops) {

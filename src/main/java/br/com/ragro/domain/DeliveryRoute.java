@@ -15,6 +15,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
@@ -42,6 +43,11 @@ public class DeliveryRoute {
   @GeneratedValue(strategy = GenerationType.UUID)
   @Column(name = "id", columnDefinition = "uuid")
   private UUID id;
+
+  /** Optimistic lock: guards against two concurrent route mutations (e.g. parallel create/add-stops). */
+  @Version
+  @Column(name = "version", nullable = false)
+  private Long version;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "farmer_id", nullable = false)

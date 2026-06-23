@@ -1,5 +1,6 @@
 package br.com.ragro.service;
 
+import br.com.ragro.controller.request.AddStopsRequest;
 import br.com.ragro.controller.request.CreateRouteRequest;
 import br.com.ragro.controller.response.RouteResponse;
 import br.com.ragro.domain.AddressSnapshot;
@@ -29,6 +30,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
@@ -135,6 +137,159 @@ public class DeliveryRouteService {
     // Out for delivery: CONFIRMED orders transition to IN_DELIVERY (side effects + notification
     // via OrderService's state machine).
     for (Order order : orders) {
+      if (order.getStatus() == OrderStatus.CONFIRMED) {
+        orderService.updateOrderStatus(order.getId(), OrderStatus.IN_DELIVERY, jwt);
+      }
+    }
+
+    return DeliveryRouteMapper.toResponse(saved);
+  }
+
+  /**
+   * Adds newly CONFIRMED orders to the producer's ACTIVE route WITHOUT losing progress: DELIVERED/FAILED
+   * stops are kept as history (lower sequence preserved), and only the pending stops + the new orders are
+   * re-optimized (single Google call). The new orders transition CONFIRMED → IN_DELIVERY atomically.
+   *
+   * <p>Idempotent and churn-free: with no new eligible order it only self-heals and returns the route
+   * unchanged (no Google call, no re-sequencing), so the mobile pull-to-refresh can call it safely. The
+   * CO2 baseline grows by the new orders' round-trip delta only — no double counting of existing stops.
+   */
+  @Transactional
+  public RouteResponse addStops(UUID routeId, AddStopsRequest request, Jwt jwt) {
+    User user = requireFarmer(jwt);
+
+    DeliveryRoute route =
+        deliveryRouteRepository
+            .findWithStopsById(routeId)
+            .orElseThrow(() -> new NotFoundException("Rota não encontrada"));
+    if (!route.getFarmer().getId().equals(user.getId())) {
+      throw new ForbiddenException("Você não tem permissão para acessar esta rota");
+    }
+    if (route.getStatus() != DeliveryRouteStatus.ACTIVE) {
+      throw new BusinessException("A rota não está mais ativa");
+    }
+
+    // Self-heal stops whose order finished outside the stop flow; close the route if all terminal.
+    boolean changed = reconcileStopsWithOrders(route);
+    if (completeIfAllStopsTerminal(route)) {
+      deliveryRouteRepository.saveAndFlush(route);
+      throw new NotFoundException("Nenhuma rota ativa");
+    }
+
+    Set<UUID> ordersOnRoute =
+        route.getStops().stream().map(s -> s.getOrder().getId()).collect(Collectors.toSet());
+    List<Order> newOrders =
+        orderRepository
+            .findByFarmerIdAndStatusInOrderByCreatedAtAsc(user.getId(), List.of(OrderStatus.CONFIRMED))
+            .stream()
+            .filter(o -> !ordersOnRoute.contains(o.getId()))
+            .toList();
+
+    if (newOrders.isEmpty()) {
+      // Nothing new: skip the Google call and DON'T re-sequence pending stops (no churn).
+      if (changed) {
+        deliveryRouteRepository.saveAndFlush(route);
+      }
+      return DeliveryRouteMapper.toResponse(route);
+    }
+
+    // Carries each re-optimized point's source: an existing pending stop OR a brand-new order.
+    record StopInput(GeoPoint point, String addressText, RouteStop existing, Order newOrder) {}
+
+    List<RouteStop> pendingStops =
+        route.getStops().stream()
+            .filter(s -> !TERMINAL_STOP_STATUSES.contains(s.getStatus()))
+            .toList();
+
+    List<StopInput> inputs = new ArrayList<>(pendingStops.size() + newOrders.size());
+    for (RouteStop stop : pendingStops) {
+      inputs.add(
+          new StopInput(
+              new GeoPoint(stop.getLatitude(), stop.getLongitude()),
+              stop.getAddressText(),
+              stop,
+              null));
+    }
+    List<GeoPoint> newPoints = new ArrayList<>(newOrders.size());
+    for (Order order : newOrders) {
+      AddressSnapshot snapshot = order.getDeliveryAddressSnapshot();
+      String addressText = snapshotText(snapshot);
+      GeoPoint point = resolveCoordinates(order, snapshot, addressText);
+      inputs.add(new StopInput(point, addressText, null, order));
+      newPoints.add(point);
+    }
+
+    // Re-anchor: re-optimize the remaining route from the producer's CURRENT GPS when sent (they move
+    // during a delivery), and persist it as the new route origin. Falls back to the existing origin
+    // when no GPS is provided. Only happens here (when there ARE new stops), so a plain pull with no
+    // new order never re-anchors/re-sequences — no churn from GPS jitter.
+    GeoPoint origin;
+    if (request != null && request.hasOrigin()) {
+      origin = new GeoPoint(request.getOriginLatitude(), request.getOriginLongitude());
+      route.setOriginLatitude(origin.latitude());
+      route.setOriginLongitude(origin.longitude());
+    } else {
+      origin = new GeoPoint(route.getOriginLatitude(), route.getOriginLongitude());
+    }
+    ComputedRoute computed =
+        googleRoutesService.computeOptimizedRoundTrip(
+            origin, inputs.stream().map(StopInput::point).toList());
+
+    // Re-sequence pending + new stops into a range ABOVE every existing sequence
+    // (terminal AND the pending stops being reordered). Disjoint ranges avoid a
+    // transient duplicate against uq_route_stops_route_sequence while Hibernate
+    // interleaves the INSERTs (new stops) and UPDATEs (reordered pending stops).
+    int base =
+        1
+            + route.getStops().stream()
+                .mapToInt(RouteStop::getSequence)
+                .max()
+                .orElse(-1);
+
+    OffsetDateTime etaCursor = OffsetDateTime.now();
+    List<Integer> visitOrder = computed.optimizedOrder();
+    for (int visit = 0; visit < visitOrder.size(); visit++) {
+      int inputIndex = visitOrder.get(visit);
+      if (inputIndex < 0 || inputIndex >= inputs.size()) {
+        throw new BusinessException(
+            "Rota calculada com parada inválida (índice fora do intervalo)");
+      }
+      StopInput in = inputs.get(inputIndex);
+      RouteLeg leg = visit < computed.legs().size() ? computed.legs().get(visit) : null;
+      if (leg != null) {
+        etaCursor = etaCursor.plusSeconds(leg.durationSeconds());
+      }
+
+      RouteStop stop = in.existing();
+      if (stop == null) {
+        stop = new RouteStop();
+        stop.setRoute(route);
+        stop.setOrder(in.newOrder());
+        stop.setStatus(RouteStopStatus.PENDING);
+        stop.setLatitude(in.point().latitude());
+        stop.setLongitude(in.point().longitude());
+        stop.setAddressText(in.addressText());
+        route.getStops().add(stop);
+      }
+      stop.setSequence(base + visit);
+      if (leg != null) {
+        stop.setLegDistanceKm(leg.distanceKm());
+        stop.setLegDurationSeconds(leg.durationSeconds());
+        stop.setEta(etaCursor);
+      }
+    }
+
+    route.setTotalDistanceKm(computed.totalDistanceKm());
+    route.setTotalDurationSeconds(computed.totalDurationSeconds());
+    route.setOverviewPolyline(computed.encodedPolyline());
+    BigDecimal baseline =
+        route.getBaselineDistanceKm() == null ? BigDecimal.ZERO : route.getBaselineDistanceKm();
+    route.setBaselineDistanceKm(baseline.add(computeBaseline(origin, newPoints)));
+
+    DeliveryRoute saved = deliveryRouteRepository.saveAndFlush(route);
+
+    // Out for delivery: new CONFIRMED orders -> IN_DELIVERY (atomic with this tx; notification via event).
+    for (Order order : newOrders) {
       if (order.getStatus() == OrderStatus.CONFIRMED) {
         orderService.updateOrderStatus(order.getId(), OrderStatus.IN_DELIVERY, jwt);
       }
