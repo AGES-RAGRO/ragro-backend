@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import br.com.ragro.controller.response.AddressResponse;
 import br.com.ragro.controller.response.CustomerResponse;
 import br.com.ragro.domain.Address;
+import br.com.ragro.domain.Customer;
 import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.TypeUser;
 import java.math.BigDecimal;
@@ -14,6 +15,17 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class CustomerMapperTest {
+
+  @Test
+  void toEntity_linksUserAndSetsFiscalNumber() {
+    User user = buildUser(List.of());
+
+    Customer customer = CustomerMapper.toEntity(user, "12345678901");
+
+    assertThat(customer).isNotNull();
+    assertThat(customer.getUser()).isSameAs(user);
+    assertThat(customer.getFiscalNumber()).isEqualTo("12345678901");
+  }
 
   @Test
   void toResponse_shouldMapAllUserFields() {

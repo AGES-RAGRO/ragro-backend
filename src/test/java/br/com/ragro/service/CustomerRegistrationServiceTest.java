@@ -24,6 +24,7 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -152,6 +153,75 @@ class CustomerRegistrationServiceTest {
     CustomerRegistrationResponse response = customerRegistrationService.register(request);
 
     assertThat(response.getFiscalNumber()).isEqualTo("52998224725");
+  }
+
+  @Test
+  void register_buildsUserWithExactFieldsFromRequest() {
+    UUID id = UUID.randomUUID();
+    User savedUser = buildSavedUser(id);
+
+    when(userRepository.existsByEmail(anyString())).thenReturn(false);
+    when(customerRepository.existsByFiscalNumber(anyString())).thenReturn(false);
+    when(identityProviderService.registerCustomer(anyString(), anyString())).thenReturn("ext-id-9");
+    when(userRepository.saveAndFlush(any())).thenReturn(savedUser);
+    when(customerRepository.saveAndFlush(any())).thenReturn(null);
+    when(addressRepository.save(any())).thenReturn(buildSavedAddress(savedUser));
+
+    CustomerRegistrationRequest request = validRequest();
+    request.setName("  Maria Silva  ");
+    customerRegistrationService.register(request);
+
+    ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+    verify(userRepository).saveAndFlush(captor.capture());
+    User built = captor.getValue();
+    assertThat(built.getName()).isEqualTo("Maria Silva"); // trimmed
+    assertThat(built.getEmail()).isEqualTo("maria@example.com");
+    assertThat(built.getPhone()).isEqualTo("51987654321");
+    assertThat(built.getType()).isEqualTo(TypeUser.CUSTOMER);
+    assertThat(built.isActive()).isTrue();
+    assertThat(built.getAuthSub()).isEqualTo("ext-id-9");
+  }
+
+  @Test
+  void register_normalizesPhoneAndAddressFields() {
+    UUID id = UUID.randomUUID();
+    User savedUser = buildSavedUser(id);
+
+    when(userRepository.existsByEmail(anyString())).thenReturn(false);
+    when(customerRepository.existsByFiscalNumber(anyString())).thenReturn(false);
+    when(identityProviderService.registerCustomer(anyString(), anyString())).thenReturn("ext");
+    when(userRepository.saveAndFlush(any())).thenReturn(savedUser);
+    when(customerRepository.saveAndFlush(any())).thenReturn(null);
+    when(addressRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+    CustomerRegistrationRequest request = validRequest();
+    request.setPhone("  51987654321 ");
+    AddressRequest addr = request.getAddress();
+    addr.setStreet("  Rua das Flores ");
+    addr.setNumber(" 123 ");
+    addr.setCity(" Porto Alegre ");
+    addr.setState(" rs ");
+    addr.setZipCode("90010-120");
+    addr.setComplement("  Apto 5 ");
+    addr.setNeighborhood("   ");
+
+    customerRegistrationService.register(request);
+
+    ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+    verify(userRepository).saveAndFlush(userCaptor.capture());
+    assertThat(userCaptor.getValue().getPhone()).isEqualTo("51987654321"); // trimmed
+
+    ArgumentCaptor<Address> addrCaptor = ArgumentCaptor.forClass(Address.class);
+    verify(addressRepository).save(addrCaptor.capture());
+    Address saved = addrCaptor.getValue();
+    assertThat(saved.getStreet()).isEqualTo("Rua das Flores");
+    assertThat(saved.getNumber()).isEqualTo("123");
+    assertThat(saved.getCity()).isEqualTo("Porto Alegre");
+    assertThat(saved.getState()).isEqualTo("RS");
+    assertThat(saved.getZipCode()).isEqualTo("90010120");
+    assertThat(saved.getComplement()).isEqualTo("Apto 5"); // trimToNull → trimmed
+    assertThat(saved.getNeighborhood()).isNull(); // trimToNull → blank becomes null
+    assertThat(saved.isPrimary()).isTrue();
   }
 
   // ─── uniqueness validation ────────────────────────────────────────────────
