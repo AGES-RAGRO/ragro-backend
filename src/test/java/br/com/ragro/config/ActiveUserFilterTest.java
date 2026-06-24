@@ -85,6 +85,8 @@ class ActiveUserFilterTest {
 
     verify(filterChain, never()).doFilter(request, response);
     assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_UNAUTHORIZED);
+    assertThat(response.getContentType()).startsWith("application/json");
+    assertThat(response.getCharacterEncoding()).isEqualTo("UTF-8");
     assertThat(response.getContentAsString())
         .contains("Conta desativada ou usuário não encontrado");
   }
