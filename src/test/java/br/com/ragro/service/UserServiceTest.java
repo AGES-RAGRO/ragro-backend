@@ -8,8 +8,10 @@ import static org.mockito.Mockito.when;
 
 import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.TypeUser;
+import br.com.ragro.exception.ForbiddenException;
 import br.com.ragro.exception.UnauthorizedException;
 import br.com.ragro.repository.UserRepository;
+import br.com.ragro.service.api.IdentityProviderService;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -23,6 +25,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 class UserServiceTest {
 
   @Mock private UserRepository userRepository;
+  @Mock private IdentityProviderService identityProviderService;
   @Mock private Jwt jwt;
 
   @InjectMocks private UserService userService;
@@ -102,6 +105,91 @@ class UserServiceTest {
         .hasMessageContaining("Token inválido");
 
     verify(userRepository, never()).findByAuthSub(org.mockito.ArgumentMatchers.any());
+  }
+
+  // ─── requireRole ──────────────────────────────────────────────────────────
+
+  @Test
+  void requireRole_shouldReturnUser_whenRoleMatches() {
+    String sub = "sub-farmer";
+    User farmer = buildUser(sub);
+    farmer.setType(TypeUser.FARMER);
+    when(jwt.getClaimAsString("sub")).thenReturn(sub);
+    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(farmer));
+
+    User result = userService.requireRole(jwt, TypeUser.FARMER, "Apenas produtores");
+
+    assertThat(result).isSameAs(farmer);
+  }
+
+  @Test
+  void requireRole_shouldThrowForbidden_whenRoleDoesNotMatch() {
+    String sub = "sub-customer";
+    User customer = buildUser(sub);
+    customer.setType(TypeUser.CUSTOMER);
+    when(jwt.getClaimAsString("sub")).thenReturn(sub);
+    when(userRepository.findByAuthSub(sub)).thenReturn(Optional.of(customer));
+
+    assertThatThrownBy(() -> userService.requireRole(jwt, TypeUser.FARMER, "Apenas produtores"))
+        .isInstanceOf(ForbiddenException.class)
+        .hasMessage("Apenas produtores");
+  }
+
+  // ─── triggerPasswordReset ─────────────────────────────────────────────────
+
+  @Test
+  void triggerPasswordReset_shouldSendResetEmail_forTheTokenSubject() {
+    String sub = "sub-reset";
+    when(jwt.getClaimAsString("sub")).thenReturn(sub);
+
+    userService.triggerPasswordReset(jwt);
+
+    verify(identityProviderService).sendPasswordResetEmail(sub);
+  }
+
+  @Test
+  void triggerPasswordReset_shouldThrowUnauthorized_whenSubClaimMissing() {
+    when(jwt.getClaimAsString("sub")).thenReturn(null);
+
+    assertThatThrownBy(() -> userService.triggerPasswordReset(jwt))
+        .isInstanceOf(UnauthorizedException.class)
+        .hasMessageContaining("Token inválido");
+
+    verify(identityProviderService, never()).sendPasswordResetEmail(org.mockito.ArgumentMatchers.any());
+  }
+
+  // ─── forgotPassword ───────────────────────────────────────────────────────
+
+  @Test
+  void forgotPassword_shouldSendResetEmail_whenUserExistsWithAuthSub() {
+    String email = "user@example.com";
+    User user = buildUser("sub-existing");
+    when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
+
+    userService.forgotPassword(email);
+
+    verify(identityProviderService).sendPasswordResetEmail("sub-existing");
+  }
+
+  @Test
+  void forgotPassword_shouldDoNothing_whenUserHasNoAuthSub() {
+    String email = "user@example.com";
+    User user = buildUser(null);
+    when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
+
+    userService.forgotPassword(email);
+
+    verify(identityProviderService, never()).sendPasswordResetEmail(org.mockito.ArgumentMatchers.any());
+  }
+
+  @Test
+  void forgotPassword_shouldDoNothing_whenUserNotFound() {
+    String email = "nobody@example.com";
+    when(userRepository.findByEmail(email)).thenReturn(Optional.empty());
+
+    userService.forgotPassword(email);
+
+    verify(identityProviderService, never()).sendPasswordResetEmail(org.mockito.ArgumentMatchers.any());
   }
 
   private User buildUser(String authSub) {

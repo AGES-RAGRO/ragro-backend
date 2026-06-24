@@ -256,7 +256,10 @@
 						<excludedTestClasses>
 							<param>br.com.ragro.controller.request.*</param>
 							<param>br.com.ragro.controller.response.*</param>
-							<param>br.com.ragro.config.*</param>
+							<!-- Only the @WebMvcTest config test is excluded: it boots a Spring slice that
+							     times out inside PITest minions. The pure-unit config tests (ActiveUserFilter,
+							     RateLimitFilter, KeycloakRolesConverter, TrackingChannelInterceptor) ARE used. -->
+							<param>br.com.ragro.config.RateLimitFilterTest</param>
 						</excludedTestClasses>
 						<excludedClasses>
 							<param>br.com.ragro.*Application</param>
@@ -266,6 +269,9 @@
 							<param>br.com.ragro.controller.request.*</param>
 							<param>br.com.ragro.controller.response.*</param>
 							<param>br.com.ragro.domain.enums.*</param>
+							<!-- Pure infrastructure with no behavior worth mutating (data holders / bean wiring). -->
+							<param>br.com.ragro.config.*Properties</param>
+							<param>br.com.ragro.config.FirebaseEnabledCondition</param>
 						</excludedClasses>
 						<mutationThreshold>70</mutationThreshold>
 						<coverageThreshold>70</coverageThreshold>
