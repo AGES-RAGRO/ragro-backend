@@ -13,6 +13,8 @@ import br.com.ragro.controller.request.AvailabilityRequest;
 import br.com.ragro.controller.request.PaymentMethodRequest;
 import br.com.ragro.controller.request.ProducerRegistrationRequest;
 import br.com.ragro.controller.response.ProducerRegistrationResponse;
+import br.com.ragro.domain.FarmerAvailability;
+import br.com.ragro.domain.PaymentMethod;
 import br.com.ragro.domain.Producer;
 import br.com.ragro.domain.User;
 import br.com.ragro.domain.enums.TypeUser;
@@ -28,13 +30,16 @@ import br.com.ragro.repository.UserRepository;
 import br.com.ragro.service.api.IdentityProviderService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
@@ -179,6 +184,120 @@ class ProducerRegistrationServiceTest {
                 profile ->
                     profile.getUser() == savedUser
                         && profile.getMemberSince().equals(LocalDate.of(2026, 6, 17))));
+  }
+
+  @Test
+  void register_buildsUserWithExactFieldsAndTrimmedPhone() {
+    UUID id = UUID.randomUUID();
+    User savedUser = buildSavedUser(id);
+    Producer savedProducer = buildSavedProducer(savedUser);
+
+    when(userRepository.existsByEmail(anyString())).thenReturn(false);
+    when(producerRepository.existsByFiscalNumber(anyString())).thenReturn(false);
+    when(identityProviderService.registerProducer(anyString(), anyString())).thenReturn("ext-id-7");
+    when(userRepository.saveAndFlush(any())).thenReturn(savedUser);
+    when(producerRepository.saveAndFlush(any())).thenReturn(savedProducer);
+
+    ProducerRegistrationRequest request = validRequest();
+    request.setName("  João Silva  ");
+    request.setPhone("  51988888888 ");
+    producerRegistrationService.register(request);
+
+    ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+    verify(userRepository).saveAndFlush(captor.capture());
+    User built = captor.getValue();
+    assertThat(built.getName()).isEqualTo("João Silva"); // trimmed
+    assertThat(built.getEmail()).isEqualTo("joao@example.com");
+    assertThat(built.getPhone()).isEqualTo("51988888888"); // trimmed
+    assertThat(built.getType()).isEqualTo(TypeUser.FARMER);
+    assertThat(built.isActive()).isTrue();
+    assertThat(built.getAuthSub()).isEqualTo("ext-id-7");
+  }
+
+  @Test
+  void register_persistsEveryPaymentMethodField() {
+    UUID id = UUID.randomUUID();
+    User savedUser = buildSavedUser(id);
+    Producer savedProducer = buildSavedProducer(savedUser);
+
+    PaymentMethodRequest pix = buildPixMethod();
+    pix.setFiscalNumber("12.345.678/0001-99"); // exercises the digitsOnly branch
+    PaymentMethodRequest bank = buildBankMethod();
+    bank.setBankCode("001");
+
+    ProducerRegistrationRequest request = validRequest();
+    request.setPaymentMethods(List.of(pix, bank));
+
+    when(userRepository.existsByEmail(anyString())).thenReturn(false);
+    when(producerRepository.existsByFiscalNumber(anyString())).thenReturn(false);
+    when(identityProviderService.registerProducer(anyString(), anyString())).thenReturn("ext");
+    when(userRepository.saveAndFlush(any())).thenReturn(savedUser);
+    when(producerRepository.saveAndFlush(any())).thenReturn(savedProducer);
+
+    producerRegistrationService.register(request);
+
+    ArgumentCaptor<PaymentMethod> captor = ArgumentCaptor.forClass(PaymentMethod.class);
+    verify(paymentMethodRepository, Mockito.times(2)).save(captor.capture());
+    PaymentMethod savedPix = captor.getAllValues().get(0);
+    PaymentMethod savedBank = captor.getAllValues().get(1);
+
+    assertThat(savedPix.getFarmer()).isSameAs(savedProducer);
+    assertThat(savedPix.getType()).isEqualTo("pix");
+    assertThat(savedPix.getPixKeyType()).isEqualTo("email");
+    assertThat(savedPix.getPixKey()).isEqualTo("joao@example.com");
+    assertThat(savedPix.getFiscalNumber()).isEqualTo("12345678000199"); // digits only
+
+    assertThat(savedBank.getFarmer()).isSameAs(savedProducer);
+    assertThat(savedBank.getType()).isEqualTo("bank_account");
+    assertThat(savedBank.getBankCode()).isEqualTo("001");
+    assertThat(savedBank.getBankName()).isEqualTo("Banco do Brasil");
+    assertThat(savedBank.getAgency()).isEqualTo("1234");
+    assertThat(savedBank.getAccountNumber()).isEqualTo("56789-0");
+    assertThat(savedBank.getAccountType()).isEqualTo("checking");
+    assertThat(savedBank.getHolderName()).isEqualTo("João Silva");
+  }
+
+  @Test
+  void register_persistsAvailabilityWindowFields() {
+    UUID id = UUID.randomUUID();
+    User savedUser = buildSavedUser(id);
+    Producer savedProducer = buildSavedProducer(savedUser);
+
+    when(userRepository.existsByEmail(anyString())).thenReturn(false);
+    when(producerRepository.existsByFiscalNumber(anyString())).thenReturn(false);
+    when(identityProviderService.registerProducer(anyString(), anyString())).thenReturn("ext");
+    when(userRepository.saveAndFlush(any())).thenReturn(savedUser);
+    when(producerRepository.saveAndFlush(any())).thenReturn(savedProducer);
+
+    producerRegistrationService.register(validRequest());
+
+    ArgumentCaptor<FarmerAvailability> captor = ArgumentCaptor.forClass(FarmerAvailability.class);
+    verify(availabilityRepository).save(captor.capture());
+    FarmerAvailability fa = captor.getValue();
+    assertThat(fa.getFarmer()).isSameAs(savedProducer);
+    assertThat(fa.getWeekday()).isEqualTo((short) 1);
+    assertThat(fa.getOpensAt()).isEqualTo(LocalTime.of(8, 0));
+    assertThat(fa.getClosesAt()).isEqualTo(LocalTime.of(18, 0));
+  }
+
+  @Test
+  void register_skipsAvailability_whenNotProvided() {
+    UUID id = UUID.randomUUID();
+    User savedUser = buildSavedUser(id);
+    Producer savedProducer = buildSavedProducer(savedUser);
+
+    ProducerRegistrationRequest request = validRequest();
+    request.setAvailability(null);
+
+    when(userRepository.existsByEmail(anyString())).thenReturn(false);
+    when(producerRepository.existsByFiscalNumber(anyString())).thenReturn(false);
+    when(identityProviderService.registerProducer(anyString(), anyString())).thenReturn("ext");
+    when(userRepository.saveAndFlush(any())).thenReturn(savedUser);
+    when(producerRepository.saveAndFlush(any())).thenReturn(savedProducer);
+
+    producerRegistrationService.register(request);
+
+    verify(availabilityRepository, never()).save(any());
   }
 
   @Test
