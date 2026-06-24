@@ -6,7 +6,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import br.com.ragro.controller.response.CustomerOrderResponse;
-import br.com.ragro.controller.response.OrderItemResponse;
 import br.com.ragro.controller.response.OrderResponse;
 import br.com.ragro.domain.AddressSnapshot;
 import br.com.ragro.domain.Customer;
